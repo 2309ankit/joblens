@@ -1,6 +1,9 @@
 package com.ankit.joblens.intelligence;
 
+import java.math.BigDecimal;
 import java.util.List;
+
+import com.ankit.joblens.batchapi.DuplicateQueryRepository;
 
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
@@ -13,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
@@ -81,16 +85,47 @@ public class JobIntelligenceConfiguration {
     }
 
     @Bean
+    DuplicateDetectionRepository duplicateDetectionRepository(NamedParameterJdbcTemplate jdbcTemplate) {
+        return new DuplicateDetectionRepository(jdbcTemplate);
+    }
+
+    @Bean
+    DuplicateQueryRepository duplicateQueryRepository(NamedParameterJdbcTemplate jdbcTemplate) {
+        return new DuplicateQueryRepository(jdbcTemplate);
+    }
+
+    @Bean
+    FuzzySimilarityCalculator fuzzySimilarityCalculator(
+            @Value("${joblens.intelligence.fuzzy-minimum-score:75}") BigDecimal minimumScore,
+            @Value("${joblens.intelligence.fuzzy-likely-score:90}") BigDecimal likelyScore) {
+        return new FuzzySimilarityCalculator(minimumScore, likelyScore);
+    }
+
+    @Bean
     @StepScope
     ExactDuplicateDetectionTasklet exactDuplicateDetectionTasklet(
-            JdbcTemplate jdbcTemplate,
+            DuplicateDetectionRepository repository,
             JobRepository jobRepository,
             @Value("#{jobParameters['failDuplicateDetection']}") Long failDuplicateDetection,
             @Value("#{stepExecution}") StepExecution stepExecution) {
         var jobExecution = stepExecution.getJobExecution();
         boolean firstExecution = jobRepository.getJobExecutions(jobExecution.getJobInstance()).size() == 1;
         return new ExactDuplicateDetectionTasklet(
-                jdbcTemplate, Long.valueOf(1L).equals(failDuplicateDetection) && firstExecution);
+                repository, Long.valueOf(1L).equals(failDuplicateDetection) && firstExecution);
+    }
+
+    @Bean
+    @StepScope
+    FuzzyDuplicateDetectionTasklet fuzzyDuplicateDetectionTasklet(
+            DuplicateDetectionRepository repository,
+            FuzzySimilarityCalculator calculator,
+            JobRepository jobRepository,
+            @Value("#{jobParameters['failFuzzyDetection']}") Long failFuzzyDetection,
+            @Value("#{stepExecution}") StepExecution stepExecution) {
+        var jobExecution = stepExecution.getJobExecution();
+        boolean firstExecution = jobRepository.getJobExecutions(jobExecution.getJobInstance()).size() == 1;
+        return new FuzzyDuplicateDetectionTasklet(
+                repository, calculator, Long.valueOf(1L).equals(failFuzzyDetection) && firstExecution);
     }
 
     @Bean
@@ -147,12 +182,24 @@ public class JobIntelligenceConfiguration {
     }
 
     @Bean
+    Step fuzzyDuplicateDetectionStep(
+            JobRepository jobRepository,
+            PlatformTransactionManager transactionManager,
+            FuzzyDuplicateDetectionTasklet fuzzyDuplicateDetectionTasklet) {
+        return new StepBuilder("fuzzyDuplicateDetectionStep", jobRepository)
+                .tasklet(fuzzyDuplicateDetectionTasklet, transactionManager)
+                .build();
+    }
+
+    @Bean
     Job jobIntelligenceJob(JobRepository jobRepository, Step jobNormalizationStep,
-            Step skillExtractionStep, Step exactDuplicateDetectionStep, Step scoringStep) {
+            Step skillExtractionStep, Step exactDuplicateDetectionStep,
+            Step fuzzyDuplicateDetectionStep, Step scoringStep) {
         return new JobBuilder("jobIntelligenceJob", jobRepository)
                 .start(jobNormalizationStep)
                 .next(skillExtractionStep)
                 .next(exactDuplicateDetectionStep)
+                .next(fuzzyDuplicateDetectionStep)
                 .next(scoringStep)
                 .build();
     }

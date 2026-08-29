@@ -34,19 +34,24 @@ public class JobIntelligenceController {
     public JobLaunchResponse run(
             @RequestParam LocalDate businessDate,
             @RequestParam(required = false) Long failAfterItems,
-            @RequestParam(required = false, defaultValue = "false") boolean failDuplicateDetection)
+            @RequestParam(required = false, defaultValue = "false") boolean failDuplicateDetection,
+            @RequestParam(required = false, defaultValue = "false") boolean failFuzzyDetection)
             throws JobExecutionException {
         if (failAfterItems != null && failAfterItems < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "failAfterItems must be positive");
         }
         JobParametersBuilder parameters = new JobParametersBuilder()
                 .addLocalDate("businessDate", businessDate, true)
-                .addString("normalizationVersion", "v1", true);
+                .addString("normalizationVersion", "v1", true)
+                .addString("duplicateDetectionVersion", "fuzzy-v1", true);
         if (failAfterItems != null) {
             parameters.addLong("failAfterItems", failAfterItems, false);
         }
         if (failDuplicateDetection) {
             parameters.addLong("failDuplicateDetection", 1L, false);
+        }
+        if (failFuzzyDetection) {
+            parameters.addLong("failFuzzyDetection", 1L, false);
         }
         JobExecution execution = jobOperator.start(jobIntelligenceJob, parameters.toJobParameters());
         return BatchResponses.from(execution);

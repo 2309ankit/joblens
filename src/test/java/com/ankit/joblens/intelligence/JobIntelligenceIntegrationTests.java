@@ -1,5 +1,6 @@
 package com.ankit.joblens.intelligence;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
@@ -366,20 +367,125 @@ class JobIntelligenceIntegrationTests {
                 .doesNotContain("jobNormalizationStep", "skillExtractionStep");
     }
 
+    @Test
+    void persistsExplainableFuzzySimilarityButDoesNotRepeatExactPairs() throws Exception {
+        insertRaw("FUZZY1", validJob("FUZZY1", "Senior Java Backend Engineer",
+                "Build payments APIs with Spring Boot and Kafka"));
+        insertRaw("FUZZY2", validJob("FUZZY2", "Java Backend Engineer",
+                "Build payment APIs using Spring Boot and Kafka"));
+        insertRaw("EXACT1", validJob("EXACT1", "Warehouse Data Analyst", "Exact warehouse role"));
+        insertRaw("EXACT2", validJob("EXACT2", "Warehouse Data Analyst", "Exact warehouse role"));
+        insertRaw("UNRELATED", validJob("UNRELATED", "Digital Marketing Manager",
+                "Run brand campaigns and social channels"));
+
+        JobExecution execution = launch(null);
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM duplicate_cluster", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM job_similarity", Integer.class))
+                .isEqualTo(1);
+        var similarity = jdbcTemplate.queryForMap("""
+                SELECT s.id, left_job.external_job_id AS left_external_id,
+                       right_job.external_job_id AS right_external_id,
+                       s.overall_score, s.decision, s.explanation
+                FROM job_similarity s
+                JOIN normalized_job left_job ON left_job.id=s.left_job_id
+                JOIN normalized_job right_job ON right_job.id=s.right_job_id
+                """);
+        assertThat(similarity)
+                .containsEntry("left_external_id", "FUZZY1")
+                .containsEntry("right_external_id", "FUZZY2");
+        assertThat((BigDecimal) similarity.get("overall_score")).isGreaterThanOrEqualTo(BigDecimal.valueOf(75));
+        assertThat((String) similarity.get("explanation"))
+                .contains("title=", "description=", "company=", "weightedScore=");
+
+        var similarities = duplicateQueryController.similarities(null, BigDecimal.valueOf(75));
+        assertThat(similarities).hasSize(1);
+        long similarityId = ((Number) similarities.getFirst().get("id")).longValue();
+        assertThat(duplicateQueryController.similarity(similarityId))
+                .containsKeys("title_score", "description_score", "company_score", "explanation");
+    }
+
+    @Test
+    void fuzzySimilarityIsIdempotentAndRemovedWhenContentDiverges() throws Exception {
+        long changedRawId = insertRaw("FUZZY-IDEM1", validJob("FUZZY-IDEM1",
+                "Senior Java Backend Engineer", "Build payments APIs with Spring Boot and Kafka"));
+        insertRaw("FUZZY-IDEM2", validJob("FUZZY-IDEM2",
+                "Java Backend Engineer", "Build payment APIs using Spring Boot and Kafka"));
+        launch(null);
+        var calculatedAt = jdbcTemplate.queryForObject(
+                "SELECT calculated_at FROM job_similarity", java.sql.Timestamp.class);
+
+        launch(null);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT calculated_at FROM job_similarity", java.sql.Timestamp.class)).isEqualTo(calculatedAt);
+        String changed = validJob("FUZZY-IDEM1", "Digital Marketing Manager",
+                "Run brand campaigns and social channels");
+        jdbcTemplate.update("""
+                UPDATE raw_job_posting
+                SET raw_payload_json = CAST(? AS jsonb), payload_hash = ?, processing_status = 'NEW',
+                    processing_reason = NULL, processed_at = NULL
+                WHERE id = ?
+                """, changed, sha256(changed), changedRawId);
+
+        launch(null);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM job_similarity", Integer.class)).isZero();
+    }
+
+    @Test
+    void fuzzyStepRollsBackAndRestartsWithoutReplayingCompletedSteps() throws Exception {
+        insertRaw("FUZZY-RESTART1", validJob("FUZZY-RESTART1",
+                "Senior Java Backend Engineer", "Build payments APIs with Spring Boot and Kafka"));
+        insertRaw("FUZZY-RESTART2", validJob("FUZZY-RESTART2",
+                "Java Backend Engineer", "Build payment APIs using Spring Boot and Kafka"));
+
+        JobExecution failed = launch(null, false, true);
+
+        assertThat(failed.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM job_similarity", Integer.class)).isZero();
+        assertThat(failed.getStepExecutions()).anySatisfy(step -> {
+            assertThat(step.getStepName()).isEqualTo("fuzzyDuplicateDetectionStep");
+            assertThat(step.getStatus()).isEqualTo(BatchStatus.FAILED);
+            assertThat(step.getRollbackCount()).isGreaterThanOrEqualTo(1);
+        });
+
+        JobExecution restarted = jobOperator.restart(failed);
+
+        assertThat(restarted.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(restarted.getJobInstanceId()).isEqualTo(failed.getJobInstanceId());
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM job_similarity", Integer.class))
+                .isEqualTo(1);
+        assertThat(restarted.getStepExecutions())
+                .extracting(step -> step.getStepName())
+                .doesNotContain("jobNormalizationStep", "skillExtractionStep", "exactDuplicateDetectionStep");
+    }
+
     private JobExecution launch(Long failAfterItems) throws Exception {
         return launch(failAfterItems, false);
     }
 
     private JobExecution launch(Long failAfterItems, boolean failDuplicateDetection) throws Exception {
+        return launch(failAfterItems, failDuplicateDetection, false);
+    }
+
+    private JobExecution launch(Long failAfterItems, boolean failDuplicateDetection,
+            boolean failFuzzyDetection) throws Exception {
         JobParametersBuilder parameters = new JobParametersBuilder()
                 .addLocalDate("businessDate", LocalDate.of(2050, 1, 1)
                         .plusDays(DATE_SEQUENCE.incrementAndGet()), true)
-                .addString("normalizationVersion", "v1", true);
+                .addString("normalizationVersion", "v1", true)
+                .addString("duplicateDetectionVersion", "fuzzy-v1", true);
         if (failAfterItems != null) {
             parameters.addLong("failAfterItems", failAfterItems, false);
         }
         if (failDuplicateDetection) {
             parameters.addLong("failDuplicateDetection", 1L, false);
+        }
+        if (failFuzzyDetection) {
+            parameters.addLong("failFuzzyDetection", 1L, false);
         }
         return jobOperator.start(intelligenceJob, parameters.toJobParameters());
     }

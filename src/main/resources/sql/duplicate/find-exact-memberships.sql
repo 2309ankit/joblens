@@ -1,0 +1,2 @@
+SELECT normalized_job_id, cluster_id
+FROM duplicate_cluster_member

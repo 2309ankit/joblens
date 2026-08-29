@@ -222,11 +222,47 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-Deterministic exact duplicate detection is complete and verified against PostgreSQL. It stops before fuzzy similarity, lifecycle, follow-up, market-insight, and dashboard work.
+Deterministic exact and explainable fuzzy duplicate detection are complete and verified against PostgreSQL. The implementation stops before lifecycle, follow-up, market-insight, dashboard, and microservice work.
 
 ## Next Observable Milestone
 
-The next milestone must be explicitly selected. Fuzzy similarity, lifecycle, dashboard, and market insights remain deferred.
+The next milestone must be explicitly selected. Lifecycle, follow-up actions, dashboard, and market insights remain deferred.
+
+## Explainable Fuzzy Duplicate Similarity Milestone
+
+Flyway migration `V7__create_fuzzy_job_similarity.sql` adds `job_similarity`. It stores an ordered normalized-job pair, algorithm version, overall and per-dimension scores, explicit review decision, human-readable explanation, the two input content hashes, and an idempotent calculation timestamp. PostgreSQL checks constrain pair ordering, score ranges, hashes, decisions, and uniqueness per pair/algorithm.
+
+`jobIntelligenceJob` now runs `fuzzyDuplicateDetectionStep` after exact clustering and before scoring. Exact-cluster pairs are excluded. Remaining pairs are blocked by significant title-token overlap, exact normalized company, or title trigram similarity before deterministic calculation. `fuzzy-v1` weights title 40, description 25, company 20, location 10, and employment 5; missing optional dimensions are removed from the effective denominator. The default stored threshold is 75 (`POSSIBLE_DUPLICATE`) and the `LIKELY_DUPLICATE` threshold is 90. Both are environment-configurable.
+
+The stored result is an explainable review suggestion, not a probability, hidden-employer assertion, or automatic cluster merge. Reconciliation removes stale pairs, preserves `calculated_at` on a no-change run, and updates it only when inputs or calculated output change. The tasklet is transactional. Controlled `failFuzzyDetection=true` throws after reconciliation so tests prove rollback; `JobOperator.restart` then creates a new execution for the same JobInstance without replaying completed normalization, skill, or exact-detection steps.
+
+REST inspection is available through:
+
+* `GET /api/duplicates/similarities` with optional `decision` and `minimumScore`
+* `GET /api/duplicates/similarities/{id}`
+* the `similarityMatches` field on `GET /api/jobs/{id}`
+
+Complex and reused duplicate SQL is now externalized below `src/main/resources/sql/duplicate` and `sql/duplicate-query`. Small repository classes load these statements and use `NamedParameterJdbcTemplate`, giving collection expansion and readable named parameters without introducing JPA. Existing simple positional and batch-oriented code can continue using `JdbcTemplate`; a repository-wide mechanical rewrite was deliberately avoided.
+
+Automated verification added four calculator unit tests and three PostgreSQL Testcontainers integration scenarios. They cover candidate blocking, dimensional scoring, optional-field reweighting, ordered-pair validation, exact-pair exclusion, unrelated-row exclusion, REST fields and filters, stale-result cleanup, timestamp idempotency, transactional rollback, and same-JobInstance restart. Final command:
+
+```bash
+./mvnw clean test
+```
+
+Observed result: `BUILD SUCCESS`; 46 tests, 0 failures, 0 errors, 0 skipped. Flyway applied all seven migrations against PostgreSQL 17.11.
+
+Manual verification used two controlled Adzuna-shaped raw rows. JobExecution 11 / JobInstance 10 completed all five intelligence steps. SQL and REST returned one `fuzzy-v1` pair, `MANUAL-FUZZY-1` to `MANUAL-FUZZY-2`, with overall score 84.19, title 78.60, description 71.00, company/location/employment 100.00, and `POSSIBLE_DUPLICATE`. The fuzzy step reported read 3/write 1/rollback 0. JobExecution 12 / JobInstance 11 reran unchanged input and retained the original `calculated_at`, proving no-op persistence idempotency.
+
+Files introduced for this milestone include:
+
+* `V7__create_fuzzy_job_similarity.sql`
+* fuzzy similarity domain/calculator/tasklet and controlled-failure types
+* duplicate detection and query repositories plus `ClasspathSql`
+* duplicate SQL resources under `src/main/resources/sql/`
+* `FuzzySimilarityCalculatorTests`
+
+Known limitation: pair enumeration currently occurs in memory with cheap blocking. This is appropriate for the personal-scale dataset; database-side blocking should be introduced only when measured volume justifies it. Thresholds and weights are deterministic starting heuristics and should be calibrated against reviewed examples.
 
 ## Exact Duplicate Detection Milestone
 

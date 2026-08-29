@@ -1,6 +1,6 @@
 # JobLens
 
-JobLens is a modular Spring Boot application for personal job-market intelligence. It imports search profiles, discovers public Adzuna postings, stores raw JSON, normalizes jobs, detects exact duplicates, extracts skills, and calculates explainable candidate scores.
+JobLens is a modular Spring Boot application for personal job-market intelligence. It imports search profiles, discovers public Adzuna postings, stores raw JSON, normalizes jobs, detects exact and fuzzy duplicate candidates, extracts skills, and calculates explainable candidate scores.
 
 ## Architecture
 
@@ -15,6 +15,7 @@ CSV → searchProfileImportJob → search_profile
                     ├─ jobNormalizationStep → normalized_job
                     ├─ skillExtractionStep   → job_skill
                     ├─ exactDuplicateDetectionStep → duplicate_cluster/membership/evidence
+                    ├─ fuzzyDuplicateDetectionStep → job_similarity
                     └─ scoringStep            → job_score/job_score_reason
 ```
 
@@ -24,10 +25,10 @@ Packages:
 batchapi       REST launch, history, and job-read endpoints
 searchprofile  CSV reader, validation, rejection, and upsert
 discovery      JobSourceClient, Adzuna client, pagination, raw landing
-intelligence   normalization, skills, exact duplicates, candidate profile, and scoring
+intelligence   normalization, skills, duplicate detection, candidate profile, and scoring
 ```
 
-Flyway migrations are incremental: V1 Batch metadata, V2 profile import, V3 discovery/raw landing, V4 normalized jobs, V5 skills/candidate/scoring, and V6 exact duplicate clusters.
+Flyway migrations are incremental: V1 Batch metadata, V2 profile import, V3 discovery/raw landing, V4 normalized jobs, V5 skills/candidate/scoring, V6 exact duplicate clusters, and V7 fuzzy similarities.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -105,7 +106,7 @@ Without credentials, startup still works but a live discovery launch fails obser
 
 Discovery stores one `source_fetch_run` per profile/execution and untouched individual Adzuna JSON in `raw_job_posting`. Raw postings are idempotent by `(source, external_job_id)`; changed payloads reset processing to `NEW`.
 
-## 3. Normalize, extract skills, and score
+## 3. Normalize, detect duplicates, extract skills, and score
 
 ```bash
 curl -X POST \
@@ -118,6 +119,7 @@ The pipeline is:
 jobNormalizationStep: raw NEW/FAILED → normalized_job
 skillExtractionStep: normalized_job → canonical job_skill rows
 exactDuplicateDetectionStep: normalized_job → exact clusters, memberships, and evidence
+fuzzyDuplicateDetectionStep: non-exact candidate pairs → explainable similarity suggestions
 scoringStep:         job + skills + default candidate → score and reasons
 ```
 
@@ -128,9 +130,9 @@ curl -X POST \
   'http://localhost:8080/api/batch/intelligence/run?businessDate=2026-08-30&failAfterItems=3'
 ```
 
-Use `failDuplicateDetection=true` to demonstrate rollback and restart of the exact-duplicate step. Both failure-injection parameters are non-identifying.
+Use `failDuplicateDetection=true` or `failFuzzyDetection=true` to demonstrate transactional rollback and restart of the corresponding duplicate step. Failure-injection parameters are non-identifying.
 
-Identifying parameters are `businessDate` and `normalizationVersion=v1`. Current weights are Technical 40, Domain 15, Seniority 10, Location/work 10, Employment 10, Salary 10, Freshness 5. Persisted reason points must sum to the total score.
+Identifying parameters are `businessDate`, `normalizationVersion=v1`, and `duplicateDetectionVersion=fuzzy-v1`. Current score weights are Technical 40, Domain 15, Seniority 10, Location/work 10, Employment 10, Salary 10, Freshness 5. Persisted reason points must sum to the total score.
 
 Inspect derived data:
 
@@ -145,7 +147,7 @@ docker compose exec -T postgres psql -U joblens -d joblens \
 
 The landing-table unique key `(source, external_job_id)` resolves repeated sightings of the same provider job to one raw and normalized identity. The duplicate step then connects distinct normalized jobs when either their source/external identity or `normalized_content_hash` is exactly equal. With the current landing constraint, distinct cluster members normally match by normalized hash; both evidence types are persisted and the algorithm supports their transitive closure.
 
-Only groups with at least two members are stored. The lowest normalized-job ID is the deterministic canonical member. No fuzzy or probabilistic matching is performed.
+Only groups with at least two members are stored. The lowest normalized-job ID is the deterministic canonical member.
 
 ```bash
 curl http://localhost:8080/api/duplicates
@@ -162,16 +164,36 @@ docker compose exec -T postgres psql -U joblens -d joblens \
   -c "select cluster_id,left_job_id,right_job_id,evidence_type,evidence_value from duplicate_match_evidence order by cluster_id,left_job_id,right_job_id;"
 ```
 
+## 5. Inspect fuzzy duplicate suggestions
+
+Exact-cluster pairs are excluded. Remaining pairs are cheaply blocked by title tokens, title trigrams, or exact company, then scored deterministically across title (40), description (25), company (20), location (10), and employment type (5). Missing optional dimensions are excluded from the effective weight. Scores at least 75 are stored as `POSSIBLE_DUPLICATE`; scores at least 90 are `LIKELY_DUPLICATE`.
+
+These are explainable review suggestions, not hidden-employer claims, probabilities, or automatic merges. Thresholds are configurable with `JOBLENS_FUZZY_MINIMUM_SCORE` and `JOBLENS_FUZZY_LIKELY_SCORE`.
+
+```bash
+curl 'http://localhost:8080/api/duplicates/similarities?minimumScore=75'
+curl http://localhost:8080/api/duplicates/similarities/1
+curl http://localhost:8080/api/jobs/1
+```
+
+```bash
+docker compose exec -T postgres psql -U joblens -d joblens \
+  -c "select left_job_id,right_job_id,algorithm_version,overall_score,title_score,description_score,company_score,location_score,employment_score,decision,explanation from job_similarity order by overall_score desc;"
+```
+
+The duplicate subsystem keeps complex/reused statements under `src/main/resources/sql/` and calls them through small repositories backed by `NamedParameterJdbcTemplate`. This preserves SQL as SQL while retaining Spring JDBC and explicit transaction boundaries.
+
 ## View results
 
 ```bash
 curl http://localhost:8080/api/jobs
 curl http://localhost:8080/api/jobs/1
 curl http://localhost:8080/api/duplicates
+curl http://localhost:8080/api/duplicates/similarities
 curl http://localhost:8080/api/batch/executions
 ```
 
-The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, and duplicate-cluster membership. A Thymeleaf dashboard is not implemented yet; JSON APIs and SQL are the current inspection surface.
+The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. A Thymeleaf dashboard is not implemented yet; JSON APIs and SQL are the current inspection surface.
 
 ## Batch history and restart
 
@@ -209,4 +231,4 @@ If PostgreSQL authentication fails, ensure Compose and the app use the same `JOB
 
 Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skill aliases, candidate profile, scoring, restartability, and REST APIs.
 
-Remaining: fuzzy duplicate detection, application lifecycle, follow-up actions, weekly market insights, Thymeleaf dashboard, and Dockerizing the JobLens application image.
+Remaining: application lifecycle, follow-up actions, weekly market insights, Thymeleaf dashboard, and Dockerizing the JobLens application image.
