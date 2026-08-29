@@ -117,7 +117,7 @@ class JobDiscoveryIntegrationTests {
                 .containsEntry("external_job_id", "J1")
                 .containsEntry("title", "Original")
                 .containsEntry("custom_value", "true")
-                .containsEntry("processing_status", "PENDING");
+                .containsEntry("processing_status", "NEW");
         assertThat(raw.get("payload_hash")).isEqualTo(hash(job("J1", "Original", 100, true)));
     }
 
@@ -155,6 +155,10 @@ class JobDiscoveryIntegrationTests {
         String original = job("J4", "Original", 100, true);
         ADZUNA.enqueue(json(200, response(1, original)));
         JobExecution first = launch("D004");
+        jdbcTemplate.update("""
+                UPDATE raw_job_posting SET processing_status = 'NORMALIZED',
+                    processed_at = CURRENT_TIMESTAMP WHERE external_job_id = 'J4'
+                """);
         var before = jdbcTemplate.queryForMap("""
                 SELECT first_seen_at, last_seen_at, updated_at, payload_hash
                 FROM raw_job_posting WHERE external_job_id='J4'
@@ -167,6 +171,8 @@ class JobDiscoveryIntegrationTests {
                 SELECT first_seen_at, last_seen_at, updated_at, payload_hash
                 FROM raw_job_posting WHERE external_job_id='J4'
                 """);
+        String unchangedProcessingStatus = jdbcTemplate.queryForObject(
+                "SELECT processing_status FROM raw_job_posting WHERE external_job_id='J4'", String.class);
 
         Thread.sleep(10);
         String changed = job("J4", "Changed", 200, true);
@@ -184,6 +190,10 @@ class JobDiscoveryIntegrationTests {
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM raw_job_posting", Integer.class)).isEqualTo(1);
         assertThat(same.get("first_seen_at")).isEqualTo(before.get("first_seen_at"));
         assertThat(same.get("updated_at")).isEqualTo(before.get("updated_at"));
+        assertThat(unchangedProcessingStatus).isEqualTo("NORMALIZED");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT processing_status FROM raw_job_posting WHERE external_job_id='J4'",
+                String.class)).isEqualTo("NEW");
         assertThat((Timestamp) same.get("last_seen_at")).isAfter((Timestamp) before.get("last_seen_at"));
         assertThat(after.get("first_seen_at")).isEqualTo(before.get("first_seen_at"));
         assertThat((Timestamp) after.get("updated_at")).isAfter((Timestamp) same.get("updated_at"));

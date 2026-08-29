@@ -70,7 +70,7 @@ The generated project currently contains:
 | 8  | One real internet job source works               | IN PROGRESS |
 | 9  | Raw postings stored idempotently                 | COMPLETE    |
 | 10 | API pagination and restart work                  | COMPLETE    |
-| 11 | Normalization works                              | NOT STARTED |
+| 11 | Normalization works                              | COMPLETE    |
 | 12 | Skill extraction works                           | NOT STARTED |
 | 13 | Duplicate detection works                        | NOT STARTED |
 | 14 | Candidate scoring works                          | NOT STARTED |
@@ -222,11 +222,11 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-The sequential Adzuna discovery and raw-landing milestone is complete against deterministic mocked HTTP responses and PostgreSQL. Live Adzuna verification remains pending because no local credentials are configured.
+The first raw-to-normalized `jobIntelligenceJob` slice is complete and verified against PostgreSQL. It intentionally stops before skill extraction, duplicate analysis, scoring, and lifecycle work.
 
 ## Next Observable Milestone
 
-Implement the first deterministic job-intelligence slice: raw validation and normalized job persistence. Do not add scoring or lifecycle work before normalization is verified.
+Add deterministic database-driven skill extraction and aliases as the next isolated milestone. Do not add scoring or lifecycle work before skill extraction is verified.
 
 ## Search Profile Import Milestone
 
@@ -415,3 +415,108 @@ Execution-history lookup now uses `JobRepository`, which owns the lookup operati
 The search-profile step now uses the Spring Batch 6 `chunk(int)` builder and configures its transaction manager explicitly, replacing the deprecated `chunk(int, PlatformTransactionManager)` overload.
 
 Repository scan after the change found no application or test references to `JobLauncher`, `JobExplorer`, `TaskExecutorJobLauncher`, or `SimpleJobOperator`. `./mvnw clean test` completed with `BUILD SUCCESS`: 25 tests, 0 failures, 0 errors, 0 skipped. Main and test compilation emitted no Spring Batch deprecation warnings.
+
+## Raw-to-Normalized Intelligence Milestone
+
+### Schema and state lifecycle
+
+Flyway migration `V4__create_normalized_job.sql`:
+
+* migrates legacy raw status `PENDING` to `NEW`
+* defines `NEW`, `NORMALIZED`, `REJECTED`, and `FAILED`
+* adds `processing_reason` and `processed_at` to `raw_job_posting`
+* creates `normalized_job` with one-to-one raw FK/uniqueness, exact numeric salaries, timezone-aware posted time, canonical hash constraints, and focused source/external-ID and posted-time indexes
+
+State meanings:
+
+* `NEW`: eligible for normalization
+* `NORMALIZED`: normalized row and raw state committed together
+* `REJECTED`: structurally/business-invalid input with a human-readable reason
+* `FAILED`: unexpected processing failure, eligible for retry/restart
+
+Discovery preserves an existing status for unchanged payloads. When its raw payload hash changes, it atomically replaces the raw JSON/hash and resets status to `NEW`, clearing prior processing state. Tests verify unchanged payloads remain `NORMALIZED` and changed payloads become `NEW`.
+
+### Batch and normalization design
+
+* Job: `jobIntelligenceJob`
+* Step: `jobNormalizationStep`
+* Default chunk size: 20 (`JOBLENS_INTELLIGENCE_CHUNK_SIZE`); integration proof uses 2
+* Identifying parameters: `businessDate` and `normalizationVersion=v1`
+* Development/test-only `failAfterItems` is non-identifying
+* Launch API: `POST /api/batch/intelligence/run`
+
+The restartable keyset `RawJobPostingReader` reads `NEW`/`FAILED` records in ascending raw ID order. It stores `rawJobPostingReader.lastCommittedId` in the Step ExecutionContext. This avoids an unsafe cursor-offset restart when committed rows leave the eligible set after becoming `NORMALIZED`.
+
+`AdzunaJobPostingNormalizer` owns all Adzuna JSON paths: title, `company.display_name`, `location.display_name`, description, contract fields, salaries/currency, explicit remote type, `created`, and `redirect_url`. Optional absent or malformed optional values become null; title and object-shaped raw JSON are required.
+
+Jsoup 1.23.2 parses descriptions, decodes entities, preserves element word boundaries, and collapses excessive whitespace. Manual output verified `Senior Java Engineer & API owner Spring Boot Kafka` without cross-tag concatenation.
+
+The normalized SHA-256 uses unambiguous length-prefixed canonical values for title, company, location, cleaned description, employment type, salary range/currency, and remote type. It excludes IDs, timestamps, URLs, raw JSON order, and processing metadata. Unit tests verify determinism, JSON property-order independence, semantically equivalent HTML, and volatile metadata independence.
+
+`NormalizedJobWriter` performs the normalized upsert and raw transition to `NORMALIZED` within the same Batch chunk transaction. Raw uniqueness prevents duplicate normalized rows. Reprocessing updates an existing normalized row, preserves `created_at`, and changes `updated_at` only when the normalized content hash changes.
+
+### Automated verification
+
+Commands included:
+
+```bash
+./mvnw clean compile
+./mvnw -Dtest=AdzunaJobPostingNormalizerTests test
+./mvnw -Dtest=JobIntelligenceIntegrationTests test
+set -a; source .env; set +a; ./mvnw clean test
+git diff --check
+```
+
+Final result: `BUILD SUCCESS`; 35 tests, 0 failures, 0 errors, 0 skipped. The milestone adds four focused normalizer/hash/HTML tests and six PostgreSQL Testcontainers job tests while retaining all import and discovery coverage.
+
+Covered behavior includes complete field extraction, HTML/entity handling, optional fields, salaries, missing title/non-object rejection, normalized persistence, raw status/reasons, idempotent reruns, changed-payload reprocessing, unchanged-payload exclusion, deterministic hashes, chunk counts, failed execution, `JobOperator.restart(JobExecution)`, Batch metadata, and checkpoint resumption.
+
+### Restart evidence
+
+The PostgreSQL integration scenario uses chunk size 2 and five ordered raw rows. Execution 9 on JobInstance 9 committed the first two normalized rows, then injected an unexpected failure on the third row:
+
+* failed status: `FAILED`
+* normalized rows after failure: 2
+* third raw row status: `FAILED`
+* saved checkpoint: the second raw ID
+
+`JobOperator.restart(failedExecution)` created execution 10 for the same JobInstance 9. Failure injection is deliberately active only on the first execution. The restarted step read exactly the remaining three rows, completed all five rows without duplicate `raw_job_posting_id` values, and finished `COMPLETED`.
+
+### Manual HTTP and SQL evidence
+
+The Docker PostgreSQL database migrated successfully to Flyway version 4. Two controlled fixtures were inserted: one realistic valid Adzuna row and one missing-title row. The application started on port 8080 and this request completed:
+
+```text
+POST /api/batch/intelligence/run?businessDate=2026-09-03
+JobInstance 6, JobExecution 7, COMPLETED
+```
+
+Batch step evidence:
+
+```text
+read=2, write=1, process_skip=1, commit=1, rollback=0
+```
+
+Raw evidence:
+
+```text
+MANUAL-NORM-1   NORMALIZED
+MANUAL-NORM-BAD REJECTED  Adzuna job title is required
+```
+
+Normalized evidence for `MANUAL-NORM-1`:
+
+```text
+title: Senior Java Engineer
+company/location: Example Bank / Singapore
+description: Senior Java Engineer & API owner Spring Boot Kafka
+employment: PERMANENT
+salary: SGD 90000.00-120000.00
+remote: HYBRID
+posted: 2026-08-28T09:30:00Z
+hash: 4c4fb023eb4876f96d9adaaf31f7813612401c58306ab835f7c991bf7d47f501
+```
+
+### Known limitations
+
+Only Adzuna normalization exists, by design. Remote type is populated only from an explicit supported provider value; JobLens does not infer it from free text. Invalid optional salary/timestamp values are retained in raw JSON but normalized to null. Skills, duplicates, scoring, lifecycle, and market analysis are outside this milestone.

@@ -31,6 +31,21 @@ public class DiscoveryPersistenceService {
                 END,
                 payload_hash = EXCLUDED.payload_hash,
                 job_execution_id = EXCLUDED.job_execution_id,
+                processing_status = CASE
+                    WHEN raw_job_posting.payload_hash <> EXCLUDED.payload_hash
+                    THEN 'NEW'
+                    ELSE raw_job_posting.processing_status
+                END,
+                processing_reason = CASE
+                    WHEN raw_job_posting.payload_hash <> EXCLUDED.payload_hash
+                    THEN NULL
+                    ELSE raw_job_posting.processing_reason
+                END,
+                processed_at = CASE
+                    WHEN raw_job_posting.payload_hash <> EXCLUDED.payload_hash
+                    THEN NULL
+                    ELSE raw_job_posting.processed_at
+                END,
                 updated_at = CASE
                     WHEN raw_job_posting.payload_hash <> EXCLUDED.payload_hash
                     THEN CURRENT_TIMESTAMP
