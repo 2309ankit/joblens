@@ -12,7 +12,7 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -45,7 +45,7 @@ class SearchProfileImportJobIntegrationTests {
     }
 
     @Autowired
-    private JobLauncher jobLauncher;
+    private JobOperator jobOperator;
 
     @Autowired
     @Qualifier("searchProfileImportJob")
@@ -150,7 +150,7 @@ class SearchProfileImportJobIntegrationTests {
                 .addLong("failOnRow", 4L, false)
                 .toJobParameters();
 
-        JobExecution failed = jobLauncher.run(job, failedParameters);
+        JobExecution failed = jobOperator.start(job, failedParameters);
 
         assertThat(failed.getStatus()).isEqualTo(BatchStatus.FAILED);
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM search_profile", Integer.class)).isEqualTo(2);
@@ -159,7 +159,7 @@ class SearchProfileImportJobIntegrationTests {
                 .addString("inputFile", input.toString(), true)
                 .addLocalDate("businessDate", businessDate, true)
                 .toJobParameters();
-        JobExecution restarted = jobLauncher.run(job, restartParameters);
+        JobExecution restarted = jobOperator.start(job, restartParameters);
 
         assertThat(restarted.getStatus()).isEqualTo(BatchStatus.COMPLETED);
         assertThat(restarted.getJobInstanceId()).isEqualTo(failed.getJobInstanceId());
@@ -172,7 +172,7 @@ class SearchProfileImportJobIntegrationTests {
 
     private JobExecution launch(Path input) throws Exception {
         LocalDate businessDate = LocalDate.of(2030, 1, 1).plusDays(DATE_SEQUENCE.incrementAndGet());
-        return jobLauncher.run(job, new JobParametersBuilder()
+        return jobOperator.start(job, new JobParametersBuilder()
                 .addString("inputFile", input.toAbsolutePath().normalize().toString(), true)
                 .addLocalDate("businessDate", businessDate, true)
                 .toJobParameters());

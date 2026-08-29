@@ -67,9 +67,9 @@ The generated project currently contains:
 | 5  | Flyway and Spring Batch metadata tables verified | COMPLETE    |
 | 6  | CSV search-profile import job works              | COMPLETE    |
 | 7  | Failed CSV import and restart demonstrated       | COMPLETE    |
-| 8  | One real internet job source works               | NOT STARTED |
-| 9  | Raw postings stored idempotently                 | NOT STARTED |
-| 10 | API pagination and restart work                  | NOT STARTED |
+| 8  | One real internet job source works               | IN PROGRESS |
+| 9  | Raw postings stored idempotently                 | COMPLETE    |
+| 10 | API pagination and restart work                  | COMPLETE    |
 | 11 | Normalization works                              | NOT STARTED |
 | 12 | Skill extraction works                           | NOT STARTED |
 | 13 | Duplicate detection works                        | NOT STARTED |
@@ -222,11 +222,11 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-The CSV search-profile import and restartability milestone is complete.
+The sequential Adzuna discovery and raw-landing milestone is complete against deterministic mocked HTTP responses and PostgreSQL. Live Adzuna verification remains pending because no local credentials are configured.
 
 ## Next Observable Milestone
 
-Implement Adzuna discovery as the next isolated milestone. Do not add normalization, scoring, or lifecycle work until sequential raw discovery is verified.
+Implement the first deterministic job-intelligence slice: raw validation and normalized job persistence. Do not add scoring or lifecycle work before normalization is verified.
 
 ## Search Profile Import Milestone
 
@@ -319,4 +319,99 @@ Tests:
 
 ### Known limitations
 
-Spring Batch 6.0.5 marks the legacy `JobLauncher`, `JobExplorer`, and legacy chunk-builder path for future removal. They are functional and verified in this milestone, but should be migrated to the Batch 6 replacement operator/chunk APIs before a future Batch 7 upgrade. CSV supports one physical line per record; multiline quoted fields are not required for the current search-profile format.
+CSV supports one physical line per record; multiline quoted fields are not required for the current search-profile format. The launch, history, and chunk-builder APIs were subsequently migrated to their Spring Batch 6 replacements.
+
+## Sequential Adzuna Discovery Milestone
+
+### Schema and configuration
+
+Flyway migration `V3__create_job_discovery_raw_landing.sql` created:
+
+* `source_fetch_run`, with profile/run status, page and record counts, next-page checkpoint, failure reason, and Batch instance/execution references
+* `raw_job_posting`, with source/external-ID uniqueness, JSONB source payload, SHA-256 payload hash, first/last-seen timestamps, processing status, and Batch/fetch-run references
+
+Flyway validated and applied all three migrations against PostgreSQL 17.11. The application started successfully and Actuator returned `UP`.
+
+Adzuna settings are externalized as `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, base URL, timeout, max pages, page size, retry attempts, and retry backoff. Startup succeeds without credentials; a discovery attempt fails observably at execution time.
+
+### Client and Batch design
+
+* Source interface: `JobSourceClient.supports(JobSource)` and `search(SearchProfile, PageRequest)`
+* Provider: `AdzunaJobSourceClient`, using WebClient and Adzuna's `/jobs/{country}/search/{page}` request model
+* Job: `jobDiscoveryJob`
+* Step: `jobDiscoveryStep`
+* Processing: one HTTP page per repeat iteration, sequentially across active ADZUNA profiles
+* Identifying parameters: `businessDate` and optional `profileId`; no random uniqueness parameter
+* HTTP is executed with the step transaction suspended. Fetch-run creation, each page write/checkpoint, completion, and failure use short `REQUIRES_NEW` PostgreSQL transactions.
+* Step ExecutionContext keys: `discovery.currentProfileId`, `discovery.lastCompletedProfileId`, `discovery.fetchRunId`, and `discovery.nextPage`
+* PostgreSQL `source_fetch_run.next_page` provides a durable consistency fence in addition to the Spring Batch checkpoint.
+
+Pagination stops on an empty page, an API-derived no-more-results condition, or the configured maximum. HTTP 429, 500, 503, request timeouts, and connection failures are retried with bounded backoff. Other 4xx responses and malformed JSON are not retried.
+
+Raw individual job JSON is retained directly from each result node. JDBC batch upsert uses `(source, external_job_id)` as the idempotency key. Unchanged payloads retain raw JSON, hash, `first_seen_at`, and `updated_at` while advancing `last_seen_at`. Changed payloads replace JSON/hash and advance `updated_at`, while retaining `first_seen_at`.
+
+### Automated verification
+
+Commands:
+
+```bash
+./mvnw -Dtest=AdzunaJobSourceClientTests test
+./mvnw -Dtest=JobDiscoveryIntegrationTests test
+set -a; source .env; set +a; ./mvnw clean test
+git diff --check
+```
+
+Final result: `BUILD SUCCESS`; 25 tests, 0 failures, 0 errors, 0 skipped. Discovery contributed 7 MockWebServer client tests and 6 PostgreSQL Testcontainers integration tests.
+
+Verified cases include official request construction, raw JSON retention, one/multiple/empty-page discovery, inactive-profile exclusion, uniqueness, unchanged and changed payload behavior, first-seen preservation, JSONB access, transient status retry for 429/500/503, non-retryable 401, malformed JSON, missing credentials, completed/failed fetch runs, and failed/restarted Batch metadata.
+
+### Restart evidence
+
+The deterministic PostgreSQL Testcontainers scenario fetched and committed pages 1 and 2, then exhausted all three attempts for page 3:
+
+* JobInstance 2, JobExecution 2: `FAILED`
+* committed raw rows: 4
+* fetch state: pages 2, records 4, `next_page=3`
+* Step ExecutionContext: `discovery.nextPage=3`
+
+Restarting the same identifying parameters produced JobExecution 3 for the same JobInstance 2. The first restarted HTTP request was page 3 (pages 1 and 2 were not replayed), status became `COMPLETED`, fetch totals became 3 pages/5 records, and all five external IDs existed exactly once.
+
+### Manual PostgreSQL and HTTP evidence
+
+The application started on port 8080 against the Docker PostgreSQL container, Flyway reported schema version 3 current, and `GET /actuator/health` returned `UP`.
+
+Because `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` are absent locally, the manual call for SP001 intentionally demonstrated the real missing-credential path:
+
+* JobInstance 4, JobExecution 5: `FAILED`
+* `source_fetch_run`: source ADZUNA, profile SP001, status FAILED, pages 0, records 0, next page 1
+* failure reason identifies `MissingJobSourceCredentialsException`
+* `raw_job_posting`: 0 rows, so failure was not interpreted as an empty successful fetch
+* `jobDiscoveryStep`: FAILED, commit 0, rollback 1
+
+No live Adzuna success is claimed. A single small Singapore live verification remains pending until credentials are supplied through the documented environment variables.
+
+### Files introduced for this milestone
+
+Main packages:
+
+* `com.ankit.joblens.discovery` — source contract, Adzuna WebClient, raw records, persistence service, restartable tasklet, and job configuration
+* `com.ankit.joblens.batchapi` — discovery launcher and shared launch-response mapping
+
+Tests:
+
+* `AdzunaJobSourceClientTests`
+* `JobDiscoveryIntegrationTests`
+
+### Known limitations
+
+Discovery is deliberately sequential; partitioning is deferred until the sequential model has production usage evidence. Adzuna credentials were not present, so only mocked provider behavior and the live missing-credential failure path were verified. The optional native Netty macOS DNS resolver is not installed; tests using localhost passed with the JDK/system resolver fallback.
+
+## Spring Batch 6 API Modernization
+
+Application and test code no longer injects or invokes the deprecated `JobLauncher` or `JobExplorer` APIs. Batch launch controllers and integration tests use `JobOperator.start(Job, JobParameters)`. The discovery restart test uses `JobOperator.restart(JobExecution)`, preserving the same JobInstance and checkpoint behavior. Search-profile failure injection still starts the failed instance with the same identifying parameters and without its non-identifying one-shot failure parameter, which is required to disable that controlled failure on the next execution.
+
+Execution-history lookup now uses `JobRepository`, which owns the lookup operations in Spring Batch 6. Spring's `@EnableBatchProcessing` infrastructure supplies the modern `TaskExecutorJobOperator`; no application bean for deprecated `TaskExecutorJobLauncher` or `SimpleJobOperator` was introduced.
+
+The search-profile step now uses the Spring Batch 6 `chunk(int)` builder and configures its transaction manager explicitly, replacing the deprecated `chunk(int, PlatformTransactionManager)` overload.
+
+Repository scan after the change found no application or test references to `JobLauncher`, `JobExplorer`, `TaskExecutorJobLauncher`, or `SimpleJobOperator`. `./mvnw clean test` completed with `BUILD SUCCESS`: 25 tests, 0 failures, 0 errors, 0 skipped. Main and test compilation emitted no Spring Batch deprecation warnings.

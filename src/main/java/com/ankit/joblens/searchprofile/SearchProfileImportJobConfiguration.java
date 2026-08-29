@@ -92,7 +92,8 @@ public class SearchProfileImportJobConfiguration {
             SearchProfileJdbcWriter searchProfileWriter,
             SearchProfileRejectionListener searchProfileRejectionListener) {
         return new StepBuilder("searchProfileImportStep", jobRepository)
-                .<SearchProfileCsvRow, SearchProfile>chunk(CHUNK_SIZE, transactionManager)
+                .<SearchProfileCsvRow, SearchProfile>chunk(CHUNK_SIZE)
+                .transactionManager(transactionManager)
                 .reader(searchProfileReader)
                 .processor(searchProfileProcessor)
                 .writer(searchProfileWriter)
