@@ -1,0 +1,7 @@
+SELECT f.id, f.application_id, a.normalized_job_id, n.title, n.company,
+       f.follow_up_type, f.generation_version, f.due_date,
+       f.status, f.completed_on, f.created_at, f.updated_at
+FROM application_follow_up f
+JOIN job_application a ON a.id = f.application_id
+JOIN normalized_job n ON n.id = a.normalized_job_id
+WHERE f.id = :id

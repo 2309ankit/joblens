@@ -1,6 +1,6 @@
 # JobLens Session Handoff
 
-This document is the indexed handoff for the work completed through explainable fuzzy duplicate detection on 2026-08-29. Read it together with [AGENTS.md](AGENTS.md), [README.md](README.md), and [BUILD_PROGRESS.md](BUILD_PROGRESS.md).
+This document is the indexed handoff for the work completed through application lifecycle and follow-up generation on 2026-08-29. Read it together with [AGENTS.md](AGENTS.md), [README.md](README.md), and [BUILD_PROGRESS.md](BUILD_PROGRESS.md).
 
 ## Index
 
@@ -31,6 +31,7 @@ Database: PostgreSQL 17
 Recent commits:
 
 ```text
+9884ff1 Add explainable fuzzy duplicate detection
 39ce015 Add exact duplicate detection pipeline
 3b49caa Add skills and candidate job scoring pipeline
 7951586 Implement raw job normalization batch pipeline
@@ -56,6 +57,8 @@ CSV profiles
         → exact duplicate detection
         → fuzzy duplicate suggestions
         → candidate scoring
+    → application lifecycle
+    → applicationFollowUpJob
     → REST APIs
 ```
 
@@ -74,6 +77,8 @@ The REST layer launches and observes jobs. Core bulk, restartable workflows rema
 - Deterministic exact duplicate clusters, canonical membership, and pair-level evidence.
 - Deterministic fuzzy duplicate suggestions with dimension scores and explicit decisions.
 - Duplicate persistence and inspection SQL externalized to classpath resources and executed with `NamedParameterJdbcTemplate`.
+- Audited application lifecycle with explicit transitions and immutable history.
+- Restartable, idempotent follow-up generation with stale-action cancellation and completion.
 - Job read APIs containing normalized fields, skills, scores, and reasons.
 
 ## 4. Spring Batch design
@@ -93,6 +98,9 @@ jobIntelligenceJob
 ├── exactDuplicateDetectionStep
 ├── fuzzyDuplicateDetectionStep
 └── scoringStep
+
+applicationFollowUpJob
+└── applicationFollowUpGenerationStep
 ```
 
 Important semantics:
@@ -114,6 +122,7 @@ V4__create_normalized_job.sql
 V5__create_skills_candidate_scoring.sql
 V6__create_exact_duplicate_detection.sql
 V7__create_fuzzy_job_similarity.sql
+V8__create_application_lifecycle.sql
 ```
 
 Major business tables:
@@ -136,6 +145,9 @@ duplicate_cluster
 duplicate_cluster_member
 duplicate_match_evidence
 job_similarity
+job_application
+application_status_history
+application_follow_up
 ```
 
 Raw processing states:
@@ -178,6 +190,15 @@ failDuplicateDetection optional non-identifying controlled-failure parameter
 failFuzzyDetection optional non-identifying controlled-failure parameter
 ```
 
+Follow-up generation:
+
+```text
+POST /api/batch/follow-ups/run
+businessDate required, identifying
+followUpVersion=follow-up-v1 is added by the controller
+failAfterApplications optional non-identifying controlled-failure parameter
+```
+
 Read endpoints:
 
 ```text
@@ -188,6 +209,11 @@ GET /api/duplicates
 GET /api/duplicates/{id}
 GET /api/duplicates/similarities?decision=&minimumScore=
 GET /api/duplicates/similarities/{id}
+POST/GET /api/applications
+GET /api/applications/{id}
+POST /api/applications/{id}/transitions
+GET /api/follow-ups
+POST /api/follow-ups/{id}/complete
 GET /actuator/health
 ```
 
@@ -219,7 +245,7 @@ Latest full automated result:
 ```text
 ./mvnw clean test
 BUILD SUCCESS
-Tests run: 46
+Tests run: 52
 Failures: 0
 Errors: 0
 Skipped: 0
@@ -228,7 +254,7 @@ Skipped: 0
 Latest local startup verification:
 
 ```text
-Flyway schema version: 7
+Flyway schema version: 8
 GET /actuator/health: UP
 ```
 
@@ -247,6 +273,15 @@ MANUAL-FUZZY-1 ↔ MANUAL-FUZZY-2
 overall: 84.19, decision: POSSIBLE_DUPLICATE
 title: 78.60, description: 71.00, company/location/employment: 100.00
 no-change rerun preserved calculated_at
+```
+
+Manual lifecycle evidence:
+
+```text
+Application 1: SAVED → APPLIED, effective 2026-08-21
+JobExecution 13 / JobInstance 12: COMPLETED, read/write 1/1
+APPLICATION_CHECK_IN due 2026-08-28
+JobExecution 14 no-op rerun preserved one row and both timestamps
 ```
 
 Manual Example Bank job:
@@ -279,6 +314,7 @@ candidate preferences: 12
 - Use Spring JDBC, not JPA, for batch-oriented persistence.
 - Prefer `NamedParameterJdbcTemplate` for repository queries with several parameters or collections; retain `JdbcTemplate` for simple positional and batch-oriented operations.
 - Keep complex or reused SQL in classpath `.sql` resources; the duplicate subsystem establishes this boundary without forcing repository-wide churn.
+- Shared SQL resource loading lives in neutral `com.ankit.joblens.jdbc`, not a business module.
 - Use `JobOperator.start(Job, JobParameters)` and `JobOperator.restart(JobExecution)`.
 - Use `JobRepository` for Batch history lookup.
 - Do not introduce deprecated `TaskExecutorJobLauncher` or `SimpleJobOperator`.
@@ -289,22 +325,24 @@ candidate preferences: 12
 - Repeated `(source, external_job_id)` sightings remain one landing identity; distinct normalized rows are clustered by exact graph connectivity.
 - Exact-cluster evidence is limited to `SOURCE_EXTERNAL_ID` and `NORMALIZED_CONTENT_HASH`.
 - Fuzzy `fuzzy-v1` results are review suggestions with visible scores and explanations; they are not probabilities and never merge exact clusters.
+- Lifecycle transitions are explicit, forward-only, row-locked, and recorded as immutable history.
+- Follow-ups are generated by Batch from status-history identity; they are not sent externally.
 - A PostgreSQL startup failure was traced to an empty datasource password default; the safe local default now matches Compose: `joblens-local`.
-- Dashboard, lifecycle, and market insights were intentionally not started.
+- Dashboard and market insights were intentionally not started.
 
 ## 10. Current working-tree state
 
-At handoff creation, the fuzzy milestone implementation and documentation are intentionally uncommitted:
+At handoff creation, the lifecycle milestone implementation and documentation are intentionally uncommitted:
 
 ```text
 M  AGENTS.md
 M  README.md
 M  SESSION_HANDOFF.md
 M  BUILD_PROGRESS.md
-M/?? duplicate Batch, REST, SQL, migration, and test files under src/
+M/?? lifecycle Batch, REST, SQL, migration, shared JDBC support, and tests under src/
 ```
 
-Application implementation through exact duplicates is committed at `39ce015`.
+Application implementation through fuzzy duplicates is committed at `9884ff1`.
 
 Before starting new code, run:
 
@@ -324,14 +362,15 @@ Preserve and commit the documentation changes when requested.
 - Scoring currently recalculates all normalized jobs each intelligence run.
 - Fuzzy candidate generation currently examines in-memory pairs and applies a cheap block; this is suitable for the current personal-scale dataset but should move to database blocking if volume proves it necessary.
 - Fuzzy thresholds and weights are deterministic heuristics and require calibration against reviewed examples.
-- No lifecycle/follow-up job yet.
+- Lifecycle currently uses the single default candidate profile.
+- Follow-up rules are deterministic code configuration and generation uses a single transactional tasklet suitable for personal scale.
 - No market-insight job yet.
 - No Thymeleaf dashboard yet.
 - The application itself is not yet included in Compose.
 
 ## 12. Next-session starting point
 
-Exact and fuzzy duplicate detection are complete. The next milestone must be explicitly selected; lifecycle, follow-up actions, market insights, dashboard work, and application Dockerization remain deferred.
+Application lifecycle and follow-up generation are complete. The next milestone is weekly market insights; dashboard work and application Dockerization remain deferred.
 
 Before implementation:
 

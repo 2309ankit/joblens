@@ -1,6 +1,6 @@
 # JobLens
 
-JobLens is a modular Spring Boot application for personal job-market intelligence. It imports search profiles, discovers public Adzuna postings, stores raw JSON, normalizes jobs, detects exact and fuzzy duplicate candidates, extracts skills, and calculates explainable candidate scores.
+JobLens is a modular Spring Boot application for personal job-market intelligence. It imports search profiles, discovers public Adzuna postings, stores raw JSON, normalizes and scores jobs, detects duplicates, and tracks applications with generated follow-ups.
 
 ## Architecture
 
@@ -17,6 +17,9 @@ CSV → searchProfileImportJob → search_profile
                     ├─ exactDuplicateDetectionStep → duplicate_cluster/membership/evidence
                     ├─ fuzzyDuplicateDetectionStep → job_similarity
                     └─ scoringStep            → job_score/job_score_reason
+
+                    applicationFollowUpJob
+                    └─ applicationFollowUpGenerationStep → application_follow_up
 ```
 
 Packages:
@@ -26,9 +29,10 @@ batchapi       REST launch, history, and job-read endpoints
 searchprofile  CSV reader, validation, rejection, and upsert
 discovery      JobSourceClient, Adzuna client, pagination, raw landing
 intelligence   normalization, skills, duplicate detection, candidate profile, and scoring
+lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental: V1 Batch metadata, V2 profile import, V3 discovery/raw landing, V4 normalized jobs, V5 skills/candidate/scoring, V6 exact duplicate clusters, and V7 fuzzy similarities.
+Flyway migrations are incremental: V1 Batch metadata, V2 profile import, V3 discovery/raw landing, V4 normalized jobs, V5 skills/candidate/scoring, V6 exact duplicate clusters, V7 fuzzy similarities, and V8 application lifecycle/follow-ups.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -183,6 +187,48 @@ docker compose exec -T postgres psql -U joblens -d joblens \
 
 The duplicate subsystem keeps complex/reused statements under `src/main/resources/sql/` and calls them through small repositories backed by `NamedParameterJdbcTemplate`. This preserves SQL as SQL while retaining Spring JDBC and explicit transaction boundaries.
 
+## 6. Track applications and generate follow-ups
+
+Create one application for the default candidate and a normalized job:
+
+```bash
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"normalizedJobId":1,"effectiveDate":"2026-08-20","note":"Saved for review"}' \
+  http://localhost:8080/api/applications
+```
+
+Lifecycle transitions are audited and forward-only:
+
+```text
+SAVED → APPLIED → SCREENING → INTERVIEW → OFFER → ACCEPTED
+          └────────── each active stage may exit to REJECTED or WITHDRAWN
+```
+
+```bash
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"status":"APPLIED","effectiveDate":"2026-08-21","note":"Applied online"}' \
+  http://localhost:8080/api/applications/1/transitions
+
+curl -X POST \
+  'http://localhost:8080/api/batch/follow-ups/run?businessDate=2026-08-29'
+```
+
+`follow-up-v1` generates `APPLICATION_CHECK_IN` after 7 days, `RECRUITER_CHECK_IN` after 5, `INTERVIEW_THANK_YOU` after 1, and `OFFER_DECISION` after 3. A new transition cancels obsolete open follow-ups; completed rows remain historical. Reruns preserve unchanged rows and timestamps.
+
+```bash
+curl http://localhost:8080/api/applications
+curl http://localhost:8080/api/applications/1
+curl 'http://localhost:8080/api/follow-ups?status=OPEN&dueOnOrBefore=2026-08-29'
+curl -X POST 'http://localhost:8080/api/follow-ups/1/complete?completedOn=2026-08-29'
+```
+
+```bash
+docker compose exec -T postgres psql -U joblens -d joblens \
+  -c "select id,normalized_job_id,status,status_effective_date,applied_on from job_application order by id;" \
+  -c "select application_id,from_status,to_status,effective_date,note from application_status_history order by id;" \
+  -c "select application_id,follow_up_type,due_date,status,completed_on from application_follow_up order by id;"
+```
+
 ## View results
 
 ```bash
@@ -190,6 +236,8 @@ curl http://localhost:8080/api/jobs
 curl http://localhost:8080/api/jobs/1
 curl http://localhost:8080/api/duplicates
 curl http://localhost:8080/api/duplicates/similarities
+curl http://localhost:8080/api/applications
+curl http://localhost:8080/api/follow-ups
 curl http://localhost:8080/api/batch/executions
 ```
 
@@ -229,6 +277,6 @@ If PostgreSQL authentication fails, ensure Compose and the app use the same `JOB
 
 ## Remaining milestones
 
-Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skill aliases, candidate profile, scoring, restartability, and REST APIs.
+Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skills, candidate scoring, duplicate detection, application lifecycle, follow-up generation, restartability, and REST APIs.
 
-Remaining: application lifecycle, follow-up actions, weekly market insights, Thymeleaf dashboard, and Dockerizing the JobLens application image.
+Remaining: weekly market insights, Thymeleaf dashboard, Dockerizing the JobLens application image, and completing the interview/demo runbook.

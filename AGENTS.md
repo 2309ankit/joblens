@@ -72,10 +72,11 @@ The repository currently has these verified working slices:
 * `jobIntelligenceJob` with normalization, HTML cleaning, normalized content hashing, database-driven skill aliases, candidate profile configuration, deterministic scoring, score explanations, and idempotent derived writes
 * exact duplicate clustering with deterministic canonical membership and persisted source/external-ID or normalized-content-hash evidence
 * deterministic fuzzy duplicate suggestions with explainable dimension scores, threshold decisions, idempotent reconciliation, and restartability
+* audited application lifecycle transitions and restartable, idempotent follow-up generation
 * REST launch/history APIs and `GET /api/jobs` plus `GET /api/jobs/{id}`
 * JobOperator-based Batch 6 launch/restart infrastructure and JobRepository history lookup
 
-Exact and fuzzy duplicate detection are complete. Do not start lifecycle, follow-up actions, market insights, dashboard work, or application Dockerization unless explicitly requested.
+Application lifecycle and follow-up generation are complete. Do not start market insights, dashboard work, or application Dockerization unless explicitly requested.
 
 Read `SESSION_HANDOFF.md` first for the indexed session handoff, `README.md` for the operator runbook, and `BUILD_PROGRESS.md` for detailed evidence and milestone history before beginning a new session.
 

@@ -74,7 +74,7 @@ The generated project currently contains:
 | 12 | Skill extraction works                           | COMPLETE    |
 | 13 | Duplicate detection works                        | COMPLETE    |
 | 14 | Candidate scoring works                          | COMPLETE    |
-| 15 | Lifecycle and follow-up generation work          | NOT STARTED |
+| 15 | Lifecycle and follow-up generation work          | COMPLETE    |
 | 16 | Weekly market insight works                      | NOT STARTED |
 | 17 | Dashboard works                                  | NOT STARTED |
 | 18 | Integration tests pass                           | COMPLETE    |
@@ -222,11 +222,27 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-Deterministic exact and explainable fuzzy duplicate detection are complete and verified against PostgreSQL. The implementation stops before lifecycle, follow-up, market-insight, dashboard, and microservice work.
+Audited application lifecycle and deterministic follow-up generation are complete and verified against PostgreSQL. The implementation stops before market-insight, dashboard, application-image, and microservice work.
 
 ## Next Observable Milestone
 
-The next milestone must be explicitly selected. Lifecycle, follow-up actions, dashboard, and market insights remain deferred.
+The next observable milestone is weekly market insights. Dashboard and application Dockerization remain deferred.
+
+## Application Lifecycle and Follow-up Generation Milestone
+
+Flyway migration `V8__create_application_lifecycle.sql` adds `job_application`, immutable `application_status_history`, and `application_follow_up`. PostgreSQL constraints enforce one application per candidate/job, supported lifecycle and follow-up states, ordered completion fields, and one generated follow-up per application/status-history/type/version identity.
+
+Allowed transitions are explicit and forward-only: `SAVED → APPLIED → SCREENING → INTERVIEW → OFFER → ACCEPTED`, with supported active stages able to exit to `REJECTED` or `WITHDRAWN`. Terminal states cannot transition. Each successful command locks the application row, validates the effective date, updates the current projection, and appends an immutable history event in one transaction.
+
+`applicationFollowUpJob` contains `applicationFollowUpGenerationStep`. Its identifying parameters are `businessDate` and `followUpVersion=follow-up-v1`; `failAfterApplications` is a non-identifying controlled-failure parameter. The tasklet locks eligible application rows and deterministically generates application check-in (+7 days), recruiter check-in (+5), interview thank-you (+1), or offer-decision (+3) actions. A later transition cancels obsolete open actions, while completed actions remain historical. PostgreSQL upsert preserves unchanged timestamps.
+
+REST commands and inspection are available at `POST/GET /api/applications`, `POST /api/applications/{id}/transitions`, `GET /api/follow-ups`, `POST /api/follow-ups/{id}/complete`, and `POST /api/batch/follow-ups/run`. Complex lifecycle SQL is externalized under `src/main/resources/sql/lifecycle*` and uses `NamedParameterJdbcTemplate`. The shared SQL resource loader moved from the intelligence package into neutral `com.ankit.joblens.jdbc` support.
+
+Three policy unit tests and three PostgreSQL Testcontainers integration tests verify allowed/forbidden transitions, deterministic action mapping, immutable history, applied dates, duplicate protection, stale-action cancellation, completion, no-op timestamp idempotency, transactional failure rollback, and `JobOperator.restart` creating a new execution for the same JobInstance. Full result: `./mvnw clean test` completed with `BUILD SUCCESS`; 52 tests, 0 failures, 0 errors, 0 skipped.
+
+Manual verification applied Flyway V8, created application 1 for `MANUAL-FUZZY-1`, and transitioned it from `SAVED` to `APPLIED` effective 2026-08-21. JobExecution 13 / JobInstance 12 completed with read/write 1/1, one commit, and zero rollbacks; REST and SQL showed `APPLICATION_CHECK_IN`, due 2026-08-28. JobExecution 14 / JobInstance 13 reran unchanged state with one row and identical creation/update timestamps.
+
+Known limitation: follow-up rules are deterministic code configuration and the tasklet deliberately reconciles the personal-scale application set in one transaction. If volume grows, the same policy can move behind database-configured rules and chunked partitioning based on measured need.
 
 ## Explainable Fuzzy Duplicate Similarity Milestone
 

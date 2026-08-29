@@ -1,4 +1,4 @@
-package com.ankit.joblens.intelligence;
+package com.ankit.joblens.jdbc;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
