@@ -25,6 +25,12 @@ public class JobQueryController {
         var result=new LinkedHashMap<>(rows.getFirst());
         result.put("skills",jdbc.queryForList("SELECT s.canonical_name FROM job_skill js JOIN skill s ON s.id=js.skill_id WHERE js.normalized_job_id=? ORDER BY s.canonical_name",String.class,id));
         result.put("scoreReasons",jdbc.queryForList("SELECT category,points,reason_text FROM job_score_reason r JOIN job_score s ON s.id=r.job_score_id WHERE s.normalized_job_id=? ORDER BY r.id",id));
+        result.put("duplicateCluster", jdbc.query("""
+                SELECT c.id, c.cluster_key, c.canonical_job_id, c.member_count, m.is_canonical
+                FROM duplicate_cluster_member m
+                JOIN duplicate_cluster c ON c.id = m.cluster_id
+                WHERE m.normalized_job_id = ?
+                """, (rs, rowNum) -> row(rs), id).stream().findFirst().orElse(null));
         return result;
     }
     private static Map<String,Object> row(java.sql.ResultSet rs) throws java.sql.SQLException { var m=new LinkedHashMap<String,Object>(); var md=rs.getMetaData(); for(int i=1;i<=md.getColumnCount();i++)m.put(md.getColumnLabel(i),rs.getObject(i)); return m; }

@@ -33,7 +33,9 @@ public class JobIntelligenceController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public JobLaunchResponse run(
             @RequestParam LocalDate businessDate,
-            @RequestParam(required = false) Long failAfterItems) throws JobExecutionException {
+            @RequestParam(required = false) Long failAfterItems,
+            @RequestParam(required = false, defaultValue = "false") boolean failDuplicateDetection)
+            throws JobExecutionException {
         if (failAfterItems != null && failAfterItems < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "failAfterItems must be positive");
         }
@@ -42,6 +44,9 @@ public class JobIntelligenceController {
                 .addString("normalizationVersion", "v1", true);
         if (failAfterItems != null) {
             parameters.addLong("failAfterItems", failAfterItems, false);
+        }
+        if (failDuplicateDetection) {
+            parameters.addLong("failDuplicateDetection", 1L, false);
         }
         JobExecution execution = jobOperator.start(jobIntelligenceJob, parameters.toJobParameters());
         return BatchResponses.from(execution);

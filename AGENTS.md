@@ -33,7 +33,7 @@ This is a guided incremental build. Do not attempt to implement the entire archi
 * Spring Boot Actuator
 * JUnit
 * Git
-* Docker / Docker Compose planned for local PostgreSQL
+* Docker / Docker Compose for local PostgreSQL and Testcontainers
 
 The original design requested Spring Boot 3.x.
 
@@ -62,6 +62,22 @@ After changes:
 
 Do not claim something works unless verified through command output, tests, database queries, HTTP responses, or another observable result.
 
+## Current Verified Repository State
+
+The repository currently has these verified working slices:
+
+* PostgreSQL 17 through Docker Compose, Flyway, and Spring Batch 6 metadata
+* `searchProfileImportJob` with CSV validation, rejection persistence, PostgreSQL upsert, and restartability
+* sequential `jobDiscoveryJob` with the Adzuna client, pagination, bounded retries, raw JSONB landing, payload hashing, and checkpoint restart
+* `jobIntelligenceJob` with normalization, HTML cleaning, normalized content hashing, database-driven skill aliases, candidate profile configuration, deterministic scoring, score explanations, and idempotent derived writes
+* exact duplicate clustering with deterministic canonical membership and persisted source/external-ID or normalized-content-hash evidence
+* REST launch/history APIs and `GET /api/jobs` plus `GET /api/jobs/{id}`
+* JobOperator-based Batch 6 launch/restart infrastructure and JobRepository history lookup
+
+Exact duplicate detection is complete. Do not start fuzzy similarity, lifecycle, follow-up actions, market insights, dashboard work, or application Dockerization unless explicitly requested.
+
+Read `SESSION_HANDOFF.md` first for the indexed session handoff, `README.md` for the operator runbook, and `BUILD_PROGRESS.md` for detailed evidence and milestone history before beginning a new session.
+
 ## Build Commands
 
 Prefer Maven Wrapper:
@@ -73,6 +89,8 @@ git diff --check
 ```
 
 Do not depend on globally installed Maven when the wrapper is available.
+
+PostgreSQL/Testcontainers tests require Docker Desktop to be running. For local application startup, `docker compose up -d` followed by `./mvnw spring-boot:run` is sufficient; the application has safe local database defaults matching `.env.example`, while real credentials must still be supplied through environment variables.
 
 ## Architecture Rules
 
@@ -240,11 +258,3 @@ Stop at meaningful checkpoints.
 Read it before significant changes.
 
 Update it after verified progress.
-
-After creating `AGENTS.md`:
-
-1. Show the file path.
-2. Confirm no other files were changed.
-3. Run `git status --short`.
-4. Do not create `BUILD_PROGRESS.md` yet.
-5. Stop.

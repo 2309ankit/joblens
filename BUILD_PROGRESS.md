@@ -72,7 +72,7 @@ The generated project currently contains:
 | 10 | API pagination and restart work                  | COMPLETE    |
 | 11 | Normalization works                              | COMPLETE    |
 | 12 | Skill extraction works                           | COMPLETE    |
-| 13 | Duplicate detection works                        | NOT STARTED |
+| 13 | Duplicate detection works                        | COMPLETE    |
 | 14 | Candidate scoring works                          | COMPLETE    |
 | 15 | Lifecycle and follow-up generation work          | NOT STARTED |
 | 16 | Weekly market insight works                      | NOT STARTED |
@@ -222,11 +222,48 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-The first raw-to-normalized `jobIntelligenceJob` slice is complete and verified against PostgreSQL. It intentionally stops before skill extraction, duplicate analysis, scoring, and lifecycle work.
+Deterministic exact duplicate detection is complete and verified against PostgreSQL. It stops before fuzzy similarity, lifecycle, follow-up, market-insight, and dashboard work.
 
 ## Next Observable Milestone
 
-Next: deterministic exact duplicate detection using source/external ID and normalized content hashes. Fuzzy similarity, lifecycle, dashboard, and market insights remain deferred.
+The next milestone must be explicitly selected. Fuzzy similarity, lifecycle, dashboard, and market insights remain deferred.
+
+## Exact Duplicate Detection Milestone
+
+Flyway migration `V6__create_exact_duplicate_detection.sql` adds `duplicate_cluster`, `duplicate_cluster_member`, and `duplicate_match_evidence`. Constraints enforce at least two members per persisted cluster, one canonical member, one cluster per normalized job, ordered evidence pairs, and the two allowed deterministic evidence types: `SOURCE_EXTERNAL_ID` and `NORMALIZED_CONTENT_HASH`.
+
+`jobIntelligenceJob` now runs `exactDuplicateDetectionStep` after skill extraction and before scoring. The transactional tasklet loads normalized identities, computes connected components across exact source/external-ID and normalized-content-hash keys, chooses the lowest normalized-job ID as the stable canonical member, and reconciles clusters, memberships, and pair evidence. Obsolete clusters and evidence are removed when content changes. No-op reruns preserve creation, update, membership, and evidence timestamps.
+
+The landing table already enforces unique `(source, external_job_id)`, so repeated provider sightings remain one raw/normalized identity rather than creating artificial duplicate rows. The exact detector still models that key as an edge and persists `SOURCE_EXTERNAL_ID` evidence if multiple normalized identities can contain it in a future schema. Under the current schema, distinct members normally carry `NORMALIZED_CONTENT_HASH` evidence.
+
+REST inspection is available through `GET /api/duplicates`, `GET /api/duplicates/{id}`, and the `duplicateCluster` field on `GET /api/jobs/{id}`. Detail responses contain canonical/member fields and exact pair evidence. Fuzzy scores or implied employer relationships are not produced.
+
+PostgreSQL Testcontainers verification expanded `JobIntelligenceIntegrationTests` from 7 to 10 tests. The three new scenarios verify exact hash grouping, one canonical member, persisted evidence, REST reads, exclusion of unique rows, no-op timestamp idempotency, changed-content cluster cleanup, transactional failure rollback, and `JobOperator` restart using the same JobInstance while completed normalization/skill steps are not replayed. Targeted result: 10 tests, 0 failures, 0 errors, 0 skipped.
+
+Manual local verification applied Flyway version 6 and ran JobExecution 9 / JobInstance 8 to `COMPLETED`. Two controlled raw postings normalized to hash `ec0dc8cc0d271b255c5dcce9c7d27234a8ef152178f7ff36d065d90987b1729f`; SQL showed cluster `exact:v1:3`, canonical job 3, two memberships, and one `NORMALIZED_CONTENT_HASH` evidence row. Batch metadata showed duplicate-step read/write 3/2, one commit, and zero rollbacks. `GET /api/duplicates` and `GET /api/duplicates/1` returned the same cluster, members, and evidence. A no-change JobExecution 10 completed with one cluster/two memberships and unchanged cluster/evidence timestamps. SQL also found zero duplicate `(source, external_job_id)` groups.
+
+Final verification command:
+
+```bash
+./mvnw clean test
+```
+
+Observed result: `BUILD SUCCESS`; 39 tests, 0 failures, 0 errors, 0 skipped. `git diff --check` also completed with no output.
+
+Files introduced for this milestone:
+
+* `V6__create_exact_duplicate_detection.sql`
+* `ExactDuplicateDetectionTasklet`
+* `InjectedDuplicateDetectionFailureException`
+* `DuplicateQueryController`
+
+Files extended for this milestone:
+
+* `JobIntelligenceConfiguration`
+* `JobIntelligenceController`
+* `JobQueryController`
+* `JobIntelligenceIntegrationTests`
+* `AGENTS.md`, `README.md`, `SESSION_HANDOFF.md`, and `BUILD_PROGRESS.md`
 
 ## Skills, Candidate Profile, and Scoring Milestone
 

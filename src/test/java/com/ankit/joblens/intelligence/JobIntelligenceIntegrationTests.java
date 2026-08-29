@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.HexFormat;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.ankit.joblens.batchapi.DuplicateQueryController;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
@@ -53,6 +54,9 @@ class JobIntelligenceIntegrationTests {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private DuplicateQueryController duplicateQueryController;
 
     private long sourceFetchRunId;
     private long discoveryExecutionId;
@@ -272,13 +276,110 @@ class JobIntelligenceIntegrationTests {
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM job_score WHERE normalized_job_id=?", Integer.class, normalizedId)).isEqualTo(1);
     }
 
+    @Test
+    void clustersExactNormalizedContentDuplicatesWithPersistedEvidenceAndRestInspection() throws Exception {
+        insertRaw("DUP1", validJob("DUP1", "Senior Java Engineer", "Same normalized content"));
+        insertRaw("DUP2", validJob("DUP2", "Senior Java Engineer", "Same normalized content"));
+        insertRaw("UNIQUE", validJob("UNIQUE", "Different role", "Different normalized content"));
+
+        JobExecution execution = launch(null);
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM duplicate_cluster", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT member_count FROM duplicate_cluster", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM duplicate_cluster_member", Integer.class))
+                .isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM duplicate_cluster_member WHERE is_canonical
+                """, Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForList("""
+                SELECT evidence_type FROM duplicate_match_evidence
+                """, String.class)).containsExactly("NORMALIZED_CONTENT_HASH");
+
+        var clusters = duplicateQueryController.clusters();
+        assertThat(clusters).hasSize(1);
+        long clusterId = ((Number) clusters.getFirst().get("id")).longValue();
+        assertThat((java.util.List<?>) duplicateQueryController.cluster(clusterId).get("members")).hasSize(2);
+        assertThat((java.util.List<?>) duplicateQueryController.cluster(clusterId).get("evidence")).hasSize(1);
+    }
+
+    @Test
+    void exactDuplicateReconciliationIsIdempotentAndRemovesResolvedCluster() throws Exception {
+        long changedRawId = insertRaw("IDEM1", validJob("IDEM1", "Java Engineer", "Identical"));
+        insertRaw("IDEM2", validJob("IDEM2", "Java Engineer", "Identical"));
+        launch(null);
+        var timestamps = jdbcTemplate.queryForMap("""
+                SELECT c.created_at, c.updated_at, m.added_at, e.detected_at
+                FROM duplicate_cluster c
+                JOIN duplicate_cluster_member m ON m.cluster_id = c.id AND m.is_canonical
+                JOIN duplicate_match_evidence e ON e.cluster_id = c.id
+                """);
+
+        launch(null);
+
+        assertThat(jdbcTemplate.queryForMap("""
+                SELECT c.created_at, c.updated_at, m.added_at, e.detected_at
+                FROM duplicate_cluster c
+                JOIN duplicate_cluster_member m ON m.cluster_id = c.id AND m.is_canonical
+                JOIN duplicate_match_evidence e ON e.cluster_id = c.id
+                """)).isEqualTo(timestamps);
+        String changed = validJob("IDEM1", "Java Engineer", "Now materially different");
+        jdbcTemplate.update("""
+                UPDATE raw_job_posting
+                SET raw_payload_json = CAST(? AS jsonb), payload_hash = ?, processing_status = 'NEW',
+                    processing_reason = NULL, processed_at = NULL
+                WHERE id = ?
+                """, changed, sha256(changed), changedRawId);
+
+        launch(null);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM duplicate_cluster", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM duplicate_cluster_member", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM duplicate_match_evidence", Integer.class)).isZero();
+    }
+
+    @Test
+    void duplicateStepRollsBackAndRestartsSameJobInstance() throws Exception {
+        insertRaw("RESTART-DUP1", validJob("RESTART-DUP1", "Backend Engineer", "Exact duplicate"));
+        insertRaw("RESTART-DUP2", validJob("RESTART-DUP2", "Backend Engineer", "Exact duplicate"));
+
+        JobExecution failed = launch(null, true);
+
+        assertThat(failed.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM duplicate_cluster", Integer.class)).isZero();
+        assertThat(failed.getStepExecutions()).anySatisfy(step -> {
+            assertThat(step.getStepName()).isEqualTo("exactDuplicateDetectionStep");
+            assertThat(step.getStatus()).isEqualTo(BatchStatus.FAILED);
+            assertThat(step.getRollbackCount()).isGreaterThanOrEqualTo(1);
+        });
+
+        JobExecution restarted = jobOperator.restart(failed);
+
+        assertThat(restarted.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(restarted.getJobInstanceId()).isEqualTo(failed.getJobInstanceId());
+        assertThat(restarted.getId()).isNotEqualTo(failed.getId());
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM duplicate_cluster", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM duplicate_cluster_member", Integer.class))
+                .isEqualTo(2);
+        assertThat(restarted.getStepExecutions())
+                .extracting(step -> step.getStepName())
+                .doesNotContain("jobNormalizationStep", "skillExtractionStep");
+    }
+
     private JobExecution launch(Long failAfterItems) throws Exception {
+        return launch(failAfterItems, false);
+    }
+
+    private JobExecution launch(Long failAfterItems, boolean failDuplicateDetection) throws Exception {
         JobParametersBuilder parameters = new JobParametersBuilder()
                 .addLocalDate("businessDate", LocalDate.of(2050, 1, 1)
                         .plusDays(DATE_SEQUENCE.incrementAndGet()), true)
                 .addString("normalizationVersion", "v1", true);
         if (failAfterItems != null) {
             parameters.addLong("failAfterItems", failAfterItems, false);
+        }
+        if (failDuplicateDetection) {
+            parameters.addLong("failDuplicateDetection", 1L, false);
         }
         return jobOperator.start(intelligenceJob, parameters.toJobParameters());
     }

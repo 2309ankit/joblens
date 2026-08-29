@@ -81,6 +81,19 @@ public class JobIntelligenceConfiguration {
     }
 
     @Bean
+    @StepScope
+    ExactDuplicateDetectionTasklet exactDuplicateDetectionTasklet(
+            JdbcTemplate jdbcTemplate,
+            JobRepository jobRepository,
+            @Value("#{jobParameters['failDuplicateDetection']}") Long failDuplicateDetection,
+            @Value("#{stepExecution}") StepExecution stepExecution) {
+        var jobExecution = stepExecution.getJobExecution();
+        boolean firstExecution = jobRepository.getJobExecutions(jobExecution.getJobInstance()).size() == 1;
+        return new ExactDuplicateDetectionTasklet(
+                jdbcTemplate, Long.valueOf(1L).equals(failDuplicateDetection) && firstExecution);
+    }
+
+    @Bean
     Step jobNormalizationStep(
             JobRepository jobRepository,
             PlatformTransactionManager transactionManager,
@@ -124,11 +137,22 @@ public class JobIntelligenceConfiguration {
     }
 
     @Bean
+    Step exactDuplicateDetectionStep(
+            JobRepository jobRepository,
+            PlatformTransactionManager transactionManager,
+            ExactDuplicateDetectionTasklet exactDuplicateDetectionTasklet) {
+        return new StepBuilder("exactDuplicateDetectionStep", jobRepository)
+                .tasklet(exactDuplicateDetectionTasklet, transactionManager)
+                .build();
+    }
+
+    @Bean
     Job jobIntelligenceJob(JobRepository jobRepository, Step jobNormalizationStep,
-            Step skillExtractionStep, Step scoringStep) {
+            Step skillExtractionStep, Step exactDuplicateDetectionStep, Step scoringStep) {
         return new JobBuilder("jobIntelligenceJob", jobRepository)
                 .start(jobNormalizationStep)
                 .next(skillExtractionStep)
+                .next(exactDuplicateDetectionStep)
                 .next(scoringStep)
                 .build();
     }
