@@ -242,6 +242,36 @@ class JobIntelligenceIntegrationTests {
         assertThat(firstId).isLessThan(secondId);
     }
 
+    @Test
+    void extractsSkillsAndPersistsExplainableScoreIdempotently() throws Exception {
+        long rawId = insertRaw("SCORE1", validJob("SCORE1", "Senior Java Engineer",
+                "Banking payments platform using SpringBoot, Kafka, K8s and Postgres"));
+
+        JobExecution execution = launch(null);
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        long normalizedId = jdbcTemplate.queryForObject(
+                "SELECT id FROM normalized_job WHERE raw_job_posting_id = ?", Long.class, rawId);
+        assertThat(jdbcTemplate.queryForList("""
+                SELECT s.canonical_name FROM job_skill js JOIN skill s ON s.id=js.skill_id
+                WHERE js.normalized_job_id=? ORDER BY s.canonical_name
+                """, String.class, normalizedId))
+                .contains("Java", "Spring Boot", "Kafka", "Kubernetes", "PostgreSQL");
+        var score = jdbcTemplate.queryForMap("""
+                SELECT total_score, technical_score, domain_score, seniority_score,
+                       location_score, employment_score, salary_score, freshness_score,
+                       (SELECT sum(points) FROM job_score_reason r WHERE r.job_score_id=j.id) AS reason_sum
+                FROM job_score j WHERE normalized_job_id=?
+                """, normalizedId);
+        assertThat(((Number) score.get("total_score")).intValue()).isBetween(0, 100);
+        assertThat(((Number) score.get("reason_sum")).intValue())
+                .isEqualTo(((Number) score.get("total_score")).intValue());
+
+        launch(null);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM job_skill WHERE normalized_job_id=?", Integer.class, normalizedId)).isEqualTo(5);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM job_score WHERE normalized_job_id=?", Integer.class, normalizedId)).isEqualTo(1);
+    }
+
     private JobExecution launch(Long failAfterItems) throws Exception {
         JobParametersBuilder parameters = new JobParametersBuilder()
                 .addLocalDate("businessDate", LocalDate.of(2050, 1, 1)

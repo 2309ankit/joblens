@@ -71,13 +71,13 @@ The generated project currently contains:
 | 9  | Raw postings stored idempotently                 | COMPLETE    |
 | 10 | API pagination and restart work                  | COMPLETE    |
 | 11 | Normalization works                              | COMPLETE    |
-| 12 | Skill extraction works                           | NOT STARTED |
+| 12 | Skill extraction works                           | COMPLETE    |
 | 13 | Duplicate detection works                        | NOT STARTED |
-| 14 | Candidate scoring works                          | NOT STARTED |
+| 14 | Candidate scoring works                          | COMPLETE    |
 | 15 | Lifecycle and follow-up generation work          | NOT STARTED |
 | 16 | Weekly market insight works                      | NOT STARTED |
 | 17 | Dashboard works                                  | NOT STARTED |
-| 18 | Integration tests pass                           | NOT STARTED |
+| 18 | Integration tests pass                           | COMPLETE    |
 | 19 | Dockerized application works                     | NOT STARTED |
 | 20 | README and interview demonstration complete      | NOT STARTED |
 
@@ -226,7 +226,42 @@ The first raw-to-normalized `jobIntelligenceJob` slice is complete and verified 
 
 ## Next Observable Milestone
 
-Add deterministic database-driven skill extraction and aliases as the next isolated milestone. Do not add scoring or lifecycle work before skill extraction is verified.
+Next: deterministic exact duplicate detection using source/external ID and normalized content hashes. Fuzzy similarity, lifecycle, dashboard, and market insights remain deferred.
+
+## Skills, Candidate Profile, and Scoring Milestone
+
+Flyway migration `V5__create_skills_candidate_scoring.sql` adds the canonical `skill` catalog, database-backed `skill_alias`, `job_skill`, seeded `candidate_profile`/`candidate_skill`/`candidate_preference`, and explainable `job_score`/`job_score_reason` tables. `normalized_job` now records skill and score content hashes for derived-data freshness.
+
+`jobIntelligenceJob` now runs three chunk-oriented steps: `jobNormalizationStep`, `skillExtractionStep`, and `scoringStep`. The extraction reader selects normalized rows whose `skill_extraction_hash` differs from `normalized_content_hash`; scoring recalculates the current default candidate score and upserts one score per job/profile. Derived writes delete/reinsert job skills and score reasons inside their chunk transactions, so reruns are idempotent and changed normalized content refreshes derived data.
+
+The extractor loads canonical names and aliases from PostgreSQL and applies case-insensitive, token-boundary-aware matching over title and cleaned description. Duplicate mentions resolve to one `job_skill` row with a mention count. The seeded catalog contains 30 canonical skills and 9 aliases, including SpringBoot, spring-boot, K8s, AWS, WebSphere MQ, J2EE, and Postgres mappings.
+
+The default candidate profile is a configurable senior Java/backend engineer targeting Singapore and senior/backend/payments/integration roles. Twenty candidate skills are seeded; Java 21 is marked `LEARNING`. Preferences store the seven category weights (40/15/10/10/10/10/5), employment/work arrangement priorities, salary-missing treatment, and freshness bands.
+
+Scoring is deterministic and bounded to 0..100. It combines candidate-skill overlap, explicit domain terms, seniority terms, Singapore/remote preference, employment type, salary availability, and posted-date freshness. One reason row is emitted per scored category and a database check constraint enforces category totals equal `job_score.total_score`; integration tests also assert the reason sum invariant.
+
+Read APIs are available at `GET /api/jobs` and `GET /api/jobs/{id}`, returning normalized fields, extracted canonical skills, score categories, and score reasons. The intelligence launch remains `POST /api/batch/intelligence/run?businessDate=...` and uses `JobOperator`.
+
+Verified commands:
+
+```bash
+./mvnw -q -DskipTests compile
+set -a; source .env; set +a; ./mvnw -q -Dtest=JobIntelligenceIntegrationTests test
+set -a; source .env; set +a; ./mvnw test
+docker compose ps
+curl -X POST 'http://localhost:8080/api/batch/intelligence/run?businessDate=2026-09-04'
+docker compose exec -T postgres psql -U joblens -d joblens ...
+```
+
+The targeted PostgreSQL intelligence suite passes 7 tests. The full suite passes 36 tests with 0 failures, 0 errors, and 0 skipped. Local PostgreSQL migration V5 applied successfully; the HTTP launch returned JobExecution 8 / JobInstance 7 with `COMPLETED`. SQL showed 30 skills, 9 aliases, one default candidate profile, 20 candidate skills, 12 preferences, five extracted canonical skills for the manual Example Bank posting, and one score of 54 whose reason sum was also 54. Batch metadata for execution 8 showed normalization read 0/write 0, skill extraction read/write 1/1, and scoring read/write 1/1, with one commit per derived step and zero rollbacks.
+
+The local API returned `GET /api/jobs/1` with score 54, technical 16, domain 0, seniority 10, location 8, employment 10, salary 5, freshness 5, and reasons reconciling exactly to 54. Skills were Java, Kafka, Spring, Spring Boot. Domain scoring correctly remained zero because the controlled description contained no explicit configured domain term.
+
+Limitations for this checkpoint: scoring currently recalculates all normalized jobs each run (the score hash is persisted for observability); only one candidate profile is seeded; remote type is never inferred; fuzzy duplicates, lifecycle, dashboard, and market insights remain future milestones.
+
+## Local Startup Configuration Fix
+
+Observed a direct `./mvnw spring-boot:run` failure when the shell had not sourced `.env`: PostgreSQL requested SCRAM authentication but `spring.datasource.password` defaulted to empty. The existing Compose contract uses the safe local development password `joblens-local`, so the application default and `.env.example` are now aligned to that value while retaining `JOBLENS_DB_PASSWORD` overrides. Verified with environment variables explicitly unset: application startup completed, Flyway validated schema version 5, and `GET /actuator/health` returned `{"groups":["liveness","readiness"],"status":"UP"}`.
 
 ## Search Profile Import Milestone
 

@@ -47,6 +47,40 @@ public class JobIntelligenceConfiguration {
     }
 
     @Bean
+    @StepScope
+    NormalizedJobViewReader skillExtractionReader(JdbcTemplate jdbcTemplate) {
+        return new NormalizedJobViewReader(jdbcTemplate, true);
+    }
+
+    @Bean
+    @StepScope
+    SkillExtractionProcessor skillExtractionProcessor(SkillExtractor extractor) {
+        return new SkillExtractionProcessor(extractor);
+    }
+
+    @Bean
+    SkillExtractionWriter skillExtractionWriter(JdbcTemplate jdbcTemplate) {
+        return new SkillExtractionWriter(jdbcTemplate);
+    }
+
+    @Bean
+    @StepScope
+    NormalizedJobViewReader scoringReader(JdbcTemplate jdbcTemplate) {
+        return new NormalizedJobViewReader(jdbcTemplate, false);
+    }
+
+    @Bean
+    @StepScope
+    ScoringProcessor scoringProcessor(JobScoreCalculator calculator) {
+        return new ScoringProcessor(calculator);
+    }
+
+    @Bean
+    ScoringWriter scoringWriter(JdbcTemplate jdbcTemplate) {
+        return new ScoringWriter(jdbcTemplate);
+    }
+
+    @Bean
     Step jobNormalizationStep(
             JobRepository jobRepository,
             PlatformTransactionManager transactionManager,
@@ -72,9 +106,30 @@ public class JobIntelligenceConfiguration {
     }
 
     @Bean
-    Job jobIntelligenceJob(JobRepository jobRepository, Step jobNormalizationStep) {
+    Step skillExtractionStep(JobRepository jobRepository, PlatformTransactionManager transactionManager,
+            NormalizedJobViewReader skillExtractionReader, SkillExtractionProcessor skillExtractionProcessor,
+            SkillExtractionWriter skillExtractionWriter, @Value("${joblens.intelligence.chunk-size:20}") int chunkSize) {
+        return new StepBuilder("skillExtractionStep", jobRepository)
+                .<NormalizedJobView, ExtractedJobSkills>chunk(chunkSize).transactionManager(transactionManager)
+                .reader(skillExtractionReader).processor(skillExtractionProcessor).writer(skillExtractionWriter).build();
+    }
+
+    @Bean
+    Step scoringStep(JobRepository jobRepository, PlatformTransactionManager transactionManager,
+            NormalizedJobViewReader scoringReader, ScoringProcessor scoringProcessor,
+            ScoringWriter scoringWriter, @Value("${joblens.intelligence.chunk-size:20}") int chunkSize) {
+        return new StepBuilder("scoringStep", jobRepository)
+                .<NormalizedJobView, JobScore>chunk(chunkSize).transactionManager(transactionManager)
+                .reader(scoringReader).processor(scoringProcessor).writer(scoringWriter).build();
+    }
+
+    @Bean
+    Job jobIntelligenceJob(JobRepository jobRepository, Step jobNormalizationStep,
+            Step skillExtractionStep, Step scoringStep) {
         return new JobBuilder("jobIntelligenceJob", jobRepository)
                 .start(jobNormalizationStep)
+                .next(skillExtractionStep)
+                .next(scoringStep)
                 .build();
     }
 }
