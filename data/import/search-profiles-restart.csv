@@ -1,0 +1,7 @@
+profile_id,source,source_key,keywords,location,include_skills,exclude_skills,employment_type,active
+SR001,ADZUNA,sg,"restart profile one",Singapore,"java|spring boot","",any,true
+SR002,ADZUNA,sg,"restart profile two",Singapore,"java|kafka","",permanent,true
+SR003,ADZUNA,sg,"restart profile three",Singapore,"java|postgresql","",any,true
+SR004,ADZUNA,sg,"restart profile four",Singapore,"java|kubernetes","",permanent,true
+SR005,ADZUNA,sg,"restart profile five",Singapore,"java|aws","",any,true
+SR006,ADZUNA,sg,"restart profile six",Singapore,"java|messaging","",permanent,true

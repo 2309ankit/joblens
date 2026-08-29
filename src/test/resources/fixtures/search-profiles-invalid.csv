@@ -1,0 +1,7 @@
+profile_id,source,source_key,keywords,location,include_skills,exclude_skills,employment_type,active
+SP101,ADZUNA,sg,"valid profile","Singapore"," java | spring boot | kafka ","",permanent,true
+,ADZUNA,sg,"missing id","Singapore","java","",any,true
+SP103,UNKNOWN,sg,"bad source","Singapore","java","",any,true
+SP104,ADZUNA,sg,"","Singapore","java","",any,true
+SP105,ADZUNA,sg,"bad employment","Singapore","java","",freelance,true
+SP106,ADZUNA,sg,"bad active","Singapore","java","",any,perhaps

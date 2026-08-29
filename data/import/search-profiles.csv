@@ -1,0 +1,5 @@
+profile_id,source,source_key,keywords,location,include_skills,exclude_skills,employment_type,active
+SP001,ADZUNA,sg,"senior java developer","Singapore","java|spring boot|kafka|aws","php|wordpress","permanent",true
+SP002,ADZUNA,sg,"payments software engineer","Singapore","payments|java|microservices","frontend-only","any",true
+SP003,ADZUNA,sg,"backend engineer","Singapore","java|kubernetes|banking","","any",true
+SP004,ADZUNA,sg,"platform engineer","Singapore","java|cloud|messaging","","permanent",true
