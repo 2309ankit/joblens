@@ -1,6 +1,7 @@
 package com.ankit.joblens.onboarding;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ankit.joblens.workspace.WorkspaceRepository;
 import java.util.List;
@@ -47,8 +48,10 @@ class WorkspaceOnboardingIntegrationTests {
     assertThat(firstCandidate).isNotEqualTo(secondCandidate);
     assertThat(
             jdbc.queryForObject(
-                "SELECT count(*) FROM workspace_profile_version WHERE status='ACTIVE'",
-                Integer.class))
+                "SELECT count(*) FROM workspace_profile_version WHERE status='ACTIVE' AND workspace_id IN (?, ?)",
+                Integer.class,
+                first,
+                second))
         .isEqualTo(2);
     assertThat(
             jdbc.queryForObject(
@@ -64,8 +67,10 @@ class WorkspaceOnboardingIntegrationTests {
         .isEqualTo(1);
     assertThat(
             jdbc.queryForObject(
-                "SELECT count(*) FROM search_profile WHERE workspace_id IS NOT NULL AND active=true",
-                Integer.class))
+                "SELECT count(*) FROM search_profile WHERE workspace_id IN (?, ?) AND active=true",
+                Integer.class,
+                first,
+                second))
         .isEqualTo(2);
 
     onboardingService.savePreferences(
@@ -97,6 +102,48 @@ class WorkspaceOnboardingIntegrationTests {
                 Integer.class,
                 first))
         .isEqualTo(1);
+  }
+
+  @Test
+  void reviewsSkillsInANewDraftBeforeChangingTheActiveCandidate() {
+    UUID first = UUID.randomUUID();
+    UUID second = UUID.randomUUID();
+    long firstCandidate = createAndConfirm(first, "Java Developer", "banking", "Java");
+    long secondCandidate = createAndConfirm(second, "Platform Engineer", "technology", "AWS");
+
+    OnboardingProfile draft =
+        onboardingService.updateSkills(first, List.of("Spring Boot", "Kafka"));
+
+    assertThat(draft.status()).isEqualTo("DRAFT");
+    assertThat(draft.version()).isEqualTo(2);
+    assertThat(draft.skills()).containsExactly("Kafka", "Spring Boot");
+    assertThat(candidateSkills(firstCandidate)).containsExactly("Java");
+    assertThat(candidateSkills(secondCandidate)).containsExactly("AWS");
+
+    assertThatThrownBy(() -> onboardingService.updateSkills(first, List.of("Imaginary Skill")))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Choose skills from the supported catalog");
+    assertThat(onboardingService.latest(first).orElseThrow().skills())
+        .containsExactly("Kafka", "Spring Boot");
+
+    long confirmedCandidate = onboardingService.confirm(first);
+
+    assertThat(confirmedCandidate).isEqualTo(firstCandidate);
+    assertThat(candidateSkills(firstCandidate)).containsExactly("Kafka", "Spring Boot");
+    assertThat(candidateSkills(secondCandidate)).containsExactly("AWS");
+  }
+
+  private List<String> candidateSkills(long candidateProfileId) {
+    return jdbc.queryForList(
+        """
+        SELECT skill.canonical_name
+        FROM candidate_skill
+        JOIN skill ON skill.id = candidate_skill.skill_id
+        WHERE candidate_skill.candidate_profile_id = ?
+        ORDER BY skill.canonical_name
+        """,
+        String.class,
+        candidateProfileId);
   }
 
   private long createAndConfirm(UUID workspaceId, String role, String domain, String skill) {

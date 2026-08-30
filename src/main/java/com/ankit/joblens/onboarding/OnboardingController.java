@@ -32,6 +32,7 @@ public class OnboardingController {
     UUID workspaceId = workspaceContext.resolve(request, response);
     model.addAttribute("workspaceId", workspaceId);
     model.addAttribute("profile", onboardingService.latest(workspaceId).orElse(null));
+    model.addAttribute("skillCatalog", onboardingService.skillCatalog());
     if (!model.containsAttribute("preferences")) {
       model.addAttribute(
           "preferences",
@@ -53,6 +54,23 @@ public class OnboardingController {
                           "REMOTE,HYBRID,ONSITE")));
     }
     return "setup";
+  }
+
+  @PostMapping("/setup/skills")
+  public String skills(
+      @RequestParam(name = "skills", required = false) List<String> skills,
+      HttpServletRequest request,
+      HttpServletResponse response,
+      RedirectAttributes redirectAttributes) {
+    UUID workspaceId = workspaceContext.resolve(request, response);
+    try {
+      OnboardingProfile profile = onboardingService.updateSkills(workspaceId, skills);
+      redirectAttributes.addFlashAttribute(
+          "message", "Skills saved in profile draft " + profile.version() + ".");
+    } catch (RuntimeException exception) {
+      redirectAttributes.addFlashAttribute("error", exception.getMessage());
+    }
+    return "redirect:/setup";
   }
 
   @PostMapping("/setup/resume")

@@ -8,6 +8,7 @@
     body{font:16px system-ui;margin:2rem;background:#f6f7fb;color:#182230}main{max-width:850px;margin:auto}
     section{background:#fff;padding:1.2rem 1.5rem;margin:1rem 0;border-radius:10px;box-shadow:0 1px 5px #ccd}
     label{display:block;margin:.8rem 0 .25rem}input{width:100%;padding:.55rem;box-sizing:border-box}button{margin-top:1rem;padding:.6rem 1rem}
+    .skill-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.35rem}.skill-grid label{margin:0;padding:.35rem;background:#f6f7fb;border-radius:6px}
     .ok{color:#176b36}.error{color:#a51d2d}.skills{line-height:1.8}.muted{color:#667}
   </style>
 </head>
@@ -32,7 +33,22 @@
   </section>
 
   <section>
-    <h2>2. Tell us what you want</h2>
+    <h2>2. Review resume skills</h2>
+    <p>Keep the skills that describe you and add any supported skills the resume reader missed. Changes remain a draft until confirmation.</p>
+    <form th:if="${profile}" method="post" action="/setup/skills">
+      <div class="skill-grid">
+        <label th:each="skill : ${skillCatalog}">
+          <input style="width:auto" type="checkbox" name="skills" th:value="${skill}" th:checked="${#lists.contains(profile.skills, skill)}">
+          <span th:text="${skill}">Java</span>
+        </label>
+      </div>
+      <button type="submit">Save reviewed skills</button>
+    </form>
+    <p class="muted" th:unless="${profile}">Upload a resume to review its extracted skills.</p>
+  </section>
+
+  <section>
+    <h2>3. Tell us what you want</h2>
     <form method="post" action="/setup/preferences" th:object="${preferences}">
       <label>Target roles, comma separated</label><input th:field="*{targetRoles}" required>
       <label>Target domains, comma separated</label><input th:field="*{targetDomains}" required>
@@ -54,7 +70,7 @@
   </section>
 
   <section>
-    <h2>3. Confirm</h2>
+    <h2>4. Confirm</h2>
     <p>Confirmation activates this profile and its search definitions. Use Find jobs on the dashboard when you are ready.</p>
     <form method="post" action="/setup/confirm"><button type="submit">Confirm profile</button></form>
   </section>

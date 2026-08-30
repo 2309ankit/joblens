@@ -3,7 +3,10 @@ package com.ankit.joblens.onboarding;
 import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.tika.Tika;
@@ -69,6 +72,29 @@ public class OnboardingService {
     return repository.preferences(workspaceId);
   }
 
+  public List<String> skillCatalog() {
+    return repository.skillCatalog();
+  }
+
+  @Transactional
+  public OnboardingProfile updateSkills(UUID workspaceId, List<String> requestedSkills) {
+    OnboardingProfile profile =
+        repository
+            .latestProfile(workspaceId)
+            .orElseThrow(() -> new IllegalStateException("Upload a valid resume first"));
+    List<String> skills = canonicalSkills(requestedSkills);
+    if (skills.isEmpty()) {
+      throw new IllegalArgumentException("Select at least one skill");
+    }
+    if ("ACTIVE".equals(profile.status())) {
+      profile = repository.forkDraft(workspaceId, profile);
+    } else if (!"DRAFT".equals(profile.status())) {
+      throw new IllegalStateException("Upload a resume before changing this profile");
+    }
+    repository.replaceDraftSkills(workspaceId, profile.id(), skills);
+    return repository.latestProfile(workspaceId).orElseThrow();
+  }
+
   @Transactional
   public void savePreferences(UUID workspaceId, SearchPreferences preferences) {
     OnboardingProfile profile =
@@ -130,5 +156,33 @@ public class OnboardingService {
         .map(String::trim)
         .filter(board -> !board.isBlank())
         .toList();
+  }
+
+  private List<String> canonicalSkills(List<String> requestedSkills) {
+    if (requestedSkills == null) {
+      return List.of();
+    }
+    Map<String, String> catalog = new LinkedHashMap<>();
+    repository.skillCatalog().forEach(skill -> catalog.put(skill.toLowerCase(Locale.ROOT), skill));
+    List<String> normalized =
+        requestedSkills.stream()
+            .filter(java.util.Objects::nonNull)
+            .map(String::trim)
+            .filter(skill -> !skill.isBlank())
+            .map(skill -> catalog.get(skill.toLowerCase(Locale.ROOT)))
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+    long unknownCount =
+        requestedSkills.stream()
+            .filter(java.util.Objects::nonNull)
+            .map(String::trim)
+            .filter(skill -> !skill.isBlank())
+            .filter(skill -> !catalog.containsKey(skill.toLowerCase(Locale.ROOT)))
+            .count();
+    if (unknownCount > 0) {
+      throw new IllegalArgumentException("Choose skills from the supported catalog");
+    }
+    return normalized;
   }
 }

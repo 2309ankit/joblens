@@ -70,6 +70,16 @@ public class OnboardingRepository {
         load("sql/profile/catalog.sql"), Map.of(), (resultSet, row) -> resultSet.getString(1));
   }
 
+  public void replaceDraftSkills(UUID workspaceId, long profileVersionId, List<String> skills) {
+    var parameters =
+        new MapSqlParameterSource()
+            .addValue("workspaceId", workspaceId)
+            .addValue("profileVersionId", profileVersionId)
+            .addValue("skills", skills);
+    jdbc.update(load("sql/onboarding/delete-draft-skills.sql"), parameters);
+    jdbc.update(load("sql/onboarding/insert-draft-skills.sql"), parameters);
+  }
+
   public Optional<OnboardingProfile> latestProfile(UUID workspaceId) {
     var profiles =
         jdbc.query(
