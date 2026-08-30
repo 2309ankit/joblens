@@ -64,6 +64,24 @@ JOBLENS_DB_PASSWORD=joblens-local
 
 Environment variables override these values. Never commit real credentials; `.env` is ignored.
 
+## What each batch does
+
+`searchProfileImportJob` reads a CSV file containing search profiles. It validates each row, saves valid profiles, and saves rejected rows with a reason. `jobDiscoveryJob` reads saved profiles, calls Adzuna, and stores raw provider responses. `jobIntelligenceJob` cleans raw jobs, extracts skills, finds exact/fuzzy duplicates, and calculates candidate-fit scores. `applicationFollowUpJob` creates reminders for active applications. `weeklyMarketInsightJob` creates weekly counts and salary aggregates.
+
+Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
+
+## Search-profile CSV import
+
+Swagger endpoint: `POST /api/batch/search-profiles/import`.
+
+`inputFile` is the readable CSV path seen by the application. `businessDate` is the ISO date used to identify this logical run. `failOnRow` is optional and only for restart testing; value `3` intentionally fails on data row 3. A normal example is:
+
+```bash
+curl -X POST 'http://localhost:8080/api/batch/search-profiles/import?inputFile=/Users/ankitkumar/IdeaProjects/joblens/data/import/search-profiles.csv&businessDate=2026-08-30'
+```
+
+When the app runs in Docker, a Mac path is not visible inside the container unless it is mounted. For this job, either run the app with `./mvnw spring-boot:run`, or add a Compose volume mapping and use the container path. Resume upload works through multipart HTTP because the file is sent directly to the app.
+
 ```bash
 curl http://localhost:8080/actuator/health
 ```
