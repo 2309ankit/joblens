@@ -13,6 +13,7 @@ public record SearchPreferences(
     @NotBlank String searchLocation,
     @NotBlank String countryCode,
     List<String> enabledSources,
+    String greenhouseBoards,
     @Min(1) @Max(20) int maxPages,
     @NotBlank String employmentPreference,
     @NotBlank String workPreference) {}

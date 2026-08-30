@@ -1,90 +1,39 @@
 package com.ankit.joblens.discovery;
 
+import static com.ankit.joblens.jdbc.ClasspathSql.load;
+
 import com.ankit.joblens.searchprofile.SearchProfile;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.List;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
-import org.springframework.jdbc.core.JdbcTemplate;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DiscoveryPersistenceService {
+  private final NamedParameterJdbcTemplate jdbc;
 
-  private static final String RAW_UPSERT =
-      """
-            INSERT INTO raw_job_posting (
-                source, external_job_id, search_profile_id, source_fetch_run_id,
-                source_url, payload_hash, raw_payload_json, job_execution_id
-            ) VALUES (?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?)
-            ON CONFLICT (source, external_job_id) DO UPDATE SET
-                search_profile_id = EXCLUDED.search_profile_id,
-                source_fetch_run_id = EXCLUDED.source_fetch_run_id,
-                source_url = EXCLUDED.source_url,
-                last_seen_at = CURRENT_TIMESTAMP,
-                raw_payload_json = CASE
-                    WHEN raw_job_posting.payload_hash <> EXCLUDED.payload_hash
-                    THEN EXCLUDED.raw_payload_json
-                    ELSE raw_job_posting.raw_payload_json
-                END,
-                payload_hash = EXCLUDED.payload_hash,
-                job_execution_id = EXCLUDED.job_execution_id,
-                processing_status = CASE
-                    WHEN raw_job_posting.payload_hash <> EXCLUDED.payload_hash
-                    THEN 'NEW'
-                    ELSE raw_job_posting.processing_status
-                END,
-                processing_reason = CASE
-                    WHEN raw_job_posting.payload_hash <> EXCLUDED.payload_hash
-                    THEN NULL
-                    ELSE raw_job_posting.processing_reason
-                END,
-                processed_at = CASE
-                    WHEN raw_job_posting.payload_hash <> EXCLUDED.payload_hash
-                    THEN NULL
-                    ELSE raw_job_posting.processed_at
-                END,
-                updated_at = CASE
-                    WHEN raw_job_posting.payload_hash <> EXCLUDED.payload_hash
-                    THEN CURRENT_TIMESTAMP
-                    ELSE raw_job_posting.updated_at
-                END
-            """;
-
-  private final JdbcTemplate jdbcTemplate;
-
-  public DiscoveryPersistenceService(JdbcTemplate jdbcTemplate) {
-    this.jdbcTemplate = jdbcTemplate;
+  public DiscoveryPersistenceService(NamedParameterJdbcTemplate jdbc) {
+    this.jdbc = jdbc;
   }
 
   public SearchProfile findNextActiveProfile(
       String lastCompletedProfileId, String requestedProfileId) {
-    String baseSql =
-        """
-                SELECT profile_id, source, source_key, keywords, location, include_skills,
-                       exclude_skills, employment_type, active
-                FROM search_profile
-                WHERE active = true
-                  AND source = 'ADZUNA'
-                """;
-    String sql;
-    Object[] parameters;
-    if (requestedProfileId != null) {
-      sql = baseSql + " AND profile_id = ? ORDER BY profile_id LIMIT 1";
-      parameters = new Object[] {requestedProfileId};
-    } else if (lastCompletedProfileId != null) {
-      sql = baseSql + " AND profile_id > ? ORDER BY profile_id LIMIT 1";
-      parameters = new Object[] {lastCompletedProfileId};
-    } else {
-      sql = baseSql + " ORDER BY profile_id LIMIT 1";
-      parameters = new Object[0];
-    }
+    return findNextActiveProfile(lastCompletedProfileId, requestedProfileId, null);
+  }
 
+  public SearchProfile findNextActiveProfile(
+      String lastCompletedProfileId, String requestedProfileId, UUID workspaceId) {
     List<SearchProfile> profiles =
-        jdbcTemplate.query(
-            sql,
+        jdbc.query(
+            load("sql/discovery/find-next-profile.sql"),
+            new MapSqlParameterSource()
+                .addValue("lastCompletedProfileId", lastCompletedProfileId)
+                .addValue("requestedProfileId", requestedProfileId)
+                .addValue("workspaceId", workspaceId),
             (resultSet, rowNumber) ->
                 new SearchProfile(
                     resultSet.getString("profile_id"),
@@ -95,56 +44,49 @@ public class DiscoveryPersistenceService {
                     resultSet.getString("include_skills"),
                     resultSet.getString("exclude_skills"),
                     resultSet.getString("employment_type"),
-                    resultSet.getBoolean("active")),
-            parameters);
+                    resultSet.getBoolean("active"),
+                    resultSet.getObject("workspace_id", UUID.class),
+                    resultSet.getObject("search_definition_id", Long.class),
+                    resultSet.getObject("max_pages", Integer.class)));
     return profiles.isEmpty() ? null : profiles.getFirst();
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public FetchRunState startOrResumeFetchRun(
       SearchProfile profile, long jobInstanceId, long jobExecutionId) {
-    return jdbcTemplate.queryForObject(
-        """
-                INSERT INTO source_fetch_run (
-                    source, search_profile_id, status, job_instance_id, job_execution_id
-                ) VALUES (?, ?, 'RUNNING', ?, ?)
-                ON CONFLICT (job_instance_id, search_profile_id) DO UPDATE SET
-                    status = 'RUNNING',
-                    completed_at = NULL,
-                    failure_reason = NULL,
-                    job_execution_id = EXCLUDED.job_execution_id
-                RETURNING id, next_page, status
-                """,
+    return jdbc.queryForObject(
+        load("sql/discovery/start-fetch-run.sql"),
+        new MapSqlParameterSource()
+            .addValue("source", profile.source())
+            .addValue("profileId", profile.profileId())
+            .addValue("jobInstanceId", jobInstanceId)
+            .addValue("jobExecutionId", jobExecutionId),
         (resultSet, rowNumber) ->
             new FetchRunState(
                 resultSet.getLong("id"),
                 resultSet.getInt("next_page"),
-                resultSet.getString("status")),
-        profile.source(),
-        profile.profileId(),
-        jobInstanceId,
-        jobExecutionId);
+                resultSet.getString("status")));
   }
 
   public FetchRunState fetchRun(long fetchRunId) {
-    return jdbcTemplate.queryForObject(
-        "SELECT id, next_page, status FROM source_fetch_run WHERE id = ?",
+    return jdbc.queryForObject(
+        load("sql/discovery/find-fetch-run.sql"),
+        Map.of("fetchRunId", fetchRunId),
         (resultSet, rowNumber) ->
             new FetchRunState(
                 resultSet.getLong("id"),
                 resultSet.getInt("next_page"),
-                resultSet.getString("status")),
-        fetchRunId);
+                resultSet.getString("status")));
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void persistPage(
       long fetchRunId, SearchProfile profile, JobPage page, long jobExecutionId) {
     Integer expectedPage =
-        jdbcTemplate.queryForObject(
-            "SELECT next_page FROM source_fetch_run WHERE id = ? FOR UPDATE",
-            Integer.class,
-            fetchRunId);
+        jdbc.queryForObject(
+            load("sql/discovery/lock-fetch-run.sql"),
+            Map.of("fetchRunId", fetchRunId),
+            Integer.class);
     if (expectedPage == null) {
       throw new IllegalStateException("Fetch run does not exist: " + fetchRunId);
     }
@@ -161,59 +103,53 @@ public class DiscoveryPersistenceService {
               + page.page());
     }
 
-    List<RawSourceJob> jobs = page.jobs();
-    if (!jobs.isEmpty()) {
-      jdbcTemplate.batchUpdate(
-          RAW_UPSERT,
-          new BatchPreparedStatementSetter() {
-            @Override
-            public void setValues(PreparedStatement statement, int index) throws SQLException {
-              RawSourceJob job = jobs.get(index);
-              statement.setString(1, JobSource.ADZUNA.name());
-              statement.setString(2, job.externalJobId());
-              statement.setString(3, profile.profileId());
-              statement.setLong(4, fetchRunId);
-              statement.setString(5, job.sourceUrl());
-              statement.setString(6, job.payloadHash());
-              statement.setString(7, job.rawJson());
-              statement.setLong(8, jobExecutionId);
-            }
-
-            @Override
-            public int getBatchSize() {
-              return jobs.size();
-            }
-          });
+    if (!page.jobs().isEmpty()) {
+      var batch =
+          page.jobs().stream()
+              .map(
+                  job ->
+                      new MapSqlParameterSource()
+                          .addValue("source", profile.source())
+                          .addValue("externalJobId", job.externalJobId())
+                          .addValue("profileId", profile.profileId())
+                          .addValue("fetchRunId", fetchRunId)
+                          .addValue("sourceUrl", job.sourceUrl())
+                          .addValue("payloadHash", job.payloadHash())
+                          .addValue("rawJson", job.rawJson())
+                          .addValue("jobExecutionId", jobExecutionId))
+              .toArray(MapSqlParameterSource[]::new);
+      jdbc.batchUpdate(load("sql/discovery/upsert-raw-job.sql"), batch);
+      if (profile.workspaceId() != null && profile.searchDefinitionId() != null) {
+        jdbc.update(
+            load("sql/discovery/upsert-workspace-sightings.sql"),
+            new MapSqlParameterSource()
+                .addValue("workspaceId", profile.workspaceId())
+                .addValue("searchDefinitionId", profile.searchDefinitionId())
+                .addValue("source", profile.source())
+                .addValue(
+                    "externalJobIds",
+                    page.jobs().stream().map(RawSourceJob::externalJobId).toList()));
+      }
     }
 
-    jdbcTemplate.update(
-        """
-                UPDATE source_fetch_run
-                SET pages_fetched = pages_fetched + 1,
-                    records_received = records_received + ?,
-                    next_page = ?,
-                    status = 'RUNNING',
-                    failure_reason = NULL,
-                    job_execution_id = ?
-                WHERE id = ?
-                """,
-        jobs.size(),
-        page.page() + 1,
-        jobExecutionId,
-        fetchRunId);
+    jdbc.update(
+        load("sql/discovery/update-fetch-run-page.sql"),
+        Map.of(
+            "recordCount",
+            page.jobs().size(),
+            "nextPage",
+            page.page() + 1,
+            "jobExecutionId",
+            jobExecutionId,
+            "fetchRunId",
+            fetchRunId));
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void completeFetchRun(long fetchRunId, long jobExecutionId) {
-    jdbcTemplate.update(
-        """
-                UPDATE source_fetch_run
-                SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP,
-                    failure_reason = NULL, job_execution_id = ?
-                WHERE id = ?
-                """,
-        jobExecutionId,
-        fetchRunId);
+    jdbc.update(
+        load("sql/discovery/complete-fetch-run.sql"),
+        Map.of("jobExecutionId", jobExecutionId, "fetchRunId", fetchRunId));
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -225,15 +161,8 @@ public class DiscoveryPersistenceService {
     if (reason.length() > 2000) {
       reason = reason.substring(0, 2000);
     }
-    jdbcTemplate.update(
-        """
-                UPDATE source_fetch_run
-                SET status = 'FAILED', completed_at = CURRENT_TIMESTAMP,
-                    failure_reason = ?, job_execution_id = ?
-                WHERE id = ?
-                """,
-        reason,
-        jobExecutionId,
-        fetchRunId);
+    jdbc.update(
+        load("sql/discovery/fail-fetch-run.sql"),
+        Map.of("reason", reason, "jobExecutionId", jobExecutionId, "fetchRunId", fetchRunId));
   }
 }

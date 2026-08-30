@@ -18,7 +18,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration
-@EnableConfigurationProperties(AdzunaProperties.class)
+@EnableConfigurationProperties({AdzunaProperties.class, GreenhouseProperties.class})
 public class JobDiscoveryConfiguration {
 
   @Bean
@@ -28,13 +28,23 @@ public class JobDiscoveryConfiguration {
   }
 
   @Bean
+  GreenhouseJobSourceClient greenhouseJobSourceClient(
+      WebClient.Builder webClientBuilder,
+      ObjectMapper objectMapper,
+      GreenhouseProperties properties) {
+    return new GreenhouseJobSourceClient(webClientBuilder, objectMapper, properties);
+  }
+
+  @Bean
   @StepScope
   JobDiscoveryTasklet jobDiscoveryTasklet(
       DiscoveryPersistenceService persistence,
       List<JobSourceClient> clients,
       AdzunaProperties properties,
-      @Value("#{jobParameters['profileId']}") String requestedProfileId) {
-    return new JobDiscoveryTasklet(persistence, clients, properties, requestedProfileId);
+      @Value("#{jobParameters['profileId']}") String requestedProfileId,
+      @Value("#{jobParameters['workspaceId']}") String workspaceId) {
+    return new JobDiscoveryTasklet(
+        persistence, clients, properties, requestedProfileId, workspaceId);
   }
 
   @Bean

@@ -6,5 +6,11 @@ LEFT JOIN job_score s ON s.normalized_job_id = n.id AND s.candidate_profile_id =
 LEFT JOIN job_view v
   ON v.normalized_job_id = n.id
  AND v.candidate_profile_id = :candidateProfileId
+WHERE EXISTS (
+    SELECT 1
+    FROM workspace_job_sighting sighting
+    WHERE sighting.raw_job_posting_id = n.raw_job_posting_id
+      AND sighting.workspace_id = :workspaceId
+)
 ORDER BY score DESC, n.id
 LIMIT 25

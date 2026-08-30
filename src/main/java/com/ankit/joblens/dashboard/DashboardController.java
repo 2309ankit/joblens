@@ -31,13 +31,15 @@ public class DashboardController {
   @GetMapping({"/", "/dashboard"})
   public String dashboard(Model model, HttpServletRequest request, HttpServletResponse response) {
     long candidateProfileId;
+    java.util.UUID workspaceId = workspaceContext.resolve(request, response);
     try {
-      candidateProfileId =
-          candidateProfiles.requireCandidateProfile(workspaceContext.resolve(request, response));
+      candidateProfileId = candidateProfiles.requireCandidateProfile(workspaceId);
     } catch (IllegalStateException exception) {
       return "redirect:/setup";
     }
-    Map<String, Object> parameters = Map.of("candidateProfileId", candidateProfileId);
+    Map<String, Object> parameters =
+        Map.of("candidateProfileId", candidateProfileId, "workspaceId", workspaceId);
+    model.addAttribute("businessDate", java.time.LocalDate.now());
     model.addAttribute(
         "jobs",
         jdbc.query(

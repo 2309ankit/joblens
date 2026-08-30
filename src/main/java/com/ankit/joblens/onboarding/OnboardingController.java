@@ -35,17 +35,22 @@ public class OnboardingController {
     if (!model.containsAttribute("preferences")) {
       model.addAttribute(
           "preferences",
-          new SearchPreferences(
-              "Senior Java Developer, Senior Backend Engineer",
-              "banking, payments",
-              "Singapore",
-              "Java Spring Boot",
-              "Singapore",
-              "sg",
-              List.of("ADZUNA"),
-              3,
-              "PERMANENT",
-              "REMOTE,HYBRID,ONSITE"));
+          onboardingService
+              .preferences(workspaceId)
+              .orElseGet(
+                  () ->
+                      new SearchPreferences(
+                          "Senior Java Developer, Senior Backend Engineer",
+                          "banking, payments",
+                          "Singapore",
+                          "Java Spring Boot",
+                          "Singapore",
+                          "sg",
+                          List.of("ADZUNA"),
+                          "",
+                          3,
+                          "PERMANENT",
+                          "REMOTE,HYBRID,ONSITE")));
     }
     return "setup";
   }

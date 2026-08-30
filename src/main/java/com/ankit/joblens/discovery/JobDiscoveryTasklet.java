@@ -2,6 +2,7 @@ package com.ankit.joblens.discovery;
 
 import com.ankit.joblens.searchprofile.SearchProfile;
 import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.scope.context.ChunkContext;
@@ -23,16 +24,19 @@ public class JobDiscoveryTasklet implements Tasklet {
   private final List<JobSourceClient> clients;
   private final AdzunaProperties properties;
   private final String requestedProfileId;
+  private final UUID workspaceId;
 
   public JobDiscoveryTasklet(
       DiscoveryPersistenceService persistence,
       List<JobSourceClient> clients,
       AdzunaProperties properties,
-      String requestedProfileId) {
+      String requestedProfileId,
+      String workspaceId) {
     this.persistence = persistence;
     this.clients = clients;
     this.properties = properties;
     this.requestedProfileId = requestedProfileId;
+    this.workspaceId = workspaceId == null ? null : UUID.fromString(workspaceId);
   }
 
   @Override
@@ -50,7 +54,7 @@ public class JobDiscoveryTasklet implements Tasklet {
 
     if (currentProfileId == null) {
       String lastCompleted = context.getString(LAST_COMPLETED_PROFILE, null);
-      profile = persistence.findNextActiveProfile(lastCompleted, requestedProfileId);
+      profile = persistence.findNextActiveProfile(lastCompleted, requestedProfileId, workspaceId);
       if (profile == null) {
         return RepeatStatus.FINISHED;
       }
@@ -62,7 +66,7 @@ public class JobDiscoveryTasklet implements Tasklet {
       context.putLong(FETCH_RUN_ID, fetchRunId);
       context.putInt(NEXT_PAGE, nextPage);
     } else {
-      profile = persistence.findNextActiveProfile(null, currentProfileId);
+      profile = persistence.findNextActiveProfile(null, currentProfileId, workspaceId);
       if (profile == null || !profile.profileId().equals(currentProfileId)) {
         throw new IllegalStateException(
             "Active discovery profile no longer exists: " + currentProfileId);
@@ -91,8 +95,8 @@ public class JobDiscoveryTasklet implements Tasklet {
       JobPage page = client.search(profile, new PageRequest(nextPage, properties.pageSize()));
       persistence.persistPage(fetchRunId, profile, page, jobExecutionId);
 
-      boolean complete =
-          page.jobs().isEmpty() || !page.hasMore() || nextPage >= properties.maxPages();
+      int maxPages = profile.maxPages() == null ? properties.maxPages() : profile.maxPages();
+      boolean complete = page.jobs().isEmpty() || !page.hasMore() || nextPage >= maxPages;
       if (complete) {
         persistence.completeFetchRun(fetchRunId, jobExecutionId);
         context.putString(LAST_COMPLETED_PROFILE, profile.profileId());
@@ -103,7 +107,7 @@ public class JobDiscoveryTasklet implements Tasklet {
             "Completed source={} profile={} pagesBound={} jobExecutionId={}",
             source,
             profile.profileId(),
-            properties.maxPages(),
+            maxPages,
             jobExecutionId);
         if (requestedProfileId != null) {
           return RepeatStatus.FINISHED;

@@ -40,17 +40,22 @@
       <label>Search keywords</label><input th:field="*{keywords}" required>
       <label>Search location</label><input th:field="*{searchLocation}" required>
       <label>Country code</label><input th:field="*{countryCode}" maxlength="2" required>
-      <label>Maximum pages per source</label><input type="number" th:field="*{maxPages}" min="1" max="20">
+      <label>Job sources</label>
+      <label><input style="width:auto" type="checkbox" th:field="*{enabledSources}" value="ADZUNA"> Adzuna</label>
+      <label><input style="width:auto" type="checkbox" th:field="*{enabledSources}" value="GREENHOUSE"> Greenhouse public job boards</label>
+      <label>Greenhouse board tokens, comma separated</label>
+      <input th:field="*{greenhouseBoards}" placeholder="examplecompany, anothercompany">
+      <p class="muted">A board token is the company part of its public Greenhouse job-board URL. Greenhouse is searched only when selected.</p>
+      <label>Maximum pages per paged source</label><input type="number" th:field="*{maxPages}" min="1" max="20">
       <label>Employment preference</label><input th:field="*{employmentPreference}" required>
       <label>Work preference</label><input th:field="*{workPreference}" required>
-      <input type="hidden" name="enabledSources" value="ADZUNA">
       <button type="submit">Save preferences</button>
     </form>
   </section>
 
   <section>
     <h2>3. Confirm</h2>
-    <p>Confirmation activates this profile for scoring. It does not call job portals yet.</p>
+    <p>Confirmation activates this profile and its search definitions. Use Find jobs on the dashboard when you are ready.</p>
     <form method="post" action="/setup/confirm"><button type="submit">Confirm profile</button></form>
   </section>
   <a href="/dashboard">Back to dashboard</a>

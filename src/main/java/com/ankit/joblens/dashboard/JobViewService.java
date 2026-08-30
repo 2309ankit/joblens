@@ -3,6 +3,7 @@ package com.ankit.joblens.dashboard;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,8 +16,8 @@ public class JobViewService {
   }
 
   @Transactional
-  public URI recordAndResolve(long jobId, long candidateProfileId) {
-    URI uri = validate(repository.findOpenTarget(jobId));
+  public URI recordAndResolve(long jobId, long candidateProfileId, UUID workspaceId) {
+    URI uri = validate(repository.findOpenTarget(jobId, workspaceId));
     repository.record(jobId, candidateProfileId);
     return uri;
   }

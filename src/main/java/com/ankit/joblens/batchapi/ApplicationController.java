@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,14 +50,16 @@ public class ApplicationController {
       @RequestBody CreateApplicationRequest request,
       HttpServletRequest servletRequest,
       HttpServletResponse servletResponse) {
-    return create(request, candidateProfileId(servletRequest, servletResponse));
+    WorkspaceCandidate workspace = workspaceCandidate(servletRequest, servletResponse);
+    return create(request, workspace.candidateProfileId(), workspace.workspaceId());
   }
 
   public Map<String, Object> create(CreateApplicationRequest request) {
-    return create(request, null);
+    return create(request, (Long) null, (UUID) null);
   }
 
-  private Map<String, Object> create(CreateApplicationRequest request, Long candidateProfileId) {
+  private Map<String, Object> create(
+      CreateApplicationRequest request, Long candidateProfileId, UUID workspaceId) {
     if (request == null) {
       throw new LifecycleValidationException("Application request body is required");
     }
@@ -70,6 +73,7 @@ public class ApplicationController {
             : service.create(
                 request.normalizedJobId(),
                 candidateProfileId,
+                workspaceId,
                 dateOrToday(request.effectiveDate()),
                 request.note());
     return requireApplication(id, candidateProfileId);
@@ -141,6 +145,15 @@ public class ApplicationController {
     return candidateProfiles.requireCandidateProfile(
         workspaceContext.resolve(servletRequest, servletResponse));
   }
+
+  private WorkspaceCandidate workspaceCandidate(
+      HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+    UUID workspaceId = workspaceContext.resolve(servletRequest, servletResponse);
+    return new WorkspaceCandidate(
+        workspaceId, candidateProfiles.requireCandidateProfile(workspaceId));
+  }
+
+  private record WorkspaceCandidate(UUID workspaceId, long candidateProfileId) {}
 
   private static ApplicationStatus parseStatus(String value) {
     if (value == null || value.isBlank()) {

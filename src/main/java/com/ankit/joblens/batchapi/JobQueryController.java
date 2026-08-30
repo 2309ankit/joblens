@@ -11,6 +11,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,17 +44,20 @@ public class JobQueryController {
       summary = "List ranked jobs",
       description = "Returns normalized jobs ordered by candidate-fit score")
   public List<Map<String, Object>> jobs(HttpServletRequest request, HttpServletResponse response) {
-    return jobs(candidateProfileId(request, response));
+    UUID workspaceId = workspaceContext.resolve(request, response);
+    return jobs(candidateProfiles.requireCandidateProfile(workspaceId), workspaceId);
   }
 
   public List<Map<String, Object>> jobs() {
-    return jobs(null);
+    return jobs((Long) null, (UUID) null);
   }
 
-  private List<Map<String, Object>> jobs(Long candidateProfileId) {
+  private List<Map<String, Object>> jobs(Long candidateProfileId, UUID workspaceId) {
     return jdbc.query(
         load("sql/job-query/list-jobs.sql"),
-        Map.of("candidateProfileId", candidateProfileId == null ? 0L : candidateProfileId),
+        new MapSqlParameterSource()
+            .addValue("candidateProfileId", candidateProfileId == null ? 0L : candidateProfileId)
+            .addValue("workspaceId", workspaceId),
         (rs, n) -> row(rs));
   }
 
@@ -62,19 +67,23 @@ public class JobQueryController {
       description = "Returns job fields, skills, score reasons, duplicates, and similarity matches")
   public Map<String, Object> job(
       @PathVariable long id, HttpServletRequest request, HttpServletResponse response) {
-    return job(id, candidateProfileId(request, response));
+    UUID workspaceId = workspaceContext.resolve(request, response);
+    return job(id, candidateProfiles.requireCandidateProfile(workspaceId), workspaceId);
   }
 
   public Map<String, Object> job(long id) {
-    return job(id, null);
+    return job(id, (Long) null, (UUID) null);
   }
 
-  private Map<String, Object> job(long id, Long candidateProfileId) {
+  private Map<String, Object> job(long id, Long candidateProfileId, UUID workspaceId) {
     long scoreProfileId = candidateProfileId == null ? 0L : candidateProfileId;
     var rows =
         jdbc.query(
             load("sql/job-query/find-job.sql"),
-            Map.of("id", id, "candidateProfileId", scoreProfileId),
+            new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("candidateProfileId", scoreProfileId)
+                .addValue("workspaceId", workspaceId),
             (rs, n) -> row(rs));
     if (rows.isEmpty()) {
       throw new org.springframework.web.server.ResponseStatusException(
@@ -93,10 +102,6 @@ public class JobQueryController {
     result.put("duplicateCluster", duplicateQueryRepository.findClusterForJob(id));
     result.put("similarityMatches", duplicateQueryRepository.findSimilaritiesForJob(id));
     return result;
-  }
-
-  private long candidateProfileId(HttpServletRequest request, HttpServletResponse response) {
-    return candidateProfiles.requireCandidateProfile(workspaceContext.resolve(request, response));
   }
 
   private static Map<String, Object> row(java.sql.ResultSet rs) throws java.sql.SQLException {

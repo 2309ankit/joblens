@@ -22,8 +22,10 @@ public class JobIntelligenceConfiguration {
 
   @Bean
   @StepScope
-  RawJobPostingReader rawJobPostingReader(JdbcTemplate jdbcTemplate) {
-    return new RawJobPostingReader(jdbcTemplate);
+  RawJobPostingReader rawJobPostingReader(
+      NamedParameterJdbcTemplate jdbcTemplate,
+      @Value("#{jobParameters['workspaceId']}") String workspaceId) {
+    return new RawJobPostingReader(jdbcTemplate, workspaceId);
   }
 
   @Bean
@@ -52,8 +54,8 @@ public class JobIntelligenceConfiguration {
 
   @Bean
   @StepScope
-  NormalizedJobViewReader skillExtractionReader(JdbcTemplate jdbcTemplate) {
-    return new NormalizedJobViewReader(jdbcTemplate, true);
+  NormalizedJobViewReader skillExtractionReader(NamedParameterJdbcTemplate jdbcTemplate) {
+    return new NormalizedJobViewReader(jdbcTemplate, true, null);
   }
 
   @Bean
@@ -69,8 +71,10 @@ public class JobIntelligenceConfiguration {
 
   @Bean
   @StepScope
-  NormalizedJobViewReader scoringReader(JdbcTemplate jdbcTemplate) {
-    return new NormalizedJobViewReader(jdbcTemplate, false);
+  NormalizedJobViewReader scoringReader(
+      NamedParameterJdbcTemplate jdbcTemplate,
+      @Value("#{jobParameters['workspaceId']}") String workspaceId) {
+    return new NormalizedJobViewReader(jdbcTemplate, false, workspaceId);
   }
 
   @Bean

@@ -1,5 +1,9 @@
 package com.ankit.joblens.batchapi;
 
+import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
+import com.ankit.joblens.workspace.WorkspaceContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDate;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
@@ -20,20 +24,34 @@ public class JobDiscoveryController {
 
   private final JobOperator jobOperator;
   private final Job jobDiscoveryJob;
+  private final WorkspaceContext workspaceContext;
+  private final WorkspaceCandidateProfileService candidateProfiles;
 
   public JobDiscoveryController(
-      JobOperator jobOperator, @Qualifier("jobDiscoveryJob") Job jobDiscoveryJob) {
+      JobOperator jobOperator,
+      @Qualifier("jobDiscoveryJob") Job jobDiscoveryJob,
+      WorkspaceContext workspaceContext,
+      WorkspaceCandidateProfileService candidateProfiles) {
     this.jobOperator = jobOperator;
     this.jobDiscoveryJob = jobDiscoveryJob;
+    this.workspaceContext = workspaceContext;
+    this.candidateProfiles = candidateProfiles;
   }
 
   @PostMapping("/run")
   @ResponseStatus(HttpStatus.ACCEPTED)
   public JobLaunchResponse run(
-      @RequestParam LocalDate businessDate, @RequestParam(required = false) String profileId)
+      @RequestParam LocalDate businessDate,
+      @RequestParam(required = false) String profileId,
+      HttpServletRequest request,
+      HttpServletResponse response)
       throws JobExecutionException {
+    var workspaceId = workspaceContext.resolve(request, response);
+    candidateProfiles.requireCandidateProfile(workspaceId);
     JobParametersBuilder parameters =
-        new JobParametersBuilder().addLocalDate("businessDate", businessDate, true);
+        new JobParametersBuilder()
+            .addLocalDate("businessDate", businessDate, true)
+            .addString("workspaceId", workspaceId.toString(), true);
     if (profileId != null && !profileId.isBlank()) {
       parameters.addString("profileId", profileId.trim(), true);
     }

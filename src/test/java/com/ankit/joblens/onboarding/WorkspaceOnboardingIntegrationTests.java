@@ -34,6 +34,7 @@ class WorkspaceOnboardingIntegrationTests {
 
   @Autowired private WorkspaceRepository workspaces;
   @Autowired private OnboardingRepository onboarding;
+  @Autowired private OnboardingService onboardingService;
   @Autowired private JdbcTemplate jdbc;
 
   @Test
@@ -61,6 +62,41 @@ class WorkspaceOnboardingIntegrationTests {
                 Integer.class,
                 secondCandidate))
         .isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM search_profile WHERE workspace_id IS NOT NULL AND active=true",
+                Integer.class))
+        .isEqualTo(2);
+
+    onboardingService.savePreferences(
+        first,
+        new SearchPreferences(
+            "Java Developer",
+            "banking",
+            "Singapore",
+            "Java Spring",
+            "Singapore",
+            "sg",
+            List.of("ADZUNA", "GREENHOUSE"),
+            "examplebank",
+            4,
+            "PERMANENT",
+            "HYBRID"));
+    long revisedCandidate = onboardingService.confirm(first);
+
+    assertThat(revisedCandidate).isEqualTo(firstCandidate);
+    assertThat(
+            jdbc.queryForList(
+                "SELECT source FROM search_profile WHERE workspace_id=? AND active=true ORDER BY source",
+                String.class,
+                first))
+        .containsExactly("ADZUNA", "GREENHOUSE");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM workspace_profile_version WHERE workspace_id=? AND status='SUPERSEDED'",
+                Integer.class,
+                first))
+        .isEqualTo(1);
   }
 
   private long createAndConfirm(UUID workspaceId, String role, String domain, String skill) {
@@ -85,6 +121,7 @@ class WorkspaceOnboardingIntegrationTests {
             "Singapore",
             "sg",
             List.of("ADZUNA"),
+            "",
             2,
             "PERMANENT",
             "HYBRID"));

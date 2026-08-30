@@ -4,6 +4,7 @@ import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -15,11 +16,11 @@ public class JobViewRepository {
     this.jdbc = jdbc;
   }
 
-  public String findOpenTarget(long jobId) {
+  public String findOpenTarget(long jobId, UUID workspaceId) {
     return jdbc
         .query(
             load("sql/job-view/find-open-target.sql"),
-            Map.of("jobId", jobId),
+            Map.of("jobId", jobId, "workspaceId", workspaceId),
             (rs, row) -> rs.getString("source_url"))
         .stream()
         .findFirst()

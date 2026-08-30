@@ -8,7 +8,7 @@ import org.springframework.batch.infrastructure.item.ItemProcessor;
 
 public class SearchProfileProcessor implements ItemProcessor<SearchProfileCsvRow, SearchProfile> {
 
-  private static final Set<String> SUPPORTED_SOURCES = Set.of("ADZUNA");
+  private static final Set<String> SUPPORTED_SOURCES = Set.of("ADZUNA", "GREENHOUSE");
   private static final Set<String> SUPPORTED_EMPLOYMENT_TYPES =
       Set.of("ANY", "PERMANENT", "CONTRACT");
 

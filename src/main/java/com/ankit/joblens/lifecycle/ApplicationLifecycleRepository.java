@@ -4,6 +4,7 @@ import com.ankit.joblens.jdbc.ClasspathSql;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -44,6 +45,14 @@ public class ApplicationLifecycleRepository {
 
   public boolean jobExists(long jobId) {
     return !jdbc.queryForList(FIND_JOB, Map.of("jobId", jobId), Long.class).isEmpty();
+  }
+
+  public boolean jobExists(long jobId, UUID workspaceId) {
+    return !jdbc.queryForList(
+            ClasspathSql.load("sql/lifecycle/find-workspace-job.sql"),
+            Map.of("jobId", jobId, "workspaceId", workspaceId),
+            Long.class)
+        .isEmpty();
   }
 
   public long findDefaultCandidateId() {

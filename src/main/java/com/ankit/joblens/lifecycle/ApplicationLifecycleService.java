@@ -1,6 +1,7 @@
 package com.ankit.joblens.lifecycle;
 
 import java.time.LocalDate;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,24 @@ public class ApplicationLifecycleService {
   public long create(
       long normalizedJobId, long candidateProfileId, LocalDate effectiveDate, String note) {
     if (!repository.jobExists(normalizedJobId)) {
+      throw new LifecycleNotFoundException("Normalized job " + normalizedJobId + " was not found");
+    }
+    long applicationId =
+        repository.createApplication(
+            normalizedJobId, candidateProfileId, effectiveDate, normalizeNote(note));
+    repository.insertHistory(
+        applicationId, null, ApplicationStatus.SAVED, effectiveDate, normalizeNote(note));
+    return applicationId;
+  }
+
+  @Transactional
+  public long create(
+      long normalizedJobId,
+      long candidateProfileId,
+      UUID workspaceId,
+      LocalDate effectiveDate,
+      String note) {
+    if (!repository.jobExists(normalizedJobId, workspaceId)) {
       throw new LifecycleNotFoundException("Normalized job " + normalizedJobId + " was not found");
     }
     long applicationId =

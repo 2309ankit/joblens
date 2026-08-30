@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,8 +45,11 @@ public class JobViewController {
   public ResponseEntity<Void> open(
       @PathVariable long jobId, HttpServletRequest request, HttpServletResponse response) {
     try {
+      UUID workspaceId = workspaceContext.resolve(request, response);
       return ResponseEntity.status(HttpStatus.FOUND)
-          .location(service.recordAndResolve(jobId, candidateProfileId(request, response)))
+          .location(
+              service.recordAndResolve(
+                  jobId, candidateProfiles.requireCandidateProfile(workspaceId), workspaceId))
           .build();
     } catch (JobViewNotFoundException exception) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, exception.getMessage(), exception);
