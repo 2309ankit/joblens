@@ -3,28 +3,48 @@ package com.ankit.joblens.dashboard;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ankit.joblens.onboarding.SearchPreferences;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class PortalSearchLinkFactoryTests {
-  private final PortalSearchLinkFactory factory = new PortalSearchLinkFactory();
+  private final PortalSearchLinkFactory factory =
+      new PortalSearchLinkFactory(new PortalSearchQueryPlanner());
 
   @Test
-  void createsOfficialPortalSearchLinksFromPreferences() {
-    var links = factory.create(preferences("Senior Java & Spring", "Singapore"));
+  void createsThreeInspectableSearchesForEachOfficialPortal() {
+    var links = factory.create(preferences(), List.of("Java", "Spring Boot"));
 
+    assertThat(links).hasSize(12);
+    assertThat(links).filteredOn(link -> link.portal().equals("LinkedIn")).hasSize(3);
+    assertThat(links).filteredOn(link -> link.portal().equals("JobStreet")).hasSize(3);
     assertThat(links)
-        .extracting(PortalSearchLink::portal)
-        .containsExactly("LinkedIn", "JobStreet", "SEEK", "SEEK");
-    assertThat(links.get(0).url())
-        .isEqualTo(
-            "https://www.linkedin.com/jobs/search/?keywords=Senior%20Java%20%26%20Spring&location=Singapore");
-    assertThat(links.get(1).url()).isEqualTo("https://sg.jobstreet.com/senior-java-spring-jobs");
-    assertThat(links.get(2).url()).isEqualTo("https://www.seek.com.au/senior-java-spring-jobs");
-    assertThat(links.get(3).url()).isEqualTo("https://www.seek.co.nz/senior-java-spring-jobs");
+        .filteredOn(link -> link.portal().equals("SEEK") && link.region().equals("Australia"))
+        .hasSize(3);
+    assertThat(links)
+        .filteredOn(link -> link.portal().equals("SEEK") && link.region().equals("New Zealand"))
+        .hasSize(3);
+    assertThat(links.getFirst().url())
+        .contains("https://www.linkedin.com/jobs/search/?keywords=")
+        .contains("location=Singapore")
+        .contains("%22Senior%20Java%20Developer%22%20AND");
+    assertThat(links.get(3).url())
+        .isEqualTo("https://sg.jobstreet.com/senior-java-developer-banking-payments-jobs");
+    assertThat(links.get(6).url())
+        .isEqualTo("https://www.seek.com.au/senior-java-developer-banking-payments-jobs");
+    assertThat(links.get(9).url())
+        .isEqualTo("https://www.seek.co.nz/senior-java-developer-banking-payments-jobs");
   }
 
-  private static SearchPreferences preferences(String keywords, String location) {
+  private static SearchPreferences preferences() {
     return new SearchPreferences(
-        "Java Developer", "banking", location, keywords, location, "sg", 2, "PERMANENT", "HYBRID");
+        "Senior Java Developer, Senior Backend Engineer",
+        "banking, payments",
+        "Singapore",
+        "Java Spring Boot",
+        "Singapore",
+        "sg",
+        2,
+        "PERMANENT",
+        "HYBRID");
   }
 }

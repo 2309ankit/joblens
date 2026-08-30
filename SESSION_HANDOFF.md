@@ -15,7 +15,7 @@ Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V14
-Latest full test: 70 tests, 0 failures, 0 errors, 0 skipped
+Latest full test: 71 tests, 0 failures, 0 errors, 0 skipped
 Latest Docker check: actuator health UP, Flyway version 14
 ```
 
@@ -98,9 +98,9 @@ ExecutionContext checkpoints, observable failures, restarts, and idempotent writ
 | Adzuna | Default broad public discovery source | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` |
 | Jooble | Optional broad source; live Singapore flow verified | Regional `JOOBLE_API_KEY` |
 | Greenhouse | Automatically detected only from direct official board URLs and validated internally | None |
-| LinkedIn | Portal Search Hub outbound search | None |
-| JobStreet Singapore | Portal Search Hub outbound search | None |
-| SEEK Australia/New Zealand | Portal Search Hub outbound searches | None |
+| LinkedIn | Three smart outbound searches using role/sector/technology Boolean queries | None |
+| JobStreet Singapore | Three smart outbound searches using concise natural queries | None |
+| SEEK Australia/New Zealand | Three smart outbound searches per region using concise natural queries | None |
 
 LinkedIn, JobStreet, Indeed, and Google results are not scraped. Provider JSON from integrated APIs is
 stored before provider-specific normalization. Live Jooble acceptance completed on 2026-08-31 with
@@ -199,7 +199,7 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 
 ## 10. Handoff rule
 
-M0 Jooble live acceptance and M0.5 Portal Search Hub are complete. M1 source health and run
-observability is the recommended next coding milestone.
+M0 Jooble live acceptance, M0.5 Portal Search Hub, and M0.6 Smart Portal Query Planner are complete.
+M1 source health and run observability is the recommended next coding milestone.
 Choose one entry from [NEXT_MILESTONES.md](NEXT_MILESTONES.md), define its observable acceptance
 criteria, implement only that slice, finish with `./mvnw clean test`, update evidence, and commit it.

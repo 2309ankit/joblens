@@ -1,6 +1,7 @@
 package com.ankit.joblens.dashboard;
 
 import com.ankit.joblens.onboarding.SearchPreferences;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Component;
@@ -8,24 +9,54 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
 public class PortalSearchLinkFactory {
+  private final PortalSearchQueryPlanner planner;
 
-  public List<PortalSearchLink> create(SearchPreferences preferences) {
-    String keywordSlug = slug(preferences.keywords());
-    return List.of(
-        new PortalSearchLink(
-            "LinkedIn",
-            preferences.searchLocation(),
-            UriComponentsBuilder.fromUriString("https://www.linkedin.com/jobs/search/")
-                .queryParam("keywords", preferences.keywords())
-                .queryParam("location", preferences.searchLocation())
-                .encode()
-                .toUriString()),
-        new PortalSearchLink(
-            "JobStreet", "Singapore", keywordUrl("https://sg.jobstreet.com", keywordSlug)),
-        new PortalSearchLink(
-            "SEEK", "Australia", keywordUrl("https://www.seek.com.au", keywordSlug)),
-        new PortalSearchLink(
-            "SEEK", "New Zealand", keywordUrl("https://www.seek.co.nz", keywordSlug)));
+  public PortalSearchLinkFactory(PortalSearchQueryPlanner planner) {
+    this.planner = planner;
+  }
+
+  public List<PortalSearchLink> create(
+      SearchPreferences preferences, List<String> candidateSkills) {
+    List<PortalSearchQuery> queries = planner.plan(preferences, candidateSkills);
+    var links = new ArrayList<PortalSearchLink>();
+    queries.forEach(
+        query ->
+            links.add(
+                new PortalSearchLink(
+                    "LinkedIn",
+                    preferences.searchLocation(),
+                    query.intent(),
+                    query.linkedInQuery(),
+                    linkedInUrl(query.linkedInQuery(), preferences.searchLocation()))));
+    addNaturalLinks(links, queries, "JobStreet", "Singapore", "https://sg.jobstreet.com");
+    addNaturalLinks(links, queries, "SEEK", "Australia", "https://www.seek.com.au");
+    addNaturalLinks(links, queries, "SEEK", "New Zealand", "https://www.seek.co.nz");
+    return List.copyOf(links);
+  }
+
+  private static void addNaturalLinks(
+      List<PortalSearchLink> links,
+      List<PortalSearchQuery> queries,
+      String portal,
+      String region,
+      String baseUrl) {
+    queries.forEach(
+        query ->
+            links.add(
+                new PortalSearchLink(
+                    portal,
+                    region,
+                    query.intent(),
+                    query.naturalQuery(),
+                    keywordUrl(baseUrl, slug(query.naturalQuery())))));
+  }
+
+  private static String linkedInUrl(String query, String location) {
+    return UriComponentsBuilder.fromUriString("https://www.linkedin.com/jobs/search/")
+        .queryParam("keywords", query)
+        .queryParam("location", location)
+        .encode()
+        .toUriString();
   }
 
   private static String keywordUrl(String baseUrl, String keywordSlug) {

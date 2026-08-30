@@ -312,6 +312,29 @@ extraction (60/60), exact duplicates, fuzzy suggestions, and scoring (120/120). 
 endpoint returned `302` with an original `https://sg.jooble.org/desc/...` location. The key was never
 logged, queried from the container, written to tracked files, or included in command output.
 
+## Smart Portal Query Planner Evidence
+
+`PortalSearchQueryPlanner` now derives three deterministic intentions from the confirmed workspace
+profile. The primary search combines the first preferred role with up to two target sectors. The
+second combines the alternate role, up to two technologies found in both the saved keywords and
+confirmed resume skills, and the primary sector. Compound skills win over their contained aliases, so
+`Spring Boot` suppresses the redundant `Spring`. The third query keeps the saved keywords as a broad
+fallback.
+
+`PortalSearchLinkFactory` translates each intention to provider-appropriate syntax. LinkedIn receives
+quoted Boolean expressions using supported `AND`, `OR`, and parentheses plus the saved location.
+JobStreet Singapore, SEEK Australia, and SEEK New Zealand receive concise keyword slugs. The dashboard
+shows portal/region, intent, generated query, and action for all twelve links, keeping the algorithm
+visible rather than hiding it inside a URL.
+
+Focused tests verify the exact role/sector/technology plan, compound-skill selection, fallback,
+LinkedIn encoding, provider grouping, and regional SEEK URLs. Final verification on 2026-08-31:
+`./mvnw clean test` completed with 71 tests, 0 failures, 0 errors, and 0 skipped; `spotless:apply` and
+`git diff --check` completed without output. The rebuilt Compose app returned health `UP`. The real
+Singapore workspace dashboard rendered 12 **Open search** actions, four occurrences of each of the
+three intent labels, and the expected visible primary LinkedIn query: `"Senior Java Developer" AND
+("banking" OR "payments")`.
+
 Final verification on 2026-08-30:
 
 ```text

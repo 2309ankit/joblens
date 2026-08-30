@@ -51,7 +51,14 @@ public class DashboardController {
         .preferences(workspaceId)
         .ifPresent(
             preferences ->
-                model.addAttribute("portalSearchLinks", portalSearchLinks.create(preferences)));
+                model.addAttribute(
+                    "portalSearchLinks",
+                    portalSearchLinks.create(
+                        preferences,
+                        onboarding
+                            .latest(workspaceId)
+                            .map(profile -> profile.skills())
+                            .orElseGet(java.util.List::of))));
     model.addAttribute(
         "jobs",
         jdbc.query(

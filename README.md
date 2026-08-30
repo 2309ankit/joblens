@@ -311,7 +311,7 @@ open http://localhost:8080/dashboard
 
 The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. The Thymeleaf dashboard is available at `/dashboard`.
 
-Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, or **GREENHOUSE**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel has preference-filled outbound searches for LinkedIn, JobStreet Singapore, SEEK Australia, and SEEK New Zealand; those portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
+Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, or **GREENHOUSE**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel generates three explainable searches—role plus sectors, alternate role plus technologies and sector, and broad fallback—for LinkedIn, JobStreet Singapore, SEEK Australia, and SEEK New Zealand. LinkedIn uses its supported Boolean syntax; the SEEK-family sites receive concise natural phrases. These portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
 
 Inspect automatically detected Greenhouse boards for the current browser workspace:
 

@@ -84,6 +84,7 @@ The repository currently has these verified working slices:
 * `findJobsJob`, a six-step one-click workflow from discovery through candidate scoring
 * source-adapter registry with Adzuna, optional Jooble, and safe automatic enrichment through the public Greenhouse Job Board API
 * outbound Portal Search Hub for LinkedIn, JobStreet Singapore, SEEK Australia, and SEEK New Zealand without scraping or importing portal results
+* deterministic smart portal queries derived from preferred roles, sectors, confirmed resume skills, and a broad fallback
 * workspace-scoped resume skill review with draft-before-activation semantics
 * Thymeleaf application lifecycle and candidate-scoped follow-up controls
 

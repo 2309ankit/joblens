@@ -19,6 +19,7 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 | --- | --- | --- | --- |
 | 0 | Jooble live acceptance — COMPLETE | Proved the source against real Singapore responses | Regional API key configured |
 | 0.5 | Portal Search Hub — COMPLETE | Open preference-filled official portal searches without scraping | None |
+| 0.6 | Smart Portal Query Planner — COMPLETE | Combine roles, sectors, and resume technologies into focused searches | None |
 | 1 | Source health and run observability | Make missing credentials, quota failures, source counts, and partial results clear in the UI | None for mocked tests |
 | 2 | Public ATS source expansion | Increase legitimate coverage through verified public company-board APIs | Provider contract and board discovery strategy |
 | 3 | Ranking calibration workflow | Improve relevance using reviewed decisions instead of guessed weights | User-reviewed job examples |
@@ -53,6 +54,16 @@ The dashboard exposes preference-filled official searches for LinkedIn, JobStree
 Australia, and SEEK New Zealand. They are clearly separated from **Find and rank jobs** because
 outbound portal results are not copied into JobLens, normalized, deduplicated, or scored. URL creation
 lives in a small tested factory rather than the controller or Thymeleaf template.
+
+## M0.6 — Smart Portal Query Planner
+
+Status: complete on 2026-08-31.
+
+The query planner produces three explainable search intentions from the confirmed profile: primary
+role plus sectors, alternate role plus technologies and primary sector, and a broad fallback.
+LinkedIn receives quoted Boolean expressions with `AND`, `OR`, and parentheses. JobStreet and SEEK
+receive shorter natural keyword phrases. Each portal link displays its intent and generated query;
+three intentions across four regional portals produce twelve links without importing portal data.
 
 ## M1 — Source health and run observability
 
