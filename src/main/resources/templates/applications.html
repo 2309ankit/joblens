@@ -20,18 +20,18 @@
     <table>
       <thead><tr><th>Job</th><th>Status</th><th>Effective</th><th>Next action</th></tr></thead>
       <tbody>
-        <tr th:each="application : ${applications}">
-          <td><strong th:text="${application.title}">Job</strong><br><span th:text="${application.company}">Company</span></td>
-          <td th:text="${application.status}">SAVED</td>
-          <td th:text="${application.status_effective_date}">date</td>
+        <tr th:each="tracked : ${applications}">
+          <td><strong th:text="${tracked.title}">Job</strong><br><span th:text="${tracked.company}">Company</span></td>
+          <td th:text="${tracked.status}">SAVED</td>
+          <td th:text="${tracked.status_effective_date}">date</td>
           <td>
-            <form class="inline" th:if="${!#lists.isEmpty(application.allowedTransitions)}" method="post" th:action="@{/applications/{id}/transition(id=${application.id})}">
-              <select name="status" required><option th:each="status : ${application.allowedTransitions}" th:value="${status}" th:text="${status}"></option></select>
+            <form class="inline" th:if="${!#lists.isEmpty(tracked.allowedTransitions)}" method="post" th:action="@{/applications/{id}/transition(id=${tracked.id})}">
+              <select name="status" required><option th:each="status : ${tracked.allowedTransitions}" th:value="${status}" th:text="${status}"></option></select>
               <input type="date" name="effectiveDate" th:value="${today}" required>
               <input name="note" placeholder="Optional note">
               <button type="submit">Update</button>
             </form>
-            <span th:if="${#lists.isEmpty(application.allowedTransitions)}">Complete</span>
+            <span th:if="${#lists.isEmpty(tracked.allowedTransitions)}">Complete</span>
           </td>
         </tr>
         <tr th:if="${#lists.isEmpty(applications)}"><td colspan="4">No applications yet. Save a job from the dashboard.</td></tr>
