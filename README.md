@@ -74,16 +74,18 @@ Environment variables override these values. Never commit real credentials; `.en
 
 1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.
 2. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text; the draft is accepted only when readable text and known skills are found. JobLens currently stores resume metadata and hash, not the original file bytes.
-3. Enter target roles, domains, location, keywords, sources, and page limit. For Greenhouse, enter public company board tokens such as the company part of its Greenhouse board URL. JobLens uses the documented public [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html); public GET requests do not require authentication.
-4. Confirm the draft. Confirmation versions the profile and activates candidate skills, preferences, and runnable source definitions.
-5. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
-6. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied.
+3. Review the detected skill checkboxes. Add skills the reader missed or remove incorrect matches, then save the reviewed draft. An active profile is never changed until its new draft is confirmed.
+4. Enter target roles, domains, location, keywords, sources, and page limit. For Greenhouse, enter public company board tokens such as the company part of its Greenhouse board URL. JobLens uses the documented public [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html); public GET requests do not require authentication.
+5. Confirm the draft. Confirmation versions the profile and activates candidate skills, preferences, and runnable source definitions.
+6. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
+7. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
+8. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
 
-Swagger UI is `http://localhost:8080/swagger-ui.html`. Expand **Find jobs**, use `POST /api/batch/find-jobs/run`, optionally enter a `businessDate`, and click **Execute**. Swagger sends the request; the browser workspace cookie selects your confirmed profile. Inspect its run history with `GET /api/batch/find-jobs/runs`.
+Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, the skill catalog, and reviewed-skill replacement. **Find jobs** runs and inspects the complete search pipeline. **Applications** and **Follow-ups** document the same ownership-safe operations exposed in the Thymeleaf pages. Swagger sends the browser workspace cookie with each request.
 
 ## What each batch does
 
-`findJobsJob` is the normal user flow: discovery, normalization, skills, exact/fuzzy duplicate analysis, and workspace candidate scoring in six ordered steps. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates reminders for active applications. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
+`findJobsJob` is the normal user flow: discovery, normalization, skills, exact/fuzzy duplicate analysis, and workspace candidate scoring in six ordered steps. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
 Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
 
@@ -232,6 +234,8 @@ The duplicate subsystem keeps complex/reused statements under `src/main/resource
 
 ## 6. Track applications and generate follow-ups
 
+The normal browser flow is `http://localhost:8080/applications`. Save a ranked job from the dashboard, select one of its allowed next statuses, then click **Refresh follow-ups**. Follow-up generation is a candidate-scoped, restartable Spring Batch job. The REST examples below expose the same domain behavior for inspection and automation.
+
 Create one application for the default candidate and a normalized job:
 
 ```bash
@@ -331,21 +335,19 @@ If PostgreSQL authentication fails, ensure Compose and the app use the same `JOB
 2. Open `/setup`, upload a resume, save preferences, and confirm the versioned profile.
 3. Open `/dashboard`, click **Find and rank jobs**, then show the six StepExecutions through `/api/batch/executions`.
 4. Open `/swagger-ui.html`; demonstrate **Find jobs**, `/api/jobs`, and exact/fuzzy duplicate inspection.
-5. Create an application, transition it to `APPLIED`, run follow-up generation, and complete one follow-up.
+5. Save a ranked job, open `/applications`, transition it to `APPLIED`, refresh follow-ups, and complete one reminder.
 6. Run market insights for a Monday week start and inspect `/api/market-insights`.
 7. Show restartability with `/api/batch/executions` and the Batch metadata SQL queries above.
 8. Tear down with `docker compose down` (add `-v` only when intentionally deleting local database data).
 
-## Remaining work
+## Optional future extensions
 
-The redesigned core flow is complete. Deferred product work is intentionally separate:
+The anonymous, manual-use product flow is complete. These are separate product choices, not unfinished parts of the current workflow:
 
 - Store original resume bytes through an object-storage adapter; V11 currently stores validated metadata and SHA-256 only.
-- Add a profile-review editor for correcting extracted resume skills before confirmation.
-- Add lifecycle and follow-up controls to Thymeleaf; REST ownership and persistence already exist.
 - Add optional schedules/notifications after the manual one-click workflow is proven useful.
 - Add more legitimate source adapters when a public API exists. Greenhouse is implemented against its public Job Board API; JobStreet requires a verified supported interface. LinkedIn and Indeed scraping remain prohibited.
 - Add login/account recovery only if anonymous browser-cookie workspaces need cross-device persistence.
 - Calibrate deterministic scoring and fuzzy thresholds against reviewed real examples.
 
-The full verified result is 57 tests with no failures, errors, or skips from `./mvnw clean test` on PostgreSQL Testcontainers.
+The latest full verification evidence is recorded in `BUILD_PROGRESS.md`.

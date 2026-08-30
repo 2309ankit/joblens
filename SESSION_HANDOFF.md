@@ -11,7 +11,9 @@ This document is the indexed handoff for JobLens through the anonymous-workspace
 - Rankings, job inspection, views, applications, transitions, and follow-up reads are candidate/workspace-scoped.
 - Discovery SQL and newly touched inspection SQL are external `.sql` resources using named parameters.
 - Greenhouse uses its official public Job Board GET API and requires configured board tokens, not credentials. Adzuna still requires ignored environment credentials.
-- Verified result: `./mvnw clean test` passed 57 tests, with zero failures/errors/skips and all 12 Flyway migrations applied in PostgreSQL Testcontainers.
+- `/setup` includes workspace-scoped resume skill review; active scoring skills change only after draft confirmation.
+- `/applications` provides candidate-owned save, transition, follow-up refresh, and completion controls.
+- Follow-up Batch runs are candidate-scoped and identify application-history revisions for useful same-day idempotency.
 
 ## Index
 
@@ -134,6 +136,10 @@ V5__create_skills_candidate_scoring.sql
 V6__create_exact_duplicate_detection.sql
 V7__create_fuzzy_job_similarity.sql
 V8__create_application_lifecycle.sql
+V9__create_weekly_market_insights.sql
+V10__create_job_view_tracking.sql
+V11__create_workspace_onboarding.sql
+V12__add_workspace_discovery.sql
 ```
 
 Major business tables:
@@ -256,7 +262,7 @@ Latest full automated result:
 ```text
 ./mvnw clean test
 BUILD SUCCESS
-Tests run: 52
+Tests run: 62
 Failures: 0
 Errors: 0
 Skipped: 0
@@ -265,7 +271,7 @@ Skipped: 0
 Latest local startup verification:
 
 ```text
-Flyway schema version: 8
+Flyway schema version: 12
 GET /actuator/health: UP
 ```
 
@@ -343,7 +349,7 @@ candidate preferences: 12
 
 ## 10. Current working-tree state
 
-Workspace onboarding is committed at `9763a19`; candidate activity scoping is committed at `37a9fbe`. The source-adapter and one-click orchestration slice described above is the current verified session work and should be committed with its documentation after final checks.
+The one-click workspace redesign is committed through `8b73631`. Workspace skill review is committed at `7f2916f`, lifecycle/follow-up Thymeleaf controls are committed at `e49bfca`, and the fresh-workspace redirect is committed at `9d1a716`. Documentation reflects the verified 62-test result and live Docker render check.
 
 Before starting new code, run:
 
@@ -366,13 +372,13 @@ Preserve and commit the documentation changes when requested.
 - Workspace scoring reads only jobs sighted by that workspace; global duplicate analysis still reconciles the shared public-job corpus.
 - Fuzzy candidate generation currently examines in-memory pairs and applies a cheap block; this is suitable for the current personal-scale dataset but should move to database blocking if volume proves it necessary.
 - Fuzzy thresholds and weights are deterministic heuristics and require calibration against reviewed examples.
-- Lifecycle REST reads and commands enforce candidate ownership; Thymeleaf lifecycle controls remain deferred.
+- Lifecycle REST reads, commands, and Thymeleaf controls enforce candidate ownership.
 - Follow-up rules are deterministic code configuration and generation uses a single transactional tasklet suitable for personal scale.
 - Market insights remain a shared market-level projection rather than a private candidate projection.
 
 ## 12. Next-session starting point
 
-The redesigned core workflow is complete. Do not infer a next coding milestone. Consult the explicit remaining-work list in `README.md` and wait for the user to select original-resume storage, profile skill review, lifecycle UI, scheduling, a verified additional source, or login/recovery.
+The anonymous manual-use workflow is complete. Do not infer a next coding milestone. Consult the optional-extension list in `README.md` and wait for the user to select original-resume storage, scheduling/notifications, a verified additional source, login/recovery, or a reviewed calibration dataset.
 
 Before implementation:
 

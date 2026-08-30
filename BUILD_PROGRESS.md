@@ -85,6 +85,8 @@ The generated project currently contains:
 | 23 | Adzuna and Greenhouse source adapters work       | COMPLETE    |
 | 24 | One-click restartable Find jobs workflow works   | COMPLETE    |
 | 25 | Workspace ownership and isolation work           | COMPLETE    |
+| 26 | Workspace resume skill review works              | COMPLETE    |
+| 27 | Lifecycle and follow-up Thymeleaf controls work  | COMPLETE    |
 
 ## Verified Evidence
 
@@ -227,13 +229,23 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-Anonymous workspace onboarding and the one-click job-search redesign are complete. Flyway V11 adds validated resume metadata, versioned profile drafts, preferences, and workspace candidate ownership. Flyway V12 adds UI-owned source definitions, projected runtime search profiles, workspace job sightings, run history, Greenhouse support, and ownership filters.
+The anonymous manual-use workflow is complete. Flyway V11's existing profile-version and skill tables now support UI skill correction without another schema migration. Flyway V8's existing lifecycle tables now back Thymeleaf application and follow-up controls.
 
 `findJobsJob` executes discovery, normalization, skill extraction, exact duplicate detection, fuzzy duplicate analysis, and workspace candidate scoring as one restartable Spring Batch Job. Adzuna and Greenhouse sit behind `JobSourceClient`; provider JSON is stored before provider-specific normalization. Complex discovery and inspection SQL is externalized and uses `NamedParameterJdbcTemplate`.
 
 ## Next Observable Milestone
 
-No implementation milestone is active. Deferred product choices are original-resume object storage, profile skill review, lifecycle UI, optional schedules/notifications, verified additional public source APIs, and optional login/cross-device recovery.
+No implementation milestone is active. Optional product choices are original-resume object storage, schedules/notifications, verified additional public source APIs, optional login/cross-device recovery, and data-backed scoring calibration.
+
+## Profile Review and Lifecycle UI Evidence
+
+`/setup` displays the canonical skill catalog and replaces only the current workspace's DRAFT skills. Editing an ACTIVE profile forks a new draft; the active candidate scoring skills remain unchanged until confirmation. Invalid and empty selections are observable request errors. The obsolete global seeded-profile resume editor was removed so browser profile changes consistently use workspace ownership.
+
+`/applications` lists candidate-owned applications, exposes only policy-approved next statuses, runs the candidate-scoped follow-up Batch job, and completes owned reminders. Dashboard rows can save a discovered job or open its existing application. `applicationFollowUpJob` accepts an identifying candidate ID and deterministic application-history revision; unchanged state maps to the same completed JobInstance, while a new status history event creates a new JobInstance. Legacy direct operator launches without a candidate parameter retain global behavior.
+
+Focused PostgreSQL Testcontainers evidence covers draft-before-activation skill edits, catalog validation, workspace isolation, candidate-scoped follow-up generation, no-change idempotency, changed-state reruns, failure rollback, and same-JobInstance restart. REST contract tests cover successful and invalid reviewed-skill updates.
+
+Final verification on 2026-08-31: `./mvnw clean test` completed with 62 tests, 0 failures, 0 errors, and 0 skipped. The rebuilt Compose app returned health `200`; a fresh workspace received `302 /setup` from `/applications`; Swagger exposed the new profile and lifecycle descriptions; and a controlled candidate workspace rendered `/applications` with HTTP 200. The exact temporary workspace was removed after the render check.
 
 ## Workspace Onboarding and Find Jobs Evidence
 
@@ -246,7 +258,7 @@ Final verification on 2026-08-30:
 ```text
 ./mvnw clean test
 BUILD SUCCESS
-Tests run: 57, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 62, Failures: 0, Errors: 0, Skipped: 0
 Flyway migrations applied by integration tests: 12
 ```
 
