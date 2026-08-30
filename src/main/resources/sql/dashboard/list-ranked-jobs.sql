@@ -1,11 +1,16 @@
 SELECT n.id, n.title, n.company, n.location, n.source,
        COALESCE(s.total_score, 0) AS score,
-       COALESCE(v.view_count, 0) AS view_count
+       COALESCE(v.view_count, 0) AS view_count,
+       application.id AS application_id,
+       application.status AS application_status
 FROM normalized_job n
 LEFT JOIN job_score s ON s.normalized_job_id = n.id AND s.candidate_profile_id = :candidateProfileId
 LEFT JOIN job_view v
   ON v.normalized_job_id = n.id
  AND v.candidate_profile_id = :candidateProfileId
+LEFT JOIN job_application application
+  ON application.normalized_job_id = n.id
+ AND application.candidate_profile_id = :candidateProfileId
 WHERE EXISTS (
     SELECT 1
     FROM workspace_job_sighting sighting

@@ -54,6 +54,8 @@ public class DashboardController {
               row.put("score", resultSet.getBigDecimal("score"));
               row.put("source", resultSet.getString("source"));
               row.put("viewCount", resultSet.getInt("view_count"));
+              row.put("applicationId", resultSet.getObject("application_id", Long.class));
+              row.put("applicationStatus", resultSet.getString("application_status"));
               return row;
             }));
     model.addAttribute(

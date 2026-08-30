@@ -22,6 +22,10 @@ public class ApplicationLifecyclePolicy {
     return TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
   }
 
+  public Set<ApplicationStatus> allowedTransitions(ApplicationStatus from) {
+    return TRANSITIONS.getOrDefault(from, Set.of());
+  }
+
   public Optional<FollowUpPlan> followUpFor(ApplicationStatus status) {
     return Optional.ofNullable(FOLLOW_UPS.get(status));
   }

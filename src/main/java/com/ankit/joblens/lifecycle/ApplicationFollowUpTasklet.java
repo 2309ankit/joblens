@@ -13,6 +13,7 @@ public class ApplicationFollowUpTasklet implements Tasklet {
   private final ApplicationLifecycleRepository repository;
   private final ApplicationLifecyclePolicy policy;
   private final LocalDate businessDate;
+  private final Long candidateProfileId;
   private final Long failAfterApplications;
   private final boolean firstExecution;
 
@@ -20,11 +21,13 @@ public class ApplicationFollowUpTasklet implements Tasklet {
       ApplicationLifecycleRepository repository,
       ApplicationLifecyclePolicy policy,
       LocalDate businessDate,
+      Long candidateProfileId,
       Long failAfterApplications,
       boolean firstExecution) {
     this.repository = repository;
     this.policy = policy;
     this.businessDate = businessDate;
+    this.candidateProfileId = candidateProfileId;
     this.failAfterApplications = failAfterApplications;
     this.firstExecution = firstExecution;
   }
@@ -32,7 +35,8 @@ public class ApplicationFollowUpTasklet implements Tasklet {
   @Override
   public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
     long processed = 0;
-    for (FollowUpApplication application : repository.findCurrentApplications(businessDate)) {
+    for (FollowUpApplication application :
+        repository.findCurrentApplications(businessDate, candidateProfileId)) {
       contribution.incrementReadCount();
       var plan = policy.followUpFor(application.status());
       if (plan.isPresent()) {

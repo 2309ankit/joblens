@@ -7,6 +7,8 @@ import com.ankit.joblens.lifecycle.LifecycleNotFoundException;
 import com.ankit.joblens.lifecycle.LifecycleValidationException;
 import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
 import com.ankit.joblens.workspace.WorkspaceContext;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDate;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/applications")
+@Tag(name = "Applications", description = "Track this workspace's audited job applications")
 public class ApplicationController {
 
   private final ApplicationLifecycleService service;
@@ -46,6 +49,10 @@ public class ApplicationController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
+  @Operation(
+      summary = "Save a job as an application",
+      description =
+          "Creates a candidate-owned SAVED application for a job discovered by this workspace and records its first immutable history event.")
   public Map<String, Object> create(
       @RequestBody CreateApplicationRequest request,
       HttpServletRequest servletRequest,
@@ -80,6 +87,10 @@ public class ApplicationController {
   }
 
   @PostMapping("/{id}/transitions")
+  @Operation(
+      summary = "Move an application forward",
+      description =
+          "Applies an allowed forward-only lifecycle transition and appends immutable status history. Invalid, backward, and cross-workspace requests are rejected.")
   public Map<String, Object> transition(
       @PathVariable long id,
       @RequestBody ApplicationTransitionRequest request,
@@ -107,6 +118,7 @@ public class ApplicationController {
   }
 
   @GetMapping
+  @Operation(summary = "List this workspace's applications")
   public List<Map<String, Object>> applications(
       @RequestParam(required = false) String status,
       HttpServletRequest servletRequest,
@@ -121,6 +133,10 @@ public class ApplicationController {
   }
 
   @GetMapping("/{id}")
+  @Operation(
+      summary = "Inspect one application",
+      description =
+          "Returns current state, immutable transition history, and generated follow-ups.")
   public Map<String, Object> application(
       @PathVariable long id,
       HttpServletRequest servletRequest,

@@ -28,6 +28,10 @@ class ApplicationLifecyclePolicyTests {
         .isFalse();
     assertThat(policy.canTransition(ApplicationStatus.REJECTED, ApplicationStatus.APPLIED))
         .isFalse();
+    assertThat(policy.allowedTransitions(ApplicationStatus.OFFER))
+        .containsExactlyInAnyOrder(
+            ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED, ApplicationStatus.WITHDRAWN);
+    assertThat(policy.allowedTransitions(ApplicationStatus.ACCEPTED)).isEmpty();
   }
 
   @Test

@@ -15,6 +15,7 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
+import org.springframework.batch.core.launch.JobInstanceAlreadyCompleteException;
 import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -55,6 +56,8 @@ class ApplicationLifecycleIntegrationTests {
   @Autowired private JdbcTemplate jdbc;
 
   @Autowired private ApplicationLifecycleService service;
+
+  @Autowired private FollowUpJobService followUpJobService;
 
   @Autowired private ApplicationController applicationController;
 
@@ -211,11 +214,90 @@ class ApplicationLifecycleIntegrationTests {
         .isEqualTo(2);
   }
 
+  @Test
+  void scopesFollowUpGenerationToOneCandidate() throws Exception {
+    long firstCandidate =
+        jdbc.queryForObject("SELECT id FROM candidate_profile WHERE name='default'", Long.class);
+    long secondCandidate =
+        jdbc.queryForObject(
+            "INSERT INTO candidate_profile (name) VALUES (?) RETURNING id",
+            Long.class,
+            "Second Candidate " + DATE_SEQUENCE.incrementAndGet());
+    long firstApplication =
+        service.create(
+            insertNormalizedJob("SCOPED-1", "Java Engineer"),
+            firstCandidate,
+            LocalDate.of(2030, 4, 1),
+            null);
+    long secondApplication =
+        service.create(
+            insertNormalizedJob("SCOPED-2", "Platform Engineer"),
+            secondCandidate,
+            LocalDate.of(2030, 4, 1),
+            null);
+    service.transition(
+        firstApplication,
+        firstCandidate,
+        ApplicationStatus.APPLIED,
+        LocalDate.of(2030, 4, 2),
+        null);
+    service.transition(
+        secondApplication,
+        secondCandidate,
+        ApplicationStatus.APPLIED,
+        LocalDate.of(2030, 4, 2),
+        null);
+
+    JobExecution execution =
+        followUpJobService.run(LocalDate.of(2030, 4, 10), firstCandidate, null);
+
+    assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(
+            jdbc.queryForList(
+                """
+                SELECT application.candidate_profile_id
+                FROM application_follow_up follow_up
+                JOIN job_application application ON application.id = follow_up.application_id
+                """,
+                Long.class))
+        .containsExactly(firstCandidate);
+
+    assertThatThrownBy(
+            () -> followUpJobService.run(LocalDate.of(2030, 4, 10), firstCandidate, null))
+        .isInstanceOf(JobInstanceAlreadyCompleteException.class);
+    service.transition(
+        firstApplication,
+        firstCandidate,
+        ApplicationStatus.SCREENING,
+        LocalDate.of(2030, 4, 9),
+        null);
+
+    JobExecution changedStateExecution =
+        followUpJobService.run(LocalDate.of(2030, 4, 10), firstCandidate, null);
+
+    assertThat(changedStateExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(changedStateExecution.getJobInstanceId()).isNotEqualTo(execution.getJobInstanceId());
+    assertThat(
+            jdbc.queryForList(
+                "SELECT follow_up_type || ':' || status FROM application_follow_up ORDER BY id",
+                String.class))
+        .containsExactly("APPLICATION_CHECK_IN:CANCELLED", "RECRUITER_CHECK_IN:OPEN");
+  }
+
   private JobExecution launch(LocalDate businessDate, Long failAfterApplications) throws Exception {
+    return launch(businessDate, failAfterApplications, null);
+  }
+
+  private JobExecution launch(
+      LocalDate businessDate, Long failAfterApplications, Long candidateProfileId)
+      throws Exception {
     var parameters =
         new JobParametersBuilder()
             .addLocalDate("businessDate", businessDate, true)
             .addString("followUpVersion", ApplicationFollowUpTasklet.GENERATION_VERSION, true);
+    if (candidateProfileId != null) {
+      parameters.addLong("candidateProfileId", candidateProfileId, true);
+    }
     if (failAfterApplications != null) {
       parameters.addLong("failAfterApplications", failAfterApplications, false);
     }

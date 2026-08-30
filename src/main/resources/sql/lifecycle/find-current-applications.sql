@@ -9,5 +9,6 @@ JOIN LATERAL (
     LIMIT 1
 ) h ON true
 WHERE a.status_effective_date <= :businessDate
+  AND (CAST(:candidateProfileId AS BIGINT) IS NULL OR a.candidate_profile_id = :candidateProfileId)
 ORDER BY a.id
 FOR UPDATE OF a

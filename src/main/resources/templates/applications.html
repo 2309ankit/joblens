@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Applications · JobLens</title>
+  <style>
+    body{font:16px system-ui;margin:2rem;background:#f6f7fb;color:#182230}main{max-width:1100px;margin:auto}section{background:#fff;padding:1rem 1.5rem;margin:1rem 0;border-radius:10px;box-shadow:0 1px 5px #ccd}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:.55rem;border-bottom:1px solid #eee;vertical-align:top}form.inline{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}input,select{padding:.45rem}button{padding:.5rem .75rem}.ok{color:#176b36}.error{color:#a51d2d}.muted{color:#667}
+  </style>
+</head>
+<body><main>
+  <h1>Applications</h1>
+  <p><a href="/dashboard">← Dashboard</a> · <a href="/setup">Profile and preferences</a></p>
+  <p class="ok" th:if="${message}" th:text="${message}"></p>
+  <p class="error" th:if="${error}" th:text="${error}"></p>
+
+  <section>
+    <h2>Your application pipeline</h2>
+    <p class="muted">Save a job from the dashboard, then move it through only the allowed forward statuses. Every change is kept in immutable history.</p>
+    <table>
+      <thead><tr><th>Job</th><th>Status</th><th>Effective</th><th>Next action</th></tr></thead>
+      <tbody>
+        <tr th:each="application : ${applications}">
+          <td><strong th:text="${application.title}">Job</strong><br><span th:text="${application.company}">Company</span></td>
+          <td th:text="${application.status}">SAVED</td>
+          <td th:text="${application.status_effective_date}">date</td>
+          <td>
+            <form class="inline" th:if="${!#lists.isEmpty(application.allowedTransitions)}" method="post" th:action="@{/applications/{id}/transition(id=${application.id})}">
+              <select name="status" required><option th:each="status : ${application.allowedTransitions}" th:value="${status}" th:text="${status}"></option></select>
+              <input type="date" name="effectiveDate" th:value="${today}" required>
+              <input name="note" placeholder="Optional note">
+              <button type="submit">Update</button>
+            </form>
+            <span th:if="${#lists.isEmpty(application.allowedTransitions)}">Complete</span>
+          </td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(applications)}"><td colspan="4">No applications yet. Save a job from the dashboard.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Follow-ups</h2>
+    <p class="muted">Refresh runs the candidate-scoped Spring Batch reminder job. It creates deterministic reminders from the current application statuses.</p>
+    <form class="inline" method="post" action="/applications/follow-ups/run">
+      <input type="date" name="businessDate" th:value="${today}" required>
+      <button type="submit">Refresh follow-ups</button>
+    </form>
+    <table>
+      <thead><tr><th>Job</th><th>Reminder</th><th>Due</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr th:each="followUp : ${followUps}">
+          <td><strong th:text="${followUp.title}">Job</strong><br><span th:text="${followUp.company}">Company</span></td>
+          <td th:text="${followUp.follow_up_type}">Reminder</td>
+          <td th:text="${followUp.due_date}">date</td>
+          <td th:text="${followUp.status}">OPEN</td>
+          <td><form th:if="${followUp.status == 'OPEN'}" method="post" th:action="@{/applications/follow-ups/{id}/complete(id=${followUp.id})}"><input type="hidden" name="completedOn" th:value="${today}"><button type="submit">Mark complete</button></form></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(followUps)}"><td colspan="5">No follow-ups yet.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main></body></html>

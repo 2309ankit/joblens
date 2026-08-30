@@ -125,14 +125,24 @@ public class ApplicationLifecycleRepository {
             .addValue("note", note));
   }
 
-  public List<FollowUpApplication> findCurrentApplications(LocalDate businessDate) {
+  public List<FollowUpApplication> findCurrentApplications(
+      LocalDate businessDate, Long candidateProfileId) {
     return jdbc.query(
         FIND_CURRENT_APPLICATIONS,
-        Map.of("businessDate", businessDate),
+        new MapSqlParameterSource()
+            .addValue("businessDate", businessDate)
+            .addValue("candidateProfileId", candidateProfileId),
         (rs, rowNum) ->
             new FollowUpApplication(
                 rs.getLong("id"), ApplicationStatus.valueOf(rs.getString("status")),
                 rs.getObject("status_effective_date", LocalDate.class), rs.getLong("history_id")));
+  }
+
+  public long currentStateVersion(Long candidateProfileId) {
+    return jdbc.queryForObject(
+        ClasspathSql.load("sql/lifecycle/current-state-version.sql"),
+        new MapSqlParameterSource().addValue("candidateProfileId", candidateProfileId),
+        Long.class);
   }
 
   public void cancelStaleFollowUps(long applicationId, long currentHistoryId) {

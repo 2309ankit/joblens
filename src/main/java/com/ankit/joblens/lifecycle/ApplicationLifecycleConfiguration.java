@@ -23,13 +23,19 @@ public class ApplicationLifecycleConfiguration {
       ApplicationLifecyclePolicy policy,
       JobRepository jobRepository,
       @Value("#{jobParameters['businessDate']}") LocalDate businessDate,
+      @Value("#{jobParameters['candidateProfileId']}") Long candidateProfileId,
       @Value("#{jobParameters['failAfterApplications']}") Long failAfterApplications,
       @Value("#{stepExecution}") StepExecution stepExecution) {
     boolean firstExecution =
         jobRepository.getJobExecutions(stepExecution.getJobExecution().getJobInstance()).size()
             == 1;
     return new ApplicationFollowUpTasklet(
-        repository, policy, businessDate, failAfterApplications, firstExecution);
+        repository,
+        policy,
+        businessDate,
+        candidateProfileId,
+        failAfterApplications,
+        firstExecution);
   }
 
   @Bean

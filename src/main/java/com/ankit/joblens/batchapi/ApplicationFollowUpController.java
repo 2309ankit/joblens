@@ -6,6 +6,8 @@ import com.ankit.joblens.lifecycle.LifecycleNotFoundException;
 import com.ankit.joblens.lifecycle.LifecycleValidationException;
 import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
 import com.ankit.joblens.workspace.WorkspaceContext;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDate;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/follow-ups")
+@Tag(name = "Follow-ups", description = "Inspect and complete candidate-owned reminders")
 public class ApplicationFollowUpController {
 
   private static final Set<String> STATUSES = Set.of("OPEN", "COMPLETED", "CANCELLED");
@@ -43,6 +46,9 @@ public class ApplicationFollowUpController {
   }
 
   @GetMapping
+  @Operation(
+      summary = "List this workspace's follow-ups",
+      description = "Optionally filters by OPEN, COMPLETED, or CANCELLED status and due date.")
   public List<Map<String, Object>> followUps(
       @RequestParam(required = false) String status,
       @RequestParam(required = false) LocalDate dueOnOrBefore,
@@ -59,6 +65,9 @@ public class ApplicationFollowUpController {
   }
 
   @PostMapping("/{id}/complete")
+  @Operation(
+      summary = "Complete a follow-up",
+      description = "Marks an OPEN reminder owned by this workspace as completed.")
   public Map<String, Object> complete(
       @PathVariable long id,
       @RequestParam(required = false) LocalDate completedOn,
