@@ -3,13 +3,16 @@ package com.ankit.joblens.onboarding;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ankit.joblens.discovery.JoobleProperties;
 import com.ankit.joblens.workspace.WorkspaceRepository;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
@@ -137,6 +140,30 @@ class WorkspaceOnboardingIntegrationTests {
     assertThat(candidateSkills(secondCandidate)).containsExactly("AWS");
   }
 
+  @Test
+  void activatesJoobleAlongsideAdzunaOnlyWhenItsKeyIsConfigured() {
+    UUID workspaceId = UUID.randomUUID();
+    OnboardingRepository configuredOnboarding =
+        new OnboardingRepository(
+            new NamedParameterJdbcTemplate(jdbc),
+            new JoobleProperties(
+                "test-jooble-key",
+                "https://sg.jooble.org",
+                Duration.ofSeconds(10),
+                20,
+                1,
+                Duration.ZERO));
+
+    createAndConfirm(configuredOnboarding, workspaceId, "Java Developer", "banking", "Java");
+
+    assertThat(
+            jdbc.queryForList(
+                "SELECT source FROM search_profile WHERE workspace_id=? AND active=true ORDER BY source",
+                String.class,
+                workspaceId))
+        .containsExactly("ADZUNA", "JOOBLE");
+  }
+
   private List<String> candidateSkills(long candidateProfileId) {
     return jdbc.queryForList(
         """
@@ -151,21 +178,26 @@ class WorkspaceOnboardingIntegrationTests {
   }
 
   private long createAndConfirm(UUID workspaceId, String role, String domain, String skill) {
+    return createAndConfirm(onboarding, workspaceId, role, domain, skill);
+  }
+
+  private long createAndConfirm(
+      OnboardingRepository repository, UUID workspaceId, String role, String domain, String skill) {
     workspaces.create(workspaceId);
     long resumeId =
-        onboarding.saveResume(
+        repository.saveResume(
             workspaceId,
             "resume.pdf",
             "application/pdf",
             100,
             "a".repeat(63) + (skill.equals("Java") ? "1" : "2"));
-    long profileId = onboarding.createDraft(workspaceId, resumeId, "Candidate");
-    onboarding.addSkills(profileId, List.of(skill));
-    onboarding.savePreferences(
+    long profileId = repository.createDraft(workspaceId, resumeId, "Candidate");
+    repository.addSkills(profileId, List.of(skill));
+    repository.savePreferences(
         workspaceId,
         profileId,
         new SearchPreferences(
             role, domain, "Singapore", skill, "Singapore", "sg", 2, "PERMANENT", "HYBRID"));
-    return onboarding.confirm(workspaceId, onboarding.latestProfile(workspaceId).orElseThrow());
+    return repository.confirm(workspaceId, repository.latestProfile(workspaceId).orElseThrow());
   }
 }

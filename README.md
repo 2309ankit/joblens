@@ -1,6 +1,6 @@
 # JobLens
 
-JobLens is a batch-first modular monolith for personal job-market intelligence. Each anonymous browser workspace can upload and validate a resume, control job preferences in the UI, discover public Adzuna postings, safely enrich from automatically detected Greenhouse boards, rank only its discovered jobs, and track applications.
+JobLens is a batch-first modular monolith for personal job-market intelligence. Each anonymous browser workspace can upload and validate a resume, control job preferences in the UI, discover public Adzuna postings and optionally Jooble postings, safely enrich from automatically detected Greenhouse boards, rank only its discovered jobs, and track applications.
 
 ## Architecture
 
@@ -12,6 +12,7 @@ Browser cookie → workspace → validated resume draft → confirmed candidate/
                     findJobsJob
                     ├─ jobDiscoveryStep → JobSourceClient registry
                     │                    ├─ Adzuna API
+                    │                    ├─ Jooble Search API (when configured)
                     │                    └─ exposed Greenhouse URL → internal board registry → public Job Board API
                     │                    → raw_job_posting/workspace_job_sighting
                     ├─ jobNormalizationStep → normalized_job
@@ -38,7 +39,7 @@ intelligence   normalization, skills, duplicate detection, candidate profile, an
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery.
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source to the source constraints.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -66,6 +67,8 @@ The application is at `http://localhost:8080`; PostgreSQL is at port `5432`. Loc
 JOBLENS_DB_URL=jdbc:postgresql://localhost:5432/joblens
 JOBLENS_DB_USERNAME=joblens
 JOBLENS_DB_PASSWORD=joblens-local
+# Optional: a Singapore regional key from https://sg.jooble.org/api/about
+JOOBLE_API_KEY=
 ```
 
 Environment variables override these values. Never commit real credentials; `.env` is ignored.
@@ -75,8 +78,8 @@ Environment variables override these values. Never commit real credentials; `.en
 1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.
 2. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text; the draft is accepted only when readable text and known skills are found. JobLens currently stores resume metadata and hash, not the original file bytes.
 3. Review the detected skill checkboxes. Add skills the reader missed or remove incorrect matches, then save the reviewed draft. An active profile is never changed until its new draft is confirmed.
-4. Enter target roles, domains, location, keywords, and page limit. JobLens searches its available broad public sources. If one exposes an official Greenhouse-hosted job URL, JobLens extracts the board identifier, validates it internally using the documented public [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html), and searches it—no provider token or Greenhouse credential is requested from you.
-5. Confirm the draft. Confirmation versions the profile and activates candidate skills, preferences, and runnable source definitions.
+4. Enter target roles, domains, location, keywords, and page limit. JobLens searches Adzuna and, when `JOOBLE_API_KEY` is configured, Jooble. If one exposes an official Greenhouse-hosted job URL, JobLens extracts the board identifier, validates it internally using the documented public [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html), and searches it—no provider token or Greenhouse credential is requested from you.
+5. Confirm the draft. Confirmation versions the profile and activates candidate skills, preferences, and runnable source definitions. If you add `JOOBLE_API_KEY` later, save and confirm preferences once more to activate its source profile.
 6. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
 7. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
 8. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
@@ -85,7 +88,7 @@ Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** doc
 
 ## What each batch does
 
-`findJobsJob` is the normal user flow: discovery (including safe Greenhouse board enrichment when an official URL is exposed), normalization, skills, exact/fuzzy duplicate analysis, and workspace candidate scoring in six ordered steps. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
+`findJobsJob` is the normal user flow: discovery from Adzuna and configured Jooble (including safe Greenhouse board enrichment when an official URL is exposed), normalization, skills, exact/fuzzy duplicate analysis, and workspace candidate scoring in six ordered steps. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
 Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
 
@@ -128,7 +131,7 @@ docker compose exec -T postgres psql -U joblens -d joblens \
   -c "select input_file, row_number, rejection_reason, job_execution_id from search_profile_rejection order by created_at;"
 ```
 
-## 2. Discover Adzuna jobs
+## 2. Discover public jobs
 
 Set credentials in `.env`:
 
@@ -151,9 +154,18 @@ curl -X POST \
   'http://localhost:8080/api/batch/discovery/run?businessDate=2026-08-29'
 ```
 
-Without credentials, startup still works but a live discovery launch fails observably. Mocked Adzuna behavior is covered by tests.
+Adzuna is the default broad source. Optionally add a Singapore regional Jooble key in `.env`:
 
-Discovery stores one `source_fetch_run` per profile/execution and untouched individual Adzuna JSON in `raw_job_posting`. Raw postings are idempotent by `(source, external_job_id)`; changed payloads reset processing to `NEW`.
+```env
+# Get the key from https://sg.jooble.org/api/about
+JOOBLE_API_KEY=your-singapore-regional-key
+```
+
+Recreate the Compose app (or restart a locally run app), then save and confirm preferences again. That projects a Jooble search profile alongside Adzuna; it is not created when the key is absent, so a normal Find-jobs run stays runnable. Jooble's documented free plan has a request quota; keep page limits modest. Its API supplies listing snippets, source links, and update timestamps, which JobLens preserves and normalizes.
+
+Without the relevant credentials, startup still works but a direct live discovery launch fails observably. Mocked Adzuna and Jooble behavior is covered by tests.
+
+Discovery stores one `source_fetch_run` per profile/execution and untouched individual provider JSON in `raw_job_posting`. Raw postings are idempotent by `(source, external_job_id)`; changed payloads reset processing to `NEW`.
 
 ## 3. Normalize, detect duplicates, extract skills, and score
 
@@ -295,7 +307,7 @@ open http://localhost:8080/dashboard
 
 The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. The Thymeleaf dashboard is available at `/dashboard`.
 
-Dashboard job rows include **Open on ADZUNA** or **Open on GREENHOUSE**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. Inspect view history with `GET /api/job-views`.
+Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, or **GREENHOUSE**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. The Find jobs panel also has prefilled outbound LinkedIn and JobStreet Singapore searches from your saved keywords and location; those portals are not scraped or imported. Inspect view history with `GET /api/job-views`.
 
 Inspect automatically detected Greenhouse boards for the current browser workspace:
 
@@ -335,7 +347,7 @@ Focused suites:
 
 ## Troubleshooting
 
-If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, confirm the setup profile and click **Find and rank jobs**. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. Greenhouse GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
+If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, confirm the setup profile and click **Find and rank jobs**. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. To enable Jooble, set a Singapore regional `JOOBLE_API_KEY`, recreate/restart the app, then save and confirm preferences again. Greenhouse GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
 
 ## Interview/demo runbook
 
@@ -354,7 +366,7 @@ The anonymous, manual-use product flow is complete. These are separate product c
 
 - Store original resume bytes through an object-storage adapter; V11 currently stores validated metadata and SHA-256 only.
 - Add optional schedules/notifications after the manual one-click workflow is proven useful.
-- Add more legitimate source adapters only when a candidate-facing public search API exists or a commercial agreement explicitly authorizes this use. The current LinkedIn and SEEK/JobStreet APIs are partner/hirer integrations for posting and applications, not public candidate-job discovery. LinkedIn and Indeed scraping remain prohibited.
+- Add more legitimate source adapters only when a candidate-facing public search API exists or a commercial agreement explicitly authorizes this use. The current LinkedIn and SEEK/JobStreet APIs are partner/hirer integrations for posting and applications, not public candidate-job discovery; dashboard links provide direct searches instead. LinkedIn and Indeed scraping remain prohibited.
 - Add login/account recovery only if anonymous browser-cookie workspaces need cross-device persistence.
 - Calibrate deterministic scoring and fuzzy thresholds against reviewed real examples.
 

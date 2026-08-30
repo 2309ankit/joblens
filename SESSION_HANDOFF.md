@@ -1,16 +1,17 @@
 # JobLens Session Handoff
 
-This document is the indexed handoff for JobLens through the anonymous-workspace and one-click search redesign on 2026-08-30. Read it together with [AGENTS.md](AGENTS.md), [README.md](README.md), and [BUILD_PROGRESS.md](BUILD_PROGRESS.md).
+This document is the indexed handoff for JobLens through the optional Jooble source addition on 2026-08-31. Read it together with [AGENTS.md](AGENTS.md), [README.md](README.md), and [BUILD_PROGRESS.md](BUILD_PROGRESS.md).
 
 ## Current redesign summary
 
 - Flyway V11 adds anonymous browser workspaces, validated resume metadata, versioned profile drafts, preferences, search definitions, and candidate ownership.
-- Flyway V12 adds workspace source projections, job sightings, and Find-jobs run history; V13 adds discovered company-board registry and workspace visibility.
+- Flyway V12 adds workspace source projections, job sightings, and Find-jobs run history; V13 adds discovered company-board registry and workspace visibility; V14 permits `JOOBLE` in the existing source constraints.
 - `/setup` is the first-time flow: upload resume, save preferences, then confirm.
 - `/dashboard` has **Find and rank jobs**, which launches `findJobsJob` with discovery, normalization, skills, exact duplicates, fuzzy duplicates, and candidate scoring.
 - Rankings, job inspection, views, applications, transitions, and follow-up reads are candidate/workspace-scoped.
 - Discovery SQL and newly touched inspection SQL are external `.sql` resources using named parameters.
-- Greenhouse uses its official public Job Board GET API without credentials. JobLens discovers and validates exposed official Greenhouse URLs internally; normal users do not supply board tokens. Adzuna still requires ignored environment credentials.
+- Adzuna is the default broad source; Jooble is an optional broad source enabled only after an ignored regional `JOOBLE_API_KEY` is configured and preferences are confirmed. Greenhouse uses its official public Job Board GET API without credentials. JobLens discovers and validates exposed official Greenhouse URLs internally; normal users do not supply board tokens.
+- Dashboard outbound links prefill LinkedIn and JobStreet Singapore searches from saved preferences. They are direct browser links, not imports or scraping.
 - `/setup` includes workspace-scoped resume skill review; active scoring skills change only after draft confirmation.
 - `/applications` provides candidate-owned save, transition, follow-up refresh, and completion controls.
 - Follow-up Batch runs are candidate-scoped and identify application-history revisions for useful same-day idempotency.
@@ -141,6 +142,7 @@ V10__create_job_view_tracking.sql
 V11__create_workspace_onboarding.sql
 V12__add_workspace_discovery.sql
 V13__create_discovered_source_boards.sql
+V14__add_jooble_job_source.sql
 ```
 
 Major business tables:
@@ -254,7 +256,14 @@ ADZUNA_APP_ID=
 ADZUNA_APP_KEY=
 ```
 
-The application starts without Adzuna credentials; only a live discovery launch requires them. Never commit credentials. Spring Boot does not automatically load `.env`; Compose does. Safe local application defaults now match Compose.
+Jooble (optional):
+
+```env
+# Singapore regional key: https://sg.jooble.org/api/about
+JOOBLE_API_KEY=
+```
+
+The application starts without source credentials; only a direct live source launch requires them. Normal workspace confirmation always activates Adzuna and activates Jooble only when its key exists. After adding a Jooble key, restart the application and save/confirm preferences again. Never commit credentials. Spring Boot does not automatically load `.env`; Compose does. Safe local application defaults now match Compose.
 
 ## 8. Verification evidence
 
@@ -263,7 +272,7 @@ Latest full automated result:
 ```text
 ./mvnw clean test
 BUILD SUCCESS
-Tests run: 62
+Tests run: 69
 Failures: 0
 Errors: 0
 Skipped: 0
@@ -272,7 +281,7 @@ Skipped: 0
 Latest local startup verification:
 
 ```text
-Flyway schema version: 12
+Flyway schema version: 14
 GET /actuator/health: UP
 ```
 
@@ -337,7 +346,7 @@ candidate preferences: 12
 - Use `JobRepository` for Batch history lookup.
 - Do not introduce deprecated `TaskExecutorJobLauncher` or `SimpleJobOperator`.
 - Raw JSON is preserved before normalization.
-- Adzuna-specific paths remain inside `AdzunaJobPostingNormalizer`.
+- Provider-specific paths remain inside their normalizers (`AdzunaJobPostingNormalizer`, `GreenhouseJobPostingNormalizer`, and `JoobleJobPostingNormalizer`).
 - Skill aliases live in PostgreSQL, not scattered Java maps.
 - Score weights live in candidate preferences.
 - Repeated `(source, external_job_id)` sightings remain one landing identity; distinct normalized rows are clustered by exact graph connectivity.
@@ -350,7 +359,7 @@ candidate preferences: 12
 
 ## 10. Current working-tree state
 
-The one-click workspace redesign is committed through `8b73631`. Workspace skill review is committed at `7f2916f`, lifecycle/follow-up Thymeleaf controls are committed at `e49bfca`, and the fresh-workspace redirect is committed at `9d1a716`. Documentation reflects the verified 62-test result and live Docker render check.
+The Greenhouse enrichment milestone is committed at `dfa76ef`. The Jooble milestone has passed its Docker smoke check and is pending its final commit. Preserve these uncommitted changes until that commit has completed.
 
 Before starting new code, run:
 
@@ -364,7 +373,7 @@ Preserve and commit the documentation changes when requested.
 
 ## 11. Known limitations
 
-- Live Adzuna discovery still requires user credentials.
+- Live Adzuna and Jooble discovery require their respective user credentials. Jooble is contract-tested with MockWebServer but no live Jooble result is claimed until a regional key is supplied.
 - The original resume bytes are not stored; only validated metadata and SHA-256 are retained pending an object-storage decision.
 - Greenhouse enrichment activates only when a source directly exposes an official Greenhouse-hosted URL. Adzuna's current tracking URLs do not expose the final employer board, and JobLens deliberately does not follow arbitrary redirects.
 - Anonymous workspaces depend on a browser cookie and have no account recovery or cross-device sync.
@@ -379,7 +388,7 @@ Preserve and commit the documentation changes when requested.
 
 ## 12. Next-session starting point
 
-The anonymous manual-use workflow is complete. Greenhouse board tokens were removed from normal setup: automatic enrichment is registered, validated, and inspectable. Do not infer a next coding milestone. Consult the optional-extension list in `README.md` and wait for the user to select original-resume storage, scheduling/notifications, a verified additional source, login/recovery, or a reviewed calibration dataset.
+The anonymous manual-use workflow is complete. Greenhouse board tokens were removed from normal setup, and optional Jooble broad discovery is available through a regional API key. Do not infer a next coding milestone. Consult the optional-extension list in `README.md` and wait for the user to select original-resume storage, scheduling/notifications, another verified additional source, login/recovery, or a reviewed calibration dataset.
 
 Before implementation:
 

@@ -6,5 +6,9 @@ public interface JobSourceClient {
 
   boolean supports(JobSource source);
 
+  default int pageSize() {
+    return 20;
+  }
+
   JobPage search(SearchProfile profile, PageRequest request);
 }

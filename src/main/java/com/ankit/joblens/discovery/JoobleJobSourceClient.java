@@ -7,6 +7,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -18,14 +19,13 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-public class AdzunaJobSourceClient implements JobSourceClient {
-
+public class JoobleJobSourceClient implements JobSourceClient {
   private final WebClient webClient;
   private final ObjectMapper objectMapper;
-  private final AdzunaProperties properties;
+  private final JoobleProperties properties;
 
-  public AdzunaJobSourceClient(
-      WebClient.Builder webClientBuilder, ObjectMapper objectMapper, AdzunaProperties properties) {
+  public JoobleJobSourceClient(
+      WebClient.Builder webClientBuilder, ObjectMapper objectMapper, JoobleProperties properties) {
     this.webClient = webClientBuilder.baseUrl(properties.baseUrl()).build();
     this.objectMapper = objectMapper;
     this.properties = properties;
@@ -33,7 +33,7 @@ public class AdzunaJobSourceClient implements JobSourceClient {
 
   @Override
   public boolean supports(JobSource source) {
-    return source == JobSource.ADZUNA;
+    return source == JobSource.JOOBLE;
   }
 
   @Override
@@ -45,38 +45,24 @@ public class AdzunaJobSourceClient implements JobSourceClient {
   public JobPage search(SearchProfile profile, PageRequest request) {
     if (!properties.hasCredentials()) {
       throw new MissingJobSourceCredentialsException(
-          "Adzuna credentials are missing; set ADZUNA_APP_ID and ADZUNA_APP_KEY");
+          "Jooble credentials are missing; set JOOBLE_API_KEY");
     }
-    if (profile.sourceKey() == null || profile.sourceKey().isBlank()) {
-      throw new JobSourceException(
-          "Adzuna profile " + profile.profileId() + " has no country source_key");
-    }
-
     Mono<String> call =
         webClient
-            .get()
-            .uri(
-                uriBuilder ->
-                    uriBuilder
-                        .pathSegment(
-                            "jobs",
-                            profile.sourceKey().toLowerCase(),
-                            "search",
-                            Integer.toString(request.page()))
-                        .queryParam("app_id", properties.appId())
-                        .queryParam("app_key", properties.appKey())
-                        .queryParam("results_per_page", request.pageSize())
-                        .queryParam("what", profile.keywords())
-                        .queryParamIfPresent(
-                            "where", java.util.Optional.ofNullable(profile.location()))
-                        .queryParam("content-type", "application/json")
-                        .build())
+            .post()
+            .uri(uriBuilder -> uriBuilder.pathSegment("api", properties.apiKey()).build())
+            .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
+            .bodyValue(
+                Map.of(
+                    "keywords", profile.keywords(),
+                    "location", profile.location(),
+                    "page", request.page(),
+                    "ResultOnPage", request.pageSize()))
             .exchangeToMono(
                 response ->
-                    handleResponse(response.statusCode(), response.bodyToMono(String.class)));
-
-    call = call.timeout(properties.timeout());
+                    handleResponse(response.statusCode(), response.bodyToMono(String.class)))
+            .timeout(properties.timeout());
     if (properties.retryAttempts() > 1) {
       call =
           call.retryWhen(
@@ -84,42 +70,38 @@ public class AdzunaJobSourceClient implements JobSourceClient {
                   .filter(this::isTransient)
                   .jitter(0));
     }
-
-    String body;
     try {
-      body = call.block();
+      String body = call.block();
+      if (body == null) {
+        throw new JobSourceException("Jooble returned no response body for " + profile.profileId());
+      }
+      return parse(body, request);
     } catch (JobSourceException exception) {
       throw exception;
     } catch (RuntimeException exception) {
       throw new JobSourceException(
-          "Adzuna request failed for profile " + profile.profileId() + " page " + request.page(),
-          exception);
+          "Jooble request failed for profile " + profile.profileId(), exception);
     }
-    if (body == null) {
-      throw new JobSourceException(
-          "Adzuna returned no response body for profile " + profile.profileId());
-    }
-    return parse(body, request);
   }
 
   private Mono<String> handleResponse(HttpStatusCode statusCode, Mono<String> body) {
     if (statusCode.is2xxSuccessful()) {
       return body;
     }
-    if (statusCode.value() == 429 || statusCode.value() == 500 || statusCode.value() == 503) {
+    if (statusCode.value() == 429 || statusCode.is5xxServerError()) {
       return body.defaultIfEmpty("")
           .flatMap(
               ignored ->
                   Mono.error(
                       new TransientJobSourceException(
-                          "Transient Adzuna HTTP status " + statusCode.value())));
+                          "Transient Jooble HTTP status " + statusCode.value())));
     }
     return body.defaultIfEmpty("")
         .flatMap(
             ignored ->
                 Mono.error(
                     new JobSourceException(
-                        "Non-retryable Adzuna HTTP status " + statusCode.value())));
+                        "Non-retryable Jooble HTTP status " + statusCode.value())));
   }
 
   private boolean isTransient(Throwable throwable) {
@@ -131,46 +113,42 @@ public class AdzunaJobSourceClient implements JobSourceClient {
   private JobPage parse(String body, PageRequest request) {
     try {
       JsonNode root = objectMapper.readTree(body);
-      JsonNode results = root.get("results");
-      if (results == null || !results.isArray()) {
-        throw new MalformedJobSourceResponseException(
-            "Adzuna response is missing the results array");
+      JsonNode jobsNode = root == null ? null : root.get("jobs");
+      if (jobsNode == null || !jobsNode.isArray()) {
+        throw new MalformedJobSourceResponseException("Jooble response is missing the jobs array");
       }
       List<RawSourceJob> jobs = new ArrayList<>();
-      for (JsonNode job : results) {
+      for (JsonNode job : jobsNode) {
         JsonNode id = job.get("id");
         if (id == null || id.asString().isBlank()) {
-          throw new MalformedJobSourceResponseException("Adzuna job is missing its id");
+          throw new MalformedJobSourceResponseException("Jooble job is missing its id");
         }
         String rawJson = job.toString();
-        JsonNode redirectUrl = job.get("redirect_url");
-        jobs.add(
-            new RawSourceJob(
-                id.asString(),
-                redirectUrl == null || redirectUrl.isNull() ? null : redirectUrl.asString(),
-                rawJson,
-                sha256(rawJson)));
+        jobs.add(new RawSourceJob(id.asString(), text(job.get("link")), rawJson, sha256(rawJson)));
       }
-      JsonNode countNode = root.get("count");
-      long count = countNode == null || !countNode.isNumber() ? -1 : countNode.asLong();
+      long totalCount = root.path("totalCount").isNumber() ? root.path("totalCount").asLong() : -1;
       boolean hasMore =
           !jobs.isEmpty()
-              && (count >= 0
-                  ? (long) request.page() * request.pageSize() < count
+              && (totalCount >= 0
+                  ? (long) request.page() * request.pageSize() < totalCount
                   : jobs.size() == request.pageSize());
-      return new JobPage(request.page(), count, jobs, hasMore);
+      return new JobPage(request.page(), totalCount, jobs, hasMore);
     } catch (MalformedJobSourceResponseException exception) {
       throw exception;
     } catch (JacksonException exception) {
-      throw new MalformedJobSourceResponseException("Adzuna returned malformed JSON", exception);
+      throw new MalformedJobSourceResponseException("Jooble returned malformed JSON", exception);
     }
+  }
+
+  private static String text(JsonNode node) {
+    return node == null || node.isNull() ? null : node.asString();
   }
 
   private static String sha256(String value) {
     try {
-      byte[] digest =
-          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(digest);
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable", exception);
     }

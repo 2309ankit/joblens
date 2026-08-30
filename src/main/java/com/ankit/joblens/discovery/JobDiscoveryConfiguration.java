@@ -18,7 +18,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration
-@EnableConfigurationProperties({AdzunaProperties.class, GreenhouseProperties.class})
+@EnableConfigurationProperties({
+  AdzunaProperties.class,
+  GreenhouseProperties.class,
+  JoobleProperties.class
+})
 public class JobDiscoveryConfiguration {
 
   @Bean
@@ -33,6 +37,12 @@ public class JobDiscoveryConfiguration {
       ObjectMapper objectMapper,
       GreenhouseProperties properties) {
     return new GreenhouseJobSourceClient(webClientBuilder, objectMapper, properties);
+  }
+
+  @Bean
+  JoobleJobSourceClient joobleJobSourceClient(
+      WebClient.Builder webClientBuilder, ObjectMapper objectMapper, JoobleProperties properties) {
+    return new JoobleJobSourceClient(webClientBuilder, objectMapper, properties);
   }
 
   @Bean

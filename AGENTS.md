@@ -82,7 +82,7 @@ The repository currently has these verified working slices:
 * anonymous browser workspaces with validated, versioned resume/profile onboarding and UI-managed preferences
 * workspace-owned search definitions, job sightings, rankings, views, applications, and follow-ups
 * `findJobsJob`, a six-step one-click workflow from discovery through candidate scoring
-* source-adapter registry with Adzuna and safe automatic enrichment through the public Greenhouse Job Board API
+* source-adapter registry with Adzuna, optional Jooble, and safe automatic enrichment through the public Greenhouse Job Board API
 * workspace-scoped resume skill review with draft-before-activation semantics
 * Thymeleaf application lifecycle and candidate-scoped follow-up controls
 

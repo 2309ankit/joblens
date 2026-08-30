@@ -2,6 +2,7 @@ package com.ankit.joblens.onboarding;
 
 import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
+import com.ankit.joblens.discovery.JoobleProperties;
 import java.sql.Array;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
@@ -16,9 +17,11 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class OnboardingRepository {
   private final NamedParameterJdbcTemplate jdbc;
+  private final JoobleProperties joobleProperties;
 
-  public OnboardingRepository(NamedParameterJdbcTemplate jdbc) {
+  public OnboardingRepository(NamedParameterJdbcTemplate jdbc, JoobleProperties joobleProperties) {
     this.jdbc = jdbc;
+    this.joobleProperties = joobleProperties;
   }
 
   public long saveResume(
@@ -230,6 +233,14 @@ public class OnboardingRepository {
         "ADZUNA",
         preferences.countryCode().toLowerCase(),
         preferences);
+    if (joobleProperties.hasCredentials()) {
+      upsertSearchProfile(
+          workspaceId,
+          "w-" + workspaceToken(workspaceId) + "-jooble",
+          "JOOBLE",
+          preferences.countryCode().toLowerCase(),
+          preferences);
+    }
   }
 
   private void upsertSearchProfile(

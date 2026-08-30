@@ -57,7 +57,7 @@
       <label>Search location</label><input th:field="*{searchLocation}" required>
       <label>Country code</label><input th:field="*{countryCode}" maxlength="2" required>
       <label>Job sources</label>
-      <p>JobLens searches its available broad public sources automatically. If a result exposes an official Greenhouse company-board URL, JobLens detects, validates, and searches that board without asking you for a provider token or credentials.</p>
+      <p>JobLens searches Adzuna and, when its API key is configured, Jooble automatically. If a result exposes an official Greenhouse company-board URL, JobLens detects, validates, and searches that board without asking you for a provider token or credentials.</p>
       <label>Maximum pages per paged source</label><input type="number" th:field="*{maxPages}" min="1" max="20">
       <label>Employment preference</label><input th:field="*{employmentPreference}" required>
       <label>Work preference</label><input th:field="*{workPreference}" required>

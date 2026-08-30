@@ -92,7 +92,7 @@ public class JobDiscoveryTasklet implements Tasklet {
           profile.profileId(),
           nextPage,
           jobExecutionId);
-      JobPage page = client.search(profile, new PageRequest(nextPage, properties.pageSize()));
+      JobPage page = client.search(profile, new PageRequest(nextPage, client.pageSize()));
       persistence.persistPage(fetchRunId, profile, page, jobExecutionId);
 
       int maxPages = profile.maxPages() == null ? properties.maxPages() : profile.maxPages();

@@ -2,6 +2,7 @@ package com.ankit.joblens.dashboard;
 
 import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
+import com.ankit.joblens.onboarding.OnboardingService;
 import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,20 +13,24 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Controller
 public class DashboardController {
   private final NamedParameterJdbcTemplate jdbc;
   private final WorkspaceContext workspaceContext;
   private final WorkspaceCandidateProfileService candidateProfiles;
+  private final OnboardingService onboarding;
 
   public DashboardController(
       NamedParameterJdbcTemplate jdbc,
       WorkspaceContext workspaceContext,
-      WorkspaceCandidateProfileService candidateProfiles) {
+      WorkspaceCandidateProfileService candidateProfiles,
+      OnboardingService onboarding) {
     this.jdbc = jdbc;
     this.workspaceContext = workspaceContext;
     this.candidateProfiles = candidateProfiles;
+    this.onboarding = onboarding;
   }
 
   @GetMapping({"/", "/dashboard"})
@@ -40,6 +45,21 @@ public class DashboardController {
     Map<String, Object> parameters =
         Map.of("candidateProfileId", candidateProfileId, "workspaceId", workspaceId);
     model.addAttribute("businessDate", java.time.LocalDate.now());
+    onboarding
+        .preferences(workspaceId)
+        .ifPresent(
+            preferences -> {
+              model.addAttribute(
+                  "linkedInSearchUrl",
+                  UriComponentsBuilder.fromUriString("https://www.linkedin.com/jobs/search/")
+                      .queryParam("keywords", preferences.keywords())
+                      .queryParam("location", preferences.searchLocation())
+                      .encode()
+                      .toUriString());
+              model.addAttribute(
+                  "jobStreetSearchUrl",
+                  "https://sg.jobstreet.com/" + slug(preferences.keywords()) + "-jobs");
+            });
     model.addAttribute(
         "jobs",
         jdbc.query(
@@ -69,5 +89,10 @@ public class DashboardController {
     model.addAttribute(
         "insights", jdbc.queryForList(load("sql/dashboard/list-insights.sql"), Map.of()));
     return "dashboard";
+  }
+
+  private static String slug(String value) {
+    String slug = value.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
+    return slug.replaceAll("(^-)|(-$)", "");
   }
 }

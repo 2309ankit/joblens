@@ -82,7 +82,7 @@ The generated project currently contains:
 | 20 | README and interview demonstration complete      | COMPLETE    |
 | 21 | Anonymous workspace onboarding works             | COMPLETE    |
 | 22 | UI-managed source definitions work               | COMPLETE    |
-| 23 | Adzuna and automatic Greenhouse enrichment work | COMPLETE    |
+| 23 | Adzuna, optional Jooble, and automatic Greenhouse enrichment work | COMPLETE    |
 | 24 | One-click restartable Find jobs workflow works   | COMPLETE    |
 | 25 | Workspace ownership and isolation work           | COMPLETE    |
 | 26 | Workspace resume skill review works              | COMPLETE    |
@@ -231,7 +231,7 @@ No external job-source integrations have been implemented.
 
 The anonymous manual-use workflow is complete. Flyway V11's existing profile-version and skill tables now support UI skill correction without another schema migration. Flyway V8's existing lifecycle tables now back Thymeleaf application and follow-up controls.
 
-`findJobsJob` executes discovery, normalization, skill extraction, exact duplicate detection, fuzzy duplicate analysis, and workspace candidate scoring as one restartable Spring Batch Job. Adzuna and Greenhouse sit behind `JobSourceClient`; provider JSON is stored before provider-specific normalization. Greenhouse is internally discovered and validated only from exposed official board URLs, rather than asking users for technical board tokens. Complex discovery and inspection SQL is externalized and uses `NamedParameterJdbcTemplate`.
+`findJobsJob` executes discovery, normalization, skill extraction, exact duplicate detection, fuzzy duplicate analysis, and workspace candidate scoring as one restartable Spring Batch Job. Adzuna, optional Jooble, and Greenhouse sit behind `JobSourceClient`; provider JSON is stored before provider-specific normalization. Greenhouse is internally discovered and validated only from exposed official board URLs, rather than asking users for technical board tokens. Complex discovery and inspection SQL is externalized and uses `NamedParameterJdbcTemplate`.
 
 ## Next Observable Milestone
 
@@ -262,6 +262,16 @@ During `jobDiscoveryStep`, a detected board is registered idempotently, linked t
 Focused PostgreSQL Testcontainers plus MockWebServer verification ran on 2026-08-31. One direct Greenhouse URL in a mocked Adzuna posting created an internal board record, fetched the Greenhouse board, stored two workspace sightings, normalized/scored both jobs, and marked `examplebank` `VALIDATED`. Existing restart coverage proved that a completed discovery step is not repeated after a controlled downstream normalization failure. The detector unit test covers current/legacy official URL forms and rejects tracking, lookalike, and malformed URLs.
 
 Final verification on 2026-08-31: `./mvnw clean test` completed with 64 tests, 0 failures, 0 errors, and 0 skipped. `spotless:apply` and `git diff --check` completed without output. The rebuilt Compose application returned health `UP`; Flyway recorded V13 as successful; `/api/source-boards` returned `[]` for a new browser workspace; `/setup` rendered the token-free automatic-source explanation; and `/v3/api-docs` exposed the `Discovered source boards` tag and operation descriptions.
+
+## Optional Jooble Source and Portal Link-out Evidence
+
+Flyway V14 extends the existing source checks in `search_profile`, `source_fetch_run`, `raw_job_posting`, and `normalized_job` to permit `JOOBLE`. `JoobleJobSourceClient` uses Jooble's documented regional `POST /api/{apiKey}` search contract, persists each returned job as raw provider JSON with a SHA-256 payload hash, supplies page checkpoints to the existing restartable discovery tasklet, and retries only transient HTTP/network failures. `JoobleJobPostingNormalizer` deterministically normalizes title, company, location, snippet, employment type, update time, source link, and content hash.
+
+Jooble is deliberately opt-in: an active workspace always projects Adzuna, and projects Jooble only when `JOOBLE_API_KEY` is present at confirmation time. This prevents an ordinary Find-jobs run from failing merely because the optional credential is absent. Adding the key requires an application restart and one save/confirm cycle to create the source profile. No live Jooble listing is claimed without a supplied regional key.
+
+The dashboard also creates outbound LinkedIn and JobStreet Singapore search links from saved keywords and location. They open the public portals directly and neither scrape nor import portal data. Existing per-job **Open on source** handling also works for Jooble through the shared view-and-redirect endpoint.
+
+Verification on 2026-08-31: focused MockWebServer tests covered Jooble request path/body, pagination, raw-hash preservation, missing-key failure, malformed response rejection, and normalization. PostgreSQL Testcontainers onboarding coverage confirmed that a configured key produces both `ADZUNA` and `JOOBLE` workspace source profiles. `./mvnw clean test` completed with 69 tests, 0 failures, 0 errors, and 0 skipped. `spotless:apply` and `git diff --check` completed without output. The rebuilt Compose app returned health `UP`, Flyway recorded version `14`, and `/setup` rendered the Adzuna/optional-Jooble explanation. No live Jooble request was made because no regional key was supplied for this verification.
 
 Final verification on 2026-08-30:
 
