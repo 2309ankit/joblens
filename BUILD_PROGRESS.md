@@ -67,7 +67,7 @@ The generated project currently contains:
 | 5  | Flyway and Spring Batch metadata tables verified | COMPLETE    |
 | 6  | CSV search-profile import job works              | COMPLETE    |
 | 7  | Failed CSV import and restart demonstrated       | COMPLETE    |
-| 8  | One real internet job source works               | IN PROGRESS |
+| 8  | One real internet job source works               | COMPLETE    |
 | 9  | Raw postings stored idempotently                 | COMPLETE    |
 | 10 | API pagination and restart work                  | COMPLETE    |
 | 11 | Normalization works                              | COMPLETE    |
@@ -231,6 +231,8 @@ The next observable milestone is the interview/demo runbook. The dashboard is av
 ## Dockerized Application Milestone
 
 `Dockerfile` uses a multi-stage Java 21 build and runs the packaged jar as an unprivileged user. Compose starts the application after PostgreSQL becomes healthy and passes database configuration through environment variables. Verify with `docker compose build app && docker compose up -d` and `curl http://localhost:8080/actuator/health`.
+
+Live Adzuna verification completed after credentials were supplied through the ignored `.env`: Docker Compose app health returned `UP`; JobExecution 17 / JobInstance 14 for `jobDiscoveryJob` completed successfully on 2026-08-30.
 
 ## Weekly Market Insights and OpenAPI Milestone
 

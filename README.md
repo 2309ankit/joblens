@@ -303,4 +303,4 @@ If PostgreSQL authentication fails, ensure Compose and the app use the same `JOB
 
 Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skills, candidate scoring, duplicate detection, application lifecycle, follow-up generation, restartability, and REST APIs.
 
-Remaining: live Adzuna verification, pending credentials. All implementation milestones and the interview/demo runbook are complete.
+All implementation milestones and the interview/demo runbook are complete. Live Adzuna verification is also complete when valid credentials are supplied through `.env`.
