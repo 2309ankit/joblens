@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Set up JobLens</title>
+  <style>
+    body{font:16px system-ui;margin:2rem;background:#f6f7fb;color:#182230}main{max-width:850px;margin:auto}
+    section{background:#fff;padding:1.2rem 1.5rem;margin:1rem 0;border-radius:10px;box-shadow:0 1px 5px #ccd}
+    label{display:block;margin:.8rem 0 .25rem}input{width:100%;padding:.55rem;box-sizing:border-box}button{margin-top:1rem;padding:.6rem 1rem}
+    .ok{color:#176b36}.error{color:#a51d2d}.skills{line-height:1.8}.muted{color:#667}
+  </style>
+</head>
+<body><main>
+  <h1>Set up JobLens</h1>
+  <p class="muted">Workspace <span th:text="${workspaceId}">id</span></p>
+  <p class="ok" th:if="${message}" th:text="${message}"></p>
+  <p class="error" th:if="${error}" th:text="${error}"></p>
+
+  <section>
+    <h2>1. Upload resume</h2>
+    <p>PDF, DOC, or DOCX. Maximum 5 MB. The resume is validated before a profile draft is created.</p>
+    <form method="post" action="/setup/resume" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".pdf,.doc,.docx" required>
+      <button type="submit">Validate and read resume</button>
+    </form>
+    <div th:if="${profile}">
+      <p>Status: <strong th:text="${profile.status}">DRAFT</strong></p>
+      <p>Summary: <span th:text="${profile.summary}"></span></p>
+      <p class="skills">Skills: <span th:text="${#strings.listJoin(profile.skills, ', ')}"></span></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Tell us what you want</h2>
+    <form method="post" action="/setup/preferences" th:object="${preferences}">
+      <label>Target roles, comma separated</label><input th:field="*{targetRoles}" required>
+      <label>Target domains, comma separated</label><input th:field="*{targetDomains}" required>
+      <label>Your primary location</label><input th:field="*{primaryLocation}" required>
+      <label>Search keywords</label><input th:field="*{keywords}" required>
+      <label>Search location</label><input th:field="*{searchLocation}" required>
+      <label>Country code</label><input th:field="*{countryCode}" maxlength="2" required>
+      <label>Maximum pages per source</label><input type="number" th:field="*{maxPages}" min="1" max="20">
+      <label>Employment preference</label><input th:field="*{employmentPreference}" required>
+      <label>Work preference</label><input th:field="*{workPreference}" required>
+      <input type="hidden" name="enabledSources" value="ADZUNA">
+      <button type="submit">Save preferences</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>3. Confirm</h2>
+    <p>Confirmation activates this profile for scoring. It does not call job portals yet.</p>
+    <form method="post" action="/setup/confirm"><button type="submit">Confirm profile</button></form>
+  </section>
+  <a href="/dashboard">Back to dashboard</a>
+</main></body></html>
