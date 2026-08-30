@@ -369,7 +369,7 @@ Preserve and commit the documentation changes when requested.
 
 ## 12. Next-session starting point
 
-Application lifecycle, follow-up generation, weekly market insights, OpenAPI/Swagger inspection, and the Thymeleaf dashboard are complete. The next milestone is application Dockerization.
+Application lifecycle, follow-up generation, weekly market insights, OpenAPI/Swagger inspection, the Thymeleaf dashboard, and application Dockerization are complete. The next milestone is the interview/demo runbook.
 
 Before implementation:
 

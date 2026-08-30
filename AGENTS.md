@@ -78,8 +78,9 @@ The repository currently has these verified working slices:
 * weeklyMarketInsightJob with idempotent weekly aggregates and REST inspection
 * Swagger/OpenAPI inspection at `/swagger-ui.html` and `/v3/api-docs`
 * Thymeleaf dashboard at `/` and `/dashboard`
+* Dockerized application image with Compose PostgreSQL dependency
 
-Application lifecycle, follow-up generation, weekly market insights, and dashboard are complete. The next milestone is application Dockerization; do not start microservices unless explicitly requested.
+Application lifecycle, follow-up generation, weekly market insights, dashboard, and application Dockerization are complete. The next milestone is the interview/demo runbook; do not start microservices unless explicitly requested.
 
 Read `SESSION_HANDOFF.md` first for the indexed session handoff, `README.md` for the operator runbook, and `BUILD_PROGRESS.md` for detailed evidence and milestone history before beginning a new session.
 

@@ -46,6 +46,14 @@ docker compose ps
 ./mvnw spring-boot:run
 ```
 
+To run the complete Dockerized stack instead:
+
+```bash
+docker compose build app
+docker compose up -d
+curl http://localhost:8080/actuator/health
+```
+
 The application is at `http://localhost:8080`; PostgreSQL is at port `5432`. Local defaults match Compose:
 
 ```env
@@ -284,4 +292,4 @@ If PostgreSQL authentication fails, ensure Compose and the app use the same `JOB
 
 Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skills, candidate scoring, duplicate detection, application lifecycle, follow-up generation, restartability, and REST APIs.
 
-Remaining: Dockerizing the JobLens application image and completing the interview/demo runbook. Live Adzuna verification also remains pending until credentials are supplied.
+Remaining: completing the interview/demo runbook. Live Adzuna verification also remains pending until credentials are supplied.

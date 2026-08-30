@@ -78,7 +78,7 @@ The generated project currently contains:
 | 16 | Weekly market insight works                      | COMPLETE    |
 | 17 | Dashboard works                                  | COMPLETE    |
 | 18 | Integration tests pass                           | COMPLETE    |
-| 19 | Dockerized application works                     | NOT STARTED |
+| 19 | Dockerized application works                     | COMPLETE    |
 | 20 | README and interview demonstration complete      | NOT STARTED |
 
 ## Verified Evidence
@@ -222,11 +222,15 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-Audited application lifecycle and deterministic follow-up generation are complete and verified against PostgreSQL. The implementation stops before market-insight, dashboard, application-image, and microservice work.
+Application lifecycle, market insights, dashboard, and Docker packaging are complete and verified against PostgreSQL. The implementation stops before the final demo runbook and microservices.
 
 ## Next Observable Milestone
 
-The next observable milestone is application Dockerization. The dashboard is available at `/` and `/dashboard`; application Dockerization remains deferred.
+The next observable milestone is the interview/demo runbook. The dashboard is available at `/` and `/dashboard`.
+
+## Dockerized Application Milestone
+
+`Dockerfile` uses a multi-stage Java 21 build and runs the packaged jar as an unprivileged user. Compose starts the application after PostgreSQL becomes healthy and passes database configuration through environment variables. Verify with `docker compose build app && docker compose up -d` and `curl http://localhost:8080/actuator/health`.
 
 ## Weekly Market Insights and OpenAPI Milestone
 
