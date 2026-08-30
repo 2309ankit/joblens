@@ -82,7 +82,7 @@ The generated project currently contains:
 | 20 | README and interview demonstration complete      | COMPLETE    |
 | 21 | Anonymous workspace onboarding works             | COMPLETE    |
 | 22 | UI-managed source definitions work               | COMPLETE    |
-| 23 | Adzuna and Greenhouse source adapters work       | COMPLETE    |
+| 23 | Adzuna and automatic Greenhouse enrichment work | COMPLETE    |
 | 24 | One-click restartable Find jobs workflow works   | COMPLETE    |
 | 25 | Workspace ownership and isolation work           | COMPLETE    |
 | 26 | Workspace resume skill review works              | COMPLETE    |
@@ -231,7 +231,7 @@ No external job-source integrations have been implemented.
 
 The anonymous manual-use workflow is complete. Flyway V11's existing profile-version and skill tables now support UI skill correction without another schema migration. Flyway V8's existing lifecycle tables now back Thymeleaf application and follow-up controls.
 
-`findJobsJob` executes discovery, normalization, skill extraction, exact duplicate detection, fuzzy duplicate analysis, and workspace candidate scoring as one restartable Spring Batch Job. Adzuna and Greenhouse sit behind `JobSourceClient`; provider JSON is stored before provider-specific normalization. Complex discovery and inspection SQL is externalized and uses `NamedParameterJdbcTemplate`.
+`findJobsJob` executes discovery, normalization, skill extraction, exact duplicate detection, fuzzy duplicate analysis, and workspace candidate scoring as one restartable Spring Batch Job. Adzuna and Greenhouse sit behind `JobSourceClient`; provider JSON is stored before provider-specific normalization. Greenhouse is internally discovered and validated only from exposed official board URLs, rather than asking users for technical board tokens. Complex discovery and inspection SQL is externalized and uses `NamedParameterJdbcTemplate`.
 
 ## Next Observable Milestone
 
@@ -245,13 +245,23 @@ No implementation milestone is active. Optional product choices are original-res
 
 Focused PostgreSQL Testcontainers evidence covers draft-before-activation skill edits, catalog validation, workspace isolation, candidate-scoped follow-up generation, no-change idempotency, changed-state reruns, failure rollback, and same-JobInstance restart. REST contract tests cover successful and invalid reviewed-skill updates.
 
-Final verification on 2026-08-31: `./mvnw clean test` completed with 62 tests, 0 failures, 0 errors, and 0 skipped. The rebuilt Compose app returned health `200`; a fresh workspace received `302 /setup` from `/applications`; Swagger exposed the new profile and lifecycle descriptions; and a controlled candidate workspace rendered `/applications` with HTTP 200. The exact temporary workspace was removed after the render check.
+Earlier verification on 2026-08-31: `./mvnw clean test` completed with 62 tests, 0 failures, 0 errors, and 0 skipped. The rebuilt Compose app returned health `200`; a fresh workspace received `302 /setup` from `/applications`; Swagger exposed the new profile and lifecycle descriptions; and a controlled candidate workspace rendered `/applications` with HTTP 200. The exact temporary workspace was removed after the render check.
 
 ## Workspace Onboarding and Find Jobs Evidence
 
 `WorkspaceOnboardingIntegrationTests` proves two anonymous workspaces create independent candidate profiles and source projections, and that revising an active profile creates a new draft before superseding the prior version. `FindJobsIntegrationTests` proves all six steps complete, workspace sightings and candidate scores persist, identical identifying parameters are idempotently rejected after completion, and a controlled normalization failure restarts the same JobInstance without repeating the completed HTTP discovery step.
 
 Greenhouse client and normalizer tests verify the official public `GET /v1/boards/{board_token}/jobs?content=true` contract, local keyword/location filtering, raw JSON hashing, and provider-specific normalization. No live Greenhouse board is claimed.
+
+## Automatic Greenhouse Board Enrichment Evidence
+
+Flyway V13 adds the shared `discovered_source_board` registry and workspace-scoped `workspace_source_board` visibility. Setup no longer asks a user to choose sources or enter a Greenhouse board token. A direct, HTTPS Greenhouse-hosted URL from an existing public source is parsed only for documented `job-boards.greenhouse.io/{board}` or legacy `boards.greenhouse.io/{board}` forms. The application does not follow arbitrary tracking redirects.
+
+During `jobDiscoveryStep`, a detected board is registered idempotently, linked to the workspace's search definition, and projected into a one-page Greenhouse `search_profile`. Its generated profile ID sorts after the workspace's Adzuna profile, so the existing restartable tasklet fetches it in the same six-step Find-jobs execution. Successful public API access marks the board `VALIDATED`; a failed source fetch is persisted as `FAILED` with a reason. `GET /api/source-boards` provides workspace-scoped REST/Swagger inspection.
+
+Focused PostgreSQL Testcontainers plus MockWebServer verification ran on 2026-08-31. One direct Greenhouse URL in a mocked Adzuna posting created an internal board record, fetched the Greenhouse board, stored two workspace sightings, normalized/scored both jobs, and marked `examplebank` `VALIDATED`. Existing restart coverage proved that a completed discovery step is not repeated after a controlled downstream normalization failure. The detector unit test covers current/legacy official URL forms and rejects tracking, lookalike, and malformed URLs.
+
+Final verification on 2026-08-31: `./mvnw clean test` completed with 64 tests, 0 failures, 0 errors, and 0 skipped. `spotless:apply` and `git diff --check` completed without output. The rebuilt Compose application returned health `UP`; Flyway recorded V13 as successful; `/api/source-boards` returned `[]` for a new browser workspace; `/setup` rendered the token-free automatic-source explanation; and `/v3/api-docs` exposed the `Discovered source boards` tag and operation descriptions.
 
 Final verification on 2026-08-30:
 

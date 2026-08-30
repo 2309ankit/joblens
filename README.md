@@ -1,6 +1,6 @@
 # JobLens
 
-JobLens is a batch-first modular monolith for personal job-market intelligence. Each anonymous browser workspace can upload and validate a resume, control job preferences in the UI, discover public Adzuna and configured Greenhouse job-board postings, rank only its discovered jobs, and track applications.
+JobLens is a batch-first modular monolith for personal job-market intelligence. Each anonymous browser workspace can upload and validate a resume, control job preferences in the UI, discover public Adzuna postings, safely enrich from automatically detected Greenhouse boards, rank only its discovered jobs, and track applications.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Browser cookie → workspace → validated resume draft → confirmed candidate/
                     findJobsJob
                     ├─ jobDiscoveryStep → JobSourceClient registry
                     │                    ├─ Adzuna API
-                    │                    └─ Greenhouse public Job Board API
+                    │                    └─ exposed Greenhouse URL → internal board registry → public Job Board API
                     │                    → raw_job_posting/workspace_job_sighting
                     ├─ jobNormalizationStep → normalized_job
                     ├─ skillExtractionStep   → job_skill
@@ -38,7 +38,7 @@ intelligence   normalization, skills, duplicate detection, candidate profile, an
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history.
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -75,17 +75,17 @@ Environment variables override these values. Never commit real credentials; `.en
 1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.
 2. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text; the draft is accepted only when readable text and known skills are found. JobLens currently stores resume metadata and hash, not the original file bytes.
 3. Review the detected skill checkboxes. Add skills the reader missed or remove incorrect matches, then save the reviewed draft. An active profile is never changed until its new draft is confirmed.
-4. Enter target roles, domains, location, keywords, sources, and page limit. For Greenhouse, enter public company board tokens such as the company part of its Greenhouse board URL. JobLens uses the documented public [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html); public GET requests do not require authentication.
+4. Enter target roles, domains, location, keywords, and page limit. JobLens searches its available broad public sources. If one exposes an official Greenhouse-hosted job URL, JobLens extracts the board identifier, validates it internally using the documented public [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html), and searches it—no provider token or Greenhouse credential is requested from you.
 5. Confirm the draft. Confirmation versions the profile and activates candidate skills, preferences, and runnable source definitions.
 6. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
 7. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
 8. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
 
-Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, the skill catalog, and reviewed-skill replacement. **Find jobs** runs and inspects the complete search pipeline. **Applications** and **Follow-ups** document the same ownership-safe operations exposed in the Thymeleaf pages. Swagger sends the browser workspace cookie with each request.
+Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, the skill catalog, and reviewed-skill replacement. **Find jobs** runs and inspects the complete search pipeline. **Discovered source boards** lists Greenhouse boards found for this browser workspace and their `DISCOVERED`, `VALIDATED`, or `FAILED` status. **Applications** and **Follow-ups** document the same ownership-safe operations exposed in the Thymeleaf pages. Swagger sends the browser workspace cookie with each request.
 
 ## What each batch does
 
-`findJobsJob` is the normal user flow: discovery, normalization, skills, exact/fuzzy duplicate analysis, and workspace candidate scoring in six ordered steps. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
+`findJobsJob` is the normal user flow: discovery (including safe Greenhouse board enrichment when an official URL is exposed), normalization, skills, exact/fuzzy duplicate analysis, and workspace candidate scoring in six ordered steps. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
 Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
 
@@ -297,6 +297,14 @@ The job detail endpoint returns normalized fields, canonical skills, score categ
 
 Dashboard job rows include **Open on ADZUNA** or **Open on GREENHOUSE**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. Inspect view history with `GET /api/job-views`.
 
+Inspect automatically detected Greenhouse boards for the current browser workspace:
+
+```bash
+curl http://localhost:8080/api/source-boards
+```
+
+JobLens only accepts direct `https://job-boards.greenhouse.io/{board}` or legacy `https://boards.greenhouse.io/{board}` URLs (including the official embed form). It does not follow arbitrary Adzuna tracking redirects, which avoids treating an untrusted URL as an outbound fetch target. Current Adzuna payloads expose Adzuna tracking URLs, so this enrichment activates when a source directly provides a Greenhouse-hosted URL or a future legitimate adapter does.
+
 ## Batch history and restart
 
 ```bash
@@ -327,7 +335,7 @@ Focused suites:
 
 ## Troubleshooting
 
-If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, confirm the setup profile and click **Find and rank jobs**. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. Greenhouse GET access needs no API key, but each company board token must be configured in `/setup`.
+If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, confirm the setup profile and click **Find and rank jobs**. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. Greenhouse GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
 
 ## Interview/demo runbook
 
@@ -346,7 +354,7 @@ The anonymous, manual-use product flow is complete. These are separate product c
 
 - Store original resume bytes through an object-storage adapter; V11 currently stores validated metadata and SHA-256 only.
 - Add optional schedules/notifications after the manual one-click workflow is proven useful.
-- Add more legitimate source adapters when a public API exists. Greenhouse is implemented against its public Job Board API; JobStreet requires a verified supported interface. LinkedIn and Indeed scraping remain prohibited.
+- Add more legitimate source adapters only when a candidate-facing public search API exists or a commercial agreement explicitly authorizes this use. The current LinkedIn and SEEK/JobStreet APIs are partner/hirer integrations for posting and applications, not public candidate-job discovery. LinkedIn and Indeed scraping remain prohibited.
 - Add login/account recovery only if anonymous browser-cookie workspaces need cross-device persistence.
 - Calibrate deterministic scoring and fuzzy thresholds against reviewed real examples.
 

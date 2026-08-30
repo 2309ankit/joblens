@@ -33,10 +33,12 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @Testcontainers
 class FindJobsIntegrationTests {
   private static final MockWebServer ADZUNA = new MockWebServer();
+  private static final MockWebServer GREENHOUSE = new MockWebServer();
 
   static {
     try {
       ADZUNA.start();
+      GREENHOUSE.start();
     } catch (java.io.IOException exception) {
       throw new ExceptionInInitializerError(exception);
     }
@@ -52,6 +54,7 @@ class FindJobsIntegrationTests {
   @AfterAll
   static void stopServer() throws Exception {
     ADZUNA.shutdown();
+    GREENHOUSE.shutdown();
   }
 
   @DynamicPropertySource
@@ -65,6 +68,8 @@ class FindJobsIntegrationTests {
     registry.add("joblens.adzuna.page-size", () -> "20");
     registry.add("joblens.adzuna.max-pages", () -> "2");
     registry.add("joblens.adzuna.retry-backoff", () -> "1ms");
+    registry.add("joblens.greenhouse.base-url", () -> GREENHOUSE.url("/").toString());
+    registry.add("joblens.greenhouse.retry-backoff", () -> "1ms");
   }
 
   @Autowired private WorkspaceRepository workspaces;
@@ -82,7 +87,8 @@ class FindJobsIntegrationTests {
   void oneClickPipelinePersistsWorkspaceJobsAndCandidateScoresIdempotently() throws Exception {
     UUID workspaceId = UUID.randomUUID();
     long candidateProfileId = confirm(workspaceId, "1");
-    ADZUNA.enqueue(response("ONE-1"));
+    ADZUNA.enqueue(response("ONE-1", "https://job-boards.greenhouse.io/examplebank/jobs/987"));
+    GREENHOUSE.enqueue(greenhouseResponse());
 
     JobExecution execution =
         findJobs.run(workspaceId, candidateProfileId, LocalDate.of(2060, 1, 1));
@@ -96,7 +102,7 @@ class FindJobsIntegrationTests {
             "exactDuplicateDetectionStep",
             "fuzzyDuplicateDetectionStep",
             "scoringStep");
-    assertThat(countSightings(workspaceId)).isEqualTo(1);
+    assertThat(countSightings(workspaceId)).isEqualTo(2);
     assertThat(
             jdbc.queryForObject(
                 """
@@ -108,7 +114,24 @@ class FindJobsIntegrationTests {
                 Integer.class,
                 workspaceId,
                 candidateProfileId))
-        .isEqualTo(1);
+        .isEqualTo(2);
+    assertThat(
+            jdbc.queryForMap(
+                """
+                SELECT board.source_key, board.status
+                FROM workspace_source_board workspace_board
+                JOIN discovered_source_board board ON board.id=workspace_board.discovered_source_board_id
+                WHERE workspace_board.workspace_id=?
+                """,
+                workspaceId))
+        .containsEntry("source_key", "examplebank")
+        .containsEntry("status", "VALIDATED");
+    assertThat(
+            jdbc.queryForList(
+                "SELECT source FROM search_profile WHERE workspace_id=? AND active=true ORDER BY source",
+                String.class,
+                workspaceId))
+        .containsExactly("ADZUNA", "GREENHOUSE");
     assertThat(findJobs.runs(workspaceId))
         .singleElement()
         .satisfies(run -> assertThat(run).containsEntry("status", "COMPLETED"));
@@ -116,7 +139,7 @@ class FindJobsIntegrationTests {
     assertThatThrownBy(
             () -> findJobs.run(workspaceId, candidateProfileId, LocalDate.of(2060, 1, 1)))
         .isInstanceOf(JobInstanceAlreadyCompleteException.class);
-    assertThat(countSightings(workspaceId)).isEqualTo(1);
+    assertThat(countSightings(workspaceId)).isEqualTo(2);
   }
 
   @Test
@@ -165,8 +188,6 @@ class FindJobsIntegrationTests {
             "Java Spring",
             "Singapore",
             "sg",
-            List.of("ADZUNA"),
-            "",
             2,
             "PERMANENT",
             "HYBRID"));
@@ -185,6 +206,10 @@ class FindJobsIntegrationTests {
   }
 
   private static MockResponse response(String id) {
+    return response(id, "https://example.test/jobs/" + id);
+  }
+
+  private static MockResponse response(String id, String sourceUrl) {
     return new MockResponse()
         .setHeader("Content-Type", "application/json")
         .setBody(
@@ -195,9 +220,24 @@ class FindJobsIntegrationTests {
               "location":{"display_name":"Singapore"},
               "description":"<p>Java Spring Boot Kafka payments</p>",
               "contract_type":"permanent","created":"2026-08-30T00:00:00Z",
-              "redirect_url":"https://example.test/jobs/%s"
+              "redirect_url":"%s"
             }]}
             """
-                .formatted(id, id));
+                .formatted(id, sourceUrl));
+  }
+
+  private static MockResponse greenhouseResponse() {
+    return new MockResponse()
+        .setHeader("Content-Type", "application/json")
+        .setBody(
+            """
+            {"jobs":[{
+              "id":987,"title":"Senior Java Platform Engineer",
+              "location":{"name":"Singapore"},
+              "content":"<p>Java Spring Boot payments platform</p>",
+              "updated_at":"2026-08-30T00:00:00Z",
+              "absolute_url":"https://job-boards.greenhouse.io/examplebank/jobs/987"
+            }]}
+            """);
   }
 }

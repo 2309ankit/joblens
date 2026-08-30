@@ -15,9 +15,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DiscoveryPersistenceService {
   private final NamedParameterJdbcTemplate jdbc;
+  private final GreenhouseBoardDetector greenhouseBoardDetector;
+  private final SourceBoardRepository sourceBoards;
 
-  public DiscoveryPersistenceService(NamedParameterJdbcTemplate jdbc) {
+  public DiscoveryPersistenceService(
+      NamedParameterJdbcTemplate jdbc,
+      GreenhouseBoardDetector greenhouseBoardDetector,
+      SourceBoardRepository sourceBoards) {
     this.jdbc = jdbc;
+    this.greenhouseBoardDetector = greenhouseBoardDetector;
+    this.sourceBoards = sourceBoards;
   }
 
   public SearchProfile findNextActiveProfile(
@@ -129,6 +136,12 @@ public class DiscoveryPersistenceService {
                 .addValue(
                     "externalJobIds",
                     page.jobs().stream().map(RawSourceJob::externalJobId).toList()));
+        page.jobs().stream()
+            .map(RawSourceJob::sourceUrl)
+            .map(greenhouseBoardDetector::detect)
+            .flatMap(java.util.Optional::stream)
+            .distinct()
+            .forEach(board -> sourceBoards.register(profile, board));
       }
     }
 
@@ -146,14 +159,16 @@ public class DiscoveryPersistenceService {
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public void completeFetchRun(long fetchRunId, long jobExecutionId) {
+  public void completeFetchRun(long fetchRunId, SearchProfile profile, long jobExecutionId) {
     jdbc.update(
         load("sql/discovery/complete-fetch-run.sql"),
         Map.of("jobExecutionId", jobExecutionId, "fetchRunId", fetchRunId));
+    sourceBoards.markValidated(profile);
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public void failFetchRun(long fetchRunId, long jobExecutionId, Throwable failure) {
+  public void failFetchRun(
+      long fetchRunId, SearchProfile profile, long jobExecutionId, Throwable failure) {
     String reason =
         failure.getClass().getSimpleName()
             + ": "
@@ -164,5 +179,6 @@ public class DiscoveryPersistenceService {
     jdbc.update(
         load("sql/discovery/fail-fetch-run.sql"),
         Map.of("reason", reason, "jobExecutionId", jobExecutionId, "fetchRunId", fetchRunId));
+    sourceBoards.markFailed(profile, reason);
   }
 }

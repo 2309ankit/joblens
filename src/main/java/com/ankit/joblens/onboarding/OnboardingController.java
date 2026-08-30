@@ -47,8 +47,6 @@ public class OnboardingController {
                           "Java Spring Boot",
                           "Singapore",
                           "sg",
-                          List.of("ADZUNA"),
-                          "",
                           3,
                           "PERMANENT",
                           "REMOTE,HYBRID,ONSITE")));

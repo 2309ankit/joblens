@@ -98,7 +98,7 @@ public class JobDiscoveryTasklet implements Tasklet {
       int maxPages = profile.maxPages() == null ? properties.maxPages() : profile.maxPages();
       boolean complete = page.jobs().isEmpty() || !page.hasMore() || nextPage >= maxPages;
       if (complete) {
-        persistence.completeFetchRun(fetchRunId, jobExecutionId);
+        persistence.completeFetchRun(fetchRunId, profile, jobExecutionId);
         context.putString(LAST_COMPLETED_PROFILE, profile.profileId());
         context.remove(CURRENT_PROFILE);
         context.remove(FETCH_RUN_ID);
@@ -117,7 +117,7 @@ public class JobDiscoveryTasklet implements Tasklet {
       }
       return RepeatStatus.CONTINUABLE;
     } catch (RuntimeException failure) {
-      persistence.failFetchRun(fetchRunId, jobExecutionId, failure);
+      persistence.failFetchRun(fetchRunId, profile, jobExecutionId, failure);
       log.warn(
           "Failed source={} profile={} page={} jobExecutionId={} reason={}",
           source,

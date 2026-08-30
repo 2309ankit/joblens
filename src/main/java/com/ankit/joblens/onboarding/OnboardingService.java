@@ -101,12 +101,6 @@ public class OnboardingService {
         repository
             .latestProfile(workspaceId)
             .orElseThrow(() -> new IllegalStateException("Upload a valid resume first"));
-    if (preferences.enabledSources() != null
-        && preferences.enabledSources().contains("GREENHOUSE")
-        && boards(preferences.greenhouseBoards()).isEmpty()) {
-      throw new IllegalArgumentException(
-          "Add at least one Greenhouse board token or turn Greenhouse off");
-    }
     if ("ACTIVE".equals(profile.status())) {
       profile = repository.forkDraft(workspaceId, profile);
     } else if (!"DRAFT".equals(profile.status())) {
@@ -146,16 +140,6 @@ public class OnboardingService {
 
   private static String hash(byte[] content) throws Exception {
     return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-  }
-
-  private static java.util.List<String> boards(String value) {
-    if (value == null || value.isBlank()) {
-      return java.util.List.of();
-    }
-    return java.util.Arrays.stream(value.split(","))
-        .map(String::trim)
-        .filter(board -> !board.isBlank())
-        .toList();
   }
 
   private List<String> canonicalSkills(List<String> requestedSkills) {

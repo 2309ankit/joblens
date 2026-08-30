@@ -5,12 +5,12 @@ This document is the indexed handoff for JobLens through the anonymous-workspace
 ## Current redesign summary
 
 - Flyway V11 adds anonymous browser workspaces, validated resume metadata, versioned profile drafts, preferences, search definitions, and candidate ownership.
-- Flyway V12 adds Adzuna/Greenhouse source projections, workspace job sightings, and workspace Find-jobs run history.
-- `/setup` is the first-time flow: upload resume, save preferences/sources, then confirm.
+- Flyway V12 adds workspace source projections, job sightings, and Find-jobs run history; V13 adds discovered company-board registry and workspace visibility.
+- `/setup` is the first-time flow: upload resume, save preferences, then confirm.
 - `/dashboard` has **Find and rank jobs**, which launches `findJobsJob` with discovery, normalization, skills, exact duplicates, fuzzy duplicates, and candidate scoring.
 - Rankings, job inspection, views, applications, transitions, and follow-up reads are candidate/workspace-scoped.
 - Discovery SQL and newly touched inspection SQL are external `.sql` resources using named parameters.
-- Greenhouse uses its official public Job Board GET API and requires configured board tokens, not credentials. Adzuna still requires ignored environment credentials.
+- Greenhouse uses its official public Job Board GET API without credentials. JobLens discovers and validates exposed official Greenhouse URLs internally; normal users do not supply board tokens. Adzuna still requires ignored environment credentials.
 - `/setup` includes workspace-scoped resume skill review; active scoring skills change only after draft confirmation.
 - `/applications` provides candidate-owned save, transition, follow-up refresh, and completion controls.
 - Follow-up Batch runs are candidate-scoped and identify application-history revisions for useful same-day idempotency.
@@ -140,6 +140,7 @@ V9__create_weekly_market_insights.sql
 V10__create_job_view_tracking.sql
 V11__create_workspace_onboarding.sql
 V12__add_workspace_discovery.sql
+V13__create_discovered_source_boards.sql
 ```
 
 Major business tables:
@@ -365,7 +366,7 @@ Preserve and commit the documentation changes when requested.
 
 - Live Adzuna discovery still requires user credentials.
 - The original resume bytes are not stored; only validated metadata and SHA-256 are retained pending an object-storage decision.
-- Greenhouse requires users to supply specific public company board tokens and has only mocked contract verification so far.
+- Greenhouse enrichment activates only when a source directly exposes an official Greenhouse-hosted URL. Adzuna's current tracking URLs do not expose the final employer board, and JobLens deliberately does not follow arbitrary redirects.
 - Anonymous workspaces depend on a browser cookie and have no account recovery or cross-device sync.
 - Discovery is sequential; partitioning is deferred.
 - The seeded default candidate remains for legacy tests/operator flows; browser workspaces have independent profiles.
@@ -378,7 +379,7 @@ Preserve and commit the documentation changes when requested.
 
 ## 12. Next-session starting point
 
-The anonymous manual-use workflow is complete. Do not infer a next coding milestone. Consult the optional-extension list in `README.md` and wait for the user to select original-resume storage, scheduling/notifications, a verified additional source, login/recovery, or a reviewed calibration dataset.
+The anonymous manual-use workflow is complete. Greenhouse board tokens were removed from normal setup: automatic enrichment is registered, validated, and inspectable. Do not infer a next coding milestone. Consult the optional-extension list in `README.md` and wait for the user to select original-resume storage, scheduling/notifications, a verified additional source, login/recovery, or a reviewed calibration dataset.
 
 Before implementation:
 

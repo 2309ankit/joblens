@@ -57,11 +57,7 @@
       <label>Search location</label><input th:field="*{searchLocation}" required>
       <label>Country code</label><input th:field="*{countryCode}" maxlength="2" required>
       <label>Job sources</label>
-      <label><input style="width:auto" type="checkbox" th:field="*{enabledSources}" value="ADZUNA"> Adzuna</label>
-      <label><input style="width:auto" type="checkbox" th:field="*{enabledSources}" value="GREENHOUSE"> Greenhouse public job boards</label>
-      <label>Greenhouse board tokens, comma separated</label>
-      <input th:field="*{greenhouseBoards}" placeholder="examplecompany, anothercompany">
-      <p class="muted">A board token is the company part of its public Greenhouse job-board URL. Greenhouse is searched only when selected.</p>
+      <p>JobLens searches its available broad public sources automatically. If a result exposes an official Greenhouse company-board URL, JobLens detects, validates, and searches that board without asking you for a provider token or credentials.</p>
       <label>Maximum pages per paged source</label><input type="number" th:field="*{maxPages}" min="1" max="20">
       <label>Employment preference</label><input th:field="*{employmentPreference}" required>
       <label>Work preference</label><input th:field="*{workPreference}" required>

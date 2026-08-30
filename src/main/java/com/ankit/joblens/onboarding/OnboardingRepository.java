@@ -2,12 +2,8 @@ package com.ankit.joblens.onboarding;
 
 import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.Array;
 import java.sql.SQLException;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -151,10 +147,6 @@ public class OnboardingRepository {
             .addValue("keywords", preferences.keywords())
             .addValue("location", preferences.searchLocation())
             .addValue("countryCode", preferences.countryCode().toLowerCase())
-            .addValue(
-                "enabledSources", safeSources(preferences.enabledSources()).toArray(String[]::new))
-            .addValue(
-                "greenhouseBoards", boards(preferences.greenhouseBoards()).toArray(String[]::new))
             .addValue("maxPages", preferences.maxPages()),
         Long.class);
   }
@@ -173,8 +165,6 @@ public class OnboardingRepository {
                     resultSet.getString("keywords"),
                     resultSet.getString("location"),
                     resultSet.getString("country_code"),
-                    strings(resultSet.getArray("enabled_sources")),
-                    strings(resultSet.getArray("greenhouse_boards")),
                     resultSet.getInt("max_pages")));
     if (definitions.isEmpty()) {
       return Optional.empty();
@@ -197,8 +187,6 @@ public class OnboardingRepository {
             definition.keywords(),
             definition.location(),
             definition.countryCode(),
-            definition.enabledSources(),
-            String.join(", ", definition.greenhouseBoards()),
             definition.maxPages(),
             values.getOrDefault("employment.preference", "ANY"),
             values.getOrDefault("work.preference", "REMOTE,HYBRID,ONSITE")));
@@ -233,28 +221,15 @@ public class OnboardingRepository {
   }
 
   private void syncSearchProfiles(UUID workspaceId, SearchPreferences preferences) {
-    List<String> sources = safeSources(preferences.enabledSources());
     jdbc.update(
         load("sql/onboarding/deactivate-workspace-search-profiles.sql"),
         Map.of("workspaceId", workspaceId));
-    if (sources.contains("ADZUNA")) {
-      upsertSearchProfile(
-          workspaceId,
-          "w-" + workspaceToken(workspaceId) + "-adzuna",
-          "ADZUNA",
-          preferences.countryCode().toLowerCase(),
-          preferences);
-    }
-    if (sources.contains("GREENHOUSE")) {
-      for (String board : boards(preferences.greenhouseBoards())) {
-        upsertSearchProfile(
-            workspaceId,
-            "w-" + workspaceToken(workspaceId) + "-gh-" + token(board),
-            "GREENHOUSE",
-            board,
-            preferences);
-      }
-    }
+    upsertSearchProfile(
+        workspaceId,
+        "w-" + workspaceToken(workspaceId) + "-adzuna",
+        "ADZUNA",
+        preferences.countryCode().toLowerCase(),
+        preferences);
   }
 
   private void upsertSearchProfile(
@@ -311,29 +286,6 @@ public class OnboardingRepository {
         .toList();
   }
 
-  private static List<String> safeSources(List<String> sources) {
-    if (sources == null || sources.isEmpty()) {
-      return List.of("ADZUNA");
-    }
-    return sources.stream()
-        .map(String::toUpperCase)
-        .filter(source -> source.equals("ADZUNA") || source.equals("GREENHOUSE"))
-        .distinct()
-        .toList();
-  }
-
-  private static List<String> boards(String value) {
-    if (value == null || value.isBlank()) {
-      return List.of();
-    }
-    return java.util.Arrays.stream(value.split(","))
-        .map(String::trim)
-        .map(String::toLowerCase)
-        .filter(board -> board.matches("[a-z0-9_-]+"))
-        .distinct()
-        .toList();
-  }
-
   private static String employmentType(String value) {
     String normalized = value == null ? "ANY" : value.trim().toUpperCase();
     return normalized.equals("PERMANENT") || normalized.equals("CONTRACT") ? normalized : "ANY";
@@ -341,17 +293,6 @@ public class OnboardingRepository {
 
   private static String workspaceToken(UUID workspaceId) {
     return workspaceId.toString().replace("-", "").substring(0, 20);
-  }
-
-  private static String token(String value) {
-    try {
-      return HexFormat.of()
-          .formatHex(
-              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)))
-          .substring(0, 12);
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 is unavailable", exception);
-    }
   }
 
   private static List<String> strings(Array array) throws SQLException {
@@ -362,10 +303,5 @@ public class OnboardingRepository {
   }
 
   private record SearchDefinition(
-      String keywords,
-      String location,
-      String countryCode,
-      List<String> enabledSources,
-      List<String> greenhouseBoards,
-      int maxPages) {}
+      String keywords, String location, String countryCode, int maxPages) {}
 }

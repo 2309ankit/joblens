@@ -82,8 +82,6 @@ class WorkspaceOnboardingIntegrationTests {
             "Java Spring",
             "Singapore",
             "sg",
-            List.of("ADZUNA", "GREENHOUSE"),
-            "examplebank",
             4,
             "PERMANENT",
             "HYBRID"));
@@ -95,7 +93,13 @@ class WorkspaceOnboardingIntegrationTests {
                 "SELECT source FROM search_profile WHERE workspace_id=? AND active=true ORDER BY source",
                 String.class,
                 first))
-        .containsExactly("ADZUNA", "GREENHOUSE");
+        .containsExactly("ADZUNA");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT greenhouse_boards = '{}' FROM workspace_search_definition WHERE workspace_id=?",
+                Boolean.class,
+                first))
+        .isTrue();
     assertThat(
             jdbc.queryForObject(
                 "SELECT count(*) FROM workspace_profile_version WHERE workspace_id=? AND status='SUPERSEDED'",
@@ -161,17 +165,7 @@ class WorkspaceOnboardingIntegrationTests {
         workspaceId,
         profileId,
         new SearchPreferences(
-            role,
-            domain,
-            "Singapore",
-            skill,
-            "Singapore",
-            "sg",
-            List.of("ADZUNA"),
-            "",
-            2,
-            "PERMANENT",
-            "HYBRID"));
+            role, domain, "Singapore", skill, "Singapore", "sg", 2, "PERMANENT", "HYBRID"));
     return onboarding.confirm(workspaceId, onboarding.latestProfile(workspaceId).orElseThrow());
   }
 }
