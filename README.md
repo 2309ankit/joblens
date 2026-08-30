@@ -311,6 +311,8 @@ curl -F 'file=@/path/to/resume.pdf' http://localhost:8080/api/candidate-profile/
 
 The response includes `detectedSkills` and `reviewRequired=true`; review the profile before relying on new rankings.
 
+Review profile at `http://localhost:8080/profile`, inspect with `GET /api/candidate-profile`, and save corrected skills with `PUT /api/candidate-profile` and body `{"skills":["Java","Spring Boot"]}`.
+
 Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skills, candidate scoring, duplicate detection, application lifecycle, follow-up generation, restartability, and REST APIs.
 
 All implementation milestones and the interview/demo runbook are complete. Live Adzuna verification is also complete when valid credentials are supplied through `.env`.
