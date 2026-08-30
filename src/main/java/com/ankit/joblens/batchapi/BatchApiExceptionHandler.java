@@ -1,5 +1,6 @@
 package com.ankit.joblens.batchapi;
 
+import com.ankit.joblens.workspace.WorkspaceNotReadyException;
 import java.time.Instant;
 import java.util.Map;
 import org.springframework.batch.core.job.JobExecutionException;
@@ -14,6 +15,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class BatchApiExceptionHandler {
+
+  @ExceptionHandler(WorkspaceNotReadyException.class)
+  ResponseEntity<Map<String, Object>> workspaceNotReady(WorkspaceNotReadyException exception) {
+    return error(HttpStatus.CONFLICT, "WORKSPACE_NOT_READY", exception.getMessage());
+  }
 
   @ExceptionHandler(JobInstanceAlreadyCompleteException.class)
   ResponseEntity<Map<String, Object>> alreadyComplete(

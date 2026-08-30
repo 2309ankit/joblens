@@ -23,6 +23,6 @@ public class WorkspaceCandidateProfileService {
             Long.class)
         .stream()
         .findFirst()
-        .orElseThrow(() -> new IllegalStateException("Confirm your resume and preferences first"));
+        .orElseThrow(WorkspaceNotReadyException::new);
   }
 }
