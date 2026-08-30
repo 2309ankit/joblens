@@ -301,6 +301,16 @@ If PostgreSQL authentication fails, ensure Compose and the app use the same `JOB
 
 ## Remaining milestones
 
+## Resume profile reader
+
+Upload a PDF or DOCX resume; Apache Tika extracts text and deterministically matches skills from the database catalog:
+
+```bash
+curl -F 'file=@/path/to/resume.pdf' http://localhost:8080/api/candidate-profile/resume
+```
+
+The response includes `detectedSkills` and `reviewRequired=true`; review the profile before relying on new rankings.
+
 Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skills, candidate scoring, duplicate detection, application lifecycle, follow-up generation, restartability, and REST APIs.
 
 All implementation milestones and the interview/demo runbook are complete. Live Adzuna verification is also complete when valid credentials are supplied through `.env`.

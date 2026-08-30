@@ -1,0 +1,3 @@
+package com.ankit.joblens.batchapi;
+import com.ankit.joblens.profile.ResumeProfileService; import org.springframework.http.MediaType; import org.springframework.web.bind.annotation.*; import org.springframework.web.multipart.MultipartFile;
+@RestController @RequestMapping("/api/candidate-profile") public class ResumeProfileController { private final ResumeProfileService service; public ResumeProfileController(ResumeProfileService service){this.service=service;} @PostMapping(value="/resume",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) public Object upload(@RequestPart("file") MultipartFile file)throws Exception{return service.readAndApply(file);} }
