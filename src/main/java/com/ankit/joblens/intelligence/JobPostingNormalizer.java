@@ -4,7 +4,7 @@ import com.ankit.joblens.discovery.JobSource;
 
 public interface JobPostingNormalizer {
 
-    boolean supports(JobSource source);
+  boolean supports(JobSource source);
 
-    NormalizedJob normalize(RawJobPosting rawJobPosting);
+  NormalizedJob normalize(RawJobPosting rawJobPosting);
 }

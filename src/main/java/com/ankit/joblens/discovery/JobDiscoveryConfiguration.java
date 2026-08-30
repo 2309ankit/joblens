@@ -1,8 +1,6 @@
 package com.ankit.joblens.discovery;
 
 import java.util.List;
-
-import tools.jackson.databind.ObjectMapper;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -17,42 +15,43 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.interceptor.DefaultTransactionAttribute;
 import org.springframework.web.reactive.function.client.WebClient;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableConfigurationProperties(AdzunaProperties.class)
 public class JobDiscoveryConfiguration {
 
-    @Bean
-    AdzunaJobSourceClient adzunaJobSourceClient(
-            WebClient.Builder webClientBuilder, ObjectMapper objectMapper, AdzunaProperties properties) {
-        return new AdzunaJobSourceClient(webClientBuilder, objectMapper, properties);
-    }
+  @Bean
+  AdzunaJobSourceClient adzunaJobSourceClient(
+      WebClient.Builder webClientBuilder, ObjectMapper objectMapper, AdzunaProperties properties) {
+    return new AdzunaJobSourceClient(webClientBuilder, objectMapper, properties);
+  }
 
-    @Bean
-    @StepScope
-    JobDiscoveryTasklet jobDiscoveryTasklet(
-            DiscoveryPersistenceService persistence,
-            List<JobSourceClient> clients,
-            AdzunaProperties properties,
-            @Value("#{jobParameters['profileId']}") String requestedProfileId) {
-        return new JobDiscoveryTasklet(persistence, clients, properties, requestedProfileId);
-    }
+  @Bean
+  @StepScope
+  JobDiscoveryTasklet jobDiscoveryTasklet(
+      DiscoveryPersistenceService persistence,
+      List<JobSourceClient> clients,
+      AdzunaProperties properties,
+      @Value("#{jobParameters['profileId']}") String requestedProfileId) {
+    return new JobDiscoveryTasklet(persistence, clients, properties, requestedProfileId);
+  }
 
-    @Bean
-    Step jobDiscoveryStep(JobRepository jobRepository, PlatformTransactionManager transactionManager,
-            JobDiscoveryTasklet jobDiscoveryTasklet) {
-        DefaultTransactionAttribute noTransaction = new DefaultTransactionAttribute();
-        noTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
-        return new StepBuilder("jobDiscoveryStep", jobRepository)
-                .tasklet(jobDiscoveryTasklet, transactionManager)
-                .transactionAttribute(noTransaction)
-                .build();
-    }
+  @Bean
+  Step jobDiscoveryStep(
+      JobRepository jobRepository,
+      PlatformTransactionManager transactionManager,
+      JobDiscoveryTasklet jobDiscoveryTasklet) {
+    DefaultTransactionAttribute noTransaction = new DefaultTransactionAttribute();
+    noTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+    return new StepBuilder("jobDiscoveryStep", jobRepository)
+        .tasklet(jobDiscoveryTasklet, transactionManager)
+        .transactionAttribute(noTransaction)
+        .build();
+  }
 
-    @Bean
-    Job jobDiscoveryJob(JobRepository jobRepository, Step jobDiscoveryStep) {
-        return new JobBuilder("jobDiscoveryJob", jobRepository)
-                .start(jobDiscoveryStep)
-                .build();
-    }
+  @Bean
+  Job jobDiscoveryJob(JobRepository jobRepository, Step jobDiscoveryStep) {
+    return new JobBuilder("jobDiscoveryJob", jobRepository).start(jobDiscoveryStep).build();
+  }
 }

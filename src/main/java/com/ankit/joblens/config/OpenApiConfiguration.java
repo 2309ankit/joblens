@@ -7,9 +7,13 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class OpenApiConfiguration {
-    @Bean
-    OpenAPI jobLensOpenAPI() {
-        return new OpenAPI().info(new Info().title("JobLens API")
-                .version("v1").description("Batch-first job-market intelligence and application tracking API"));
-    }
+  @Bean
+  OpenAPI jobLensOpenAPI() {
+    return new OpenAPI()
+        .info(
+            new Info()
+                .title("JobLens API")
+                .version("v1")
+                .description("Batch-first job-market intelligence and application tracking API"));
+  }
 }
