@@ -1,0 +1,45 @@
+package com.ankit.joblens.dashboard;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
+@RestController
+@RequestMapping("/api/job-views")
+@Tag(name = "Job views", description = "Open source listings and inspect viewed jobs")
+public class JobViewController {
+  private final JobViewService service;
+
+  public JobViewController(JobViewService service) {
+    this.service = service;
+  }
+
+  @GetMapping
+  @Operation(summary = "List viewed jobs")
+  public List<Map<String, Object>> list() {
+    return service.list();
+  }
+
+  @GetMapping("/{jobId}/open")
+  @Operation(summary = "Mark a job viewed and open its original listing")
+  public ResponseEntity<Void> open(@PathVariable long jobId) {
+    try {
+      return ResponseEntity.status(HttpStatus.FOUND)
+          .location(service.recordAndResolve(jobId))
+          .build();
+    } catch (JobViewNotFoundException exception) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, exception.getMessage(), exception);
+    } catch (IllegalArgumentException | IllegalStateException exception) {
+      throw new ResponseStatusException(
+          HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage(), exception);
+    }
+  }
+}

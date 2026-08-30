@@ -1,5 +1,7 @@
 package com.ankit.joblens.dashboard;
 
+import static com.ankit.joblens.jdbc.ClasspathSql.load;
+
 import java.util.LinkedHashMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
@@ -19,7 +21,7 @@ public class DashboardController {
     model.addAttribute(
         "jobs",
         jdbc.query(
-            "SELECT n.id,n.title,n.company,n.location,COALESCE(s.total_score,0) score FROM normalized_job n LEFT JOIN job_score s ON s.normalized_job_id=n.id ORDER BY score DESC,n.id LIMIT 25",
+            load("sql/dashboard/list-ranked-jobs.sql"),
             (rs, i) -> {
               var row = new LinkedHashMap<String, Object>();
               row.put("id", rs.getLong("id"));
@@ -27,6 +29,8 @@ public class DashboardController {
               row.put("company", rs.getString("company"));
               row.put("location", rs.getString("location"));
               row.put("score", rs.getBigDecimal("score"));
+              row.put("source", rs.getString("source"));
+              row.put("viewCount", rs.getInt("view_count"));
               return row;
             }));
     model.addAttribute(

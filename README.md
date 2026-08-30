@@ -274,6 +274,8 @@ open http://localhost:8080/dashboard
 
 The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. The Thymeleaf dashboard is available at `/dashboard`.
 
+Dashboard job rows include **Open on ADZUNA**. Clicking it records the job as viewed and redirects to the original source listing. Viewing does not create an application or mark a job as applied. Inspect view history with `GET /api/job-views`.
+
 ## Batch history and restart
 
 ```bash

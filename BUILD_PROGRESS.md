@@ -222,6 +222,8 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
+Dashboard source links now use a tracked redirect. Flyway V10 stores one view projection per candidate/job with first view, last view, and count. Opening a source listing records `VIEWED` only; it does not create or transition an application.
+
 Application lifecycle, market insights, dashboard, and Docker packaging are complete and verified against PostgreSQL. The implementation stops before the final demo runbook and microservices.
 
 ## Next Observable Milestone
