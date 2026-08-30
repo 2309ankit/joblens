@@ -254,7 +254,7 @@ open http://localhost:8080/swagger-ui.html
 open http://localhost:8080/dashboard
 ```
 
-The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. A Thymeleaf dashboard is not implemented yet; JSON APIs and SQL are the current inspection surface.
+The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. The Thymeleaf dashboard is available at `/dashboard`.
 
 ## Batch history and restart
 
@@ -288,8 +288,19 @@ Focused suites:
 
 If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If `/api/jobs` is empty, run discovery or load raw development data, then run intelligence. If discovery reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`.
 
+## Interview/demo runbook
+
+1. Start the stack: `docker compose up -d` and confirm `docker compose ps` reports both services healthy/running.
+2. Open `/dashboard` and `/swagger-ui.html`.
+3. Import a CSV profile, then launch discovery and intelligence through the documented batch endpoints.
+4. Demonstrate exact/fuzzy duplicate inspection with `/api/duplicates` and `/api/duplicates/similarities`.
+5. Create an application, transition it to `APPLIED`, run follow-up generation, and complete one follow-up.
+6. Run market insights for a Monday week start and inspect `/api/market-insights`.
+7. Show restartability with `/api/batch/executions` and the Batch metadata SQL queries above.
+8. Tear down with `docker compose down` (add `-v` only when intentionally deleting local database data).
+
 ## Remaining milestones
 
 Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skills, candidate scoring, duplicate detection, application lifecycle, follow-up generation, restartability, and REST APIs.
 
-Remaining: completing the interview/demo runbook. Live Adzuna verification also remains pending until credentials are supplied.
+Remaining: live Adzuna verification, pending credentials. All implementation milestones and the interview/demo runbook are complete.

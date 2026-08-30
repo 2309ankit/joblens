@@ -79,7 +79,7 @@ The generated project currently contains:
 | 17 | Dashboard works                                  | COMPLETE    |
 | 18 | Integration tests pass                           | COMPLETE    |
 | 19 | Dockerized application works                     | COMPLETE    |
-| 20 | README and interview demonstration complete      | NOT STARTED |
+| 20 | README and interview demonstration complete      | COMPLETE    |
 
 ## Verified Evidence
 
