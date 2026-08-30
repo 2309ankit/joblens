@@ -75,8 +75,10 @@ The repository currently has these verified working slices:
 * audited application lifecycle transitions and restartable, idempotent follow-up generation
 * REST launch/history APIs and `GET /api/jobs` plus `GET /api/jobs/{id}`
 * JobOperator-based Batch 6 launch/restart infrastructure and JobRepository history lookup
+* weeklyMarketInsightJob with idempotent weekly aggregates and REST inspection
+* Swagger/OpenAPI inspection at `/swagger-ui.html` and `/v3/api-docs`
 
-Application lifecycle and follow-up generation are complete. Do not start market insights, dashboard work, or application Dockerization unless explicitly requested.
+Application lifecycle, follow-up generation, and weekly market insights are complete. The next milestone is the dashboard; do not start application Dockerization unless explicitly requested.
 
 Read `SESSION_HANDOFF.md` first for the indexed session handoff, `README.md` for the operator runbook, and `BUILD_PROGRESS.md` for detailed evidence and milestone history before beginning a new session.
 

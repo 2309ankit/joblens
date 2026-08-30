@@ -364,13 +364,12 @@ Preserve and commit the documentation changes when requested.
 - Fuzzy thresholds and weights are deterministic heuristics and require calibration against reviewed examples.
 - Lifecycle currently uses the single default candidate profile.
 - Follow-up rules are deterministic code configuration and generation uses a single transactional tasklet suitable for personal scale.
-- No market-insight job yet.
 - No Thymeleaf dashboard yet.
 - The application itself is not yet included in Compose.
 
 ## 12. Next-session starting point
 
-Application lifecycle and follow-up generation are complete. The next milestone is weekly market insights; dashboard work and application Dockerization remain deferred.
+Application lifecycle, follow-up generation, weekly market insights, and OpenAPI/Swagger inspection are complete. The next milestone is the Thymeleaf dashboard; application Dockerization remains deferred.
 
 Before implementation:
 
@@ -380,3 +379,5 @@ Before implementation:
 4. Inspect the current Git status and preserve documentation work.
 5. Run or confirm the latest clean test baseline.
 6. Implement only the explicitly requested milestone.
+
+Weekly market insights are launched with `POST /api/market-insights/run?weekStart=YYYY-MM-DD` and inspected with `GET /api/market-insights?from=YYYY-MM-DD&to=YYYY-MM-DD`. Swagger UI is available at `/swagger-ui.html` and the specification at `/v3/api-docs`.

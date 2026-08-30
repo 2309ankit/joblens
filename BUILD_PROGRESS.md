@@ -75,7 +75,7 @@ The generated project currently contains:
 | 13 | Duplicate detection works                        | COMPLETE    |
 | 14 | Candidate scoring works                          | COMPLETE    |
 | 15 | Lifecycle and follow-up generation work          | COMPLETE    |
-| 16 | Weekly market insight works                      | NOT STARTED |
+| 16 | Weekly market insight works                      | COMPLETE    |
 | 17 | Dashboard works                                  | NOT STARTED |
 | 18 | Integration tests pass                           | COMPLETE    |
 | 19 | Dockerized application works                     | NOT STARTED |
@@ -226,7 +226,13 @@ Audited application lifecycle and deterministic follow-up generation are complet
 
 ## Next Observable Milestone
 
-The next observable milestone is weekly market insights. Dashboard and application Dockerization remain deferred.
+The next observable milestone is the Thymeleaf dashboard. Application Dockerization remains deferred.
+
+## Weekly Market Insights and OpenAPI Milestone
+
+Flyway V9 adds `weekly_market_insight`, keyed by week and source. `weeklyMarketInsightJob` aggregates normalized postings into weekly job, company, remote-job, and average-salary metrics with an idempotent upsert. Launch it with `POST /api/market-insights/run?weekStart=YYYY-MM-DD` and inspect results with `GET /api/market-insights?from=YYYY-MM-DD&to=YYYY-MM-DD`.
+
+Swagger/OpenAPI is available through springdoc at `/swagger-ui.html` and `/v3/api-docs`. The API metadata identifies JobLens and documents the REST surface generated from the controllers.
 
 ## Application Lifecycle and Follow-up Generation Milestone
 
