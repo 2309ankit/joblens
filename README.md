@@ -243,6 +243,7 @@ curl 'http://localhost:8080/api/market-insights?from=2026-01-01&to=2026-12-31'
 
 # Interactive API documentation
 open http://localhost:8080/swagger-ui.html
+open http://localhost:8080/dashboard
 ```
 
 The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. A Thymeleaf dashboard is not implemented yet; JSON APIs and SQL are the current inspection surface.
@@ -283,4 +284,4 @@ If PostgreSQL authentication fails, ensure Compose and the app use the same `JOB
 
 Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skills, candidate scoring, duplicate detection, application lifecycle, follow-up generation, restartability, and REST APIs.
 
-Remaining: Thymeleaf dashboard, Dockerizing the JobLens application image, and completing the interview/demo runbook. Live Adzuna verification also remains pending until credentials are supplied.
+Remaining: Dockerizing the JobLens application image and completing the interview/demo runbook. Live Adzuna verification also remains pending until credentials are supplied.

@@ -369,7 +369,7 @@ Preserve and commit the documentation changes when requested.
 
 ## 12. Next-session starting point
 
-Application lifecycle, follow-up generation, weekly market insights, and OpenAPI/Swagger inspection are complete. The next milestone is the Thymeleaf dashboard; application Dockerization remains deferred.
+Application lifecycle, follow-up generation, weekly market insights, OpenAPI/Swagger inspection, and the Thymeleaf dashboard are complete. The next milestone is application Dockerization.
 
 Before implementation:
 

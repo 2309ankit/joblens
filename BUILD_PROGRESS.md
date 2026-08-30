@@ -76,7 +76,7 @@ The generated project currently contains:
 | 14 | Candidate scoring works                          | COMPLETE    |
 | 15 | Lifecycle and follow-up generation work          | COMPLETE    |
 | 16 | Weekly market insight works                      | COMPLETE    |
-| 17 | Dashboard works                                  | NOT STARTED |
+| 17 | Dashboard works                                  | COMPLETE    |
 | 18 | Integration tests pass                           | COMPLETE    |
 | 19 | Dockerized application works                     | NOT STARTED |
 | 20 | README and interview demonstration complete      | NOT STARTED |
@@ -226,7 +226,7 @@ Audited application lifecycle and deterministic follow-up generation are complet
 
 ## Next Observable Milestone
 
-The next observable milestone is the Thymeleaf dashboard. Application Dockerization remains deferred.
+The next observable milestone is application Dockerization. The dashboard is available at `/` and `/dashboard`; application Dockerization remains deferred.
 
 ## Weekly Market Insights and OpenAPI Milestone
 
