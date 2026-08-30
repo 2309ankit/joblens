@@ -83,12 +83,13 @@ The repository currently has these verified working slices:
 * workspace-owned search definitions, job sightings, rankings, views, applications, and follow-ups
 * `findJobsJob`, a six-step one-click workflow from discovery through candidate scoring
 * source-adapter registry with Adzuna, optional Jooble, and safe automatic enrichment through the public Greenhouse Job Board API
+* outbound Portal Search Hub for LinkedIn, JobStreet Singapore, SEEK Australia, and SEEK New Zealand without scraping or importing portal results
 * workspace-scoped resume skill review with draft-before-activation semantics
 * Thymeleaf application lifecycle and candidate-scoped follow-up controls
 
 The anonymous manual-use product flow is complete. Optional future extensions are documented in `README.md`; do not start object storage, schedules, login, unsupported portal scraping, or microservices unless explicitly requested.
 
-Read `SESSION_HANDOFF.md` first for the indexed session handoff, `README.md` for the operator runbook, and `BUILD_PROGRESS.md` for detailed evidence and milestone history before beginning a new session.
+Read `SESSION_HANDOFF.md` first for the concise current-state handoff, `NEXT_MILESTONES.md` for the selectable future-work index, `README.md` for the operator runbook, and `BUILD_PROGRESS.md` for detailed evidence and milestone history before beginning a new session.
 
 ## Build Commands
 

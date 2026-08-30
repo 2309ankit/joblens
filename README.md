@@ -2,6 +2,10 @@
 
 JobLens is a batch-first modular monolith for personal job-market intelligence. Each anonymous browser workspace can upload and validate a resume, control job preferences in the UI, discover public Adzuna postings and optionally Jooble postings, safely enrich from automatically detected Greenhouse boards, rank only its discovered jobs, and track applications.
 
+New session: start with [SESSION_HANDOFF.md](SESSION_HANDOFF.md). To choose the next piece of work,
+use [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Detailed historical evidence remains in
+[BUILD_PROGRESS.md](BUILD_PROGRESS.md).
+
 ## Architecture
 
 One Spring Boot application, one PostgreSQL database, one deployable process:
@@ -161,7 +165,7 @@ Adzuna is the default broad source. Optionally add a Singapore regional Jooble k
 JOOBLE_API_KEY=your-singapore-regional-key
 ```
 
-Recreate the Compose app (or restart a locally run app), then save and confirm preferences again. That projects a Jooble search profile alongside Adzuna; it is not created when the key is absent, so a normal Find-jobs run stays runnable. Jooble's documented free plan has a request quota; keep page limits modest. Its API supplies listing snippets, source links, and update timestamps, which JobLens preserves and normalizes.
+Recreate the Compose app (or restart a locally run app), then save and confirm preferences again. That projects a Jooble search profile alongside Adzuna; it is not created when the key is absent, so a normal Find-jobs run stays runnable. Jooble's documented free plan has a request quota; keep page limits modest. Its API supplies listing snippets, source links, and update timestamps, which JobLens preserves and normalizes. Live Singapore acceptance completed on 2026-08-31 with 60 Jooble records fetched, normalized, sighted, and scored in one completed Find Jobs execution.
 
 Without the relevant credentials, startup still works but a direct live discovery launch fails observably. Mocked Adzuna and Jooble behavior is covered by tests.
 
@@ -307,7 +311,7 @@ open http://localhost:8080/dashboard
 
 The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. The Thymeleaf dashboard is available at `/dashboard`.
 
-Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, or **GREENHOUSE**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. The Find jobs panel also has prefilled outbound LinkedIn and JobStreet Singapore searches from your saved keywords and location; those portals are not scraped or imported. Inspect view history with `GET /api/job-views`.
+Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, or **GREENHOUSE**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel has preference-filled outbound searches for LinkedIn, JobStreet Singapore, SEEK Australia, and SEEK New Zealand; those portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
 
 Inspect automatically detected Greenhouse boards for the current browser workspace:
 

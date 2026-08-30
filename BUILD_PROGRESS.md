@@ -231,6 +231,10 @@ No external job-source integrations have been implemented.
 
 The anonymous manual-use workflow is complete. Flyway V11's existing profile-version and skill tables now support UI skill correction without another schema migration. Flyway V8's existing lifecycle tables now back Thymeleaf application and follow-up controls.
 
+Documentation navigation is split by purpose: `SESSION_HANDOFF.md` is the concise resume point,
+`NEXT_MILESTONES.md` is the selection index for future work, `README.md` is the user/operator runbook,
+and this file remains the detailed evidence history.
+
 `findJobsJob` executes discovery, normalization, skill extraction, exact duplicate detection, fuzzy duplicate analysis, and workspace candidate scoring as one restartable Spring Batch Job. Adzuna, optional Jooble, and Greenhouse sit behind `JobSourceClient`; provider JSON is stored before provider-specific normalization. Greenhouse is internally discovered and validated only from exposed official board URLs, rather than asking users for technical board tokens. Complex discovery and inspection SQL is externalized and uses `NamedParameterJdbcTemplate`.
 
 ## Next Observable Milestone
@@ -272,6 +276,41 @@ Jooble is deliberately opt-in: an active workspace always projects Adzuna, and p
 The dashboard also creates outbound LinkedIn and JobStreet Singapore search links from saved keywords and location. They open the public portals directly and neither scrape nor import portal data. Existing per-job **Open on source** handling also works for Jooble through the shared view-and-redirect endpoint.
 
 Verification on 2026-08-31: focused MockWebServer tests covered Jooble request path/body, pagination, raw-hash preservation, missing-key failure, malformed response rejection, and normalization. PostgreSQL Testcontainers onboarding coverage confirmed that a configured key produces both `ADZUNA` and `JOOBLE` workspace source profiles. `./mvnw clean test` completed with 69 tests, 0 failures, 0 errors, and 0 skipped. `spotless:apply` and `git diff --check` completed without output. The rebuilt Compose app returned health `UP`, Flyway recorded version `14`, and `/setup` rendered the Adzuna/optional-Jooble explanation. No live Jooble request was made because no regional key was supplied for this verification.
+
+## Portal Search Hub Evidence
+
+The dashboard separates imported/scored discovery from outbound portal searches. A small
+`PortalSearchLinkFactory` creates preference-filled official search URLs for LinkedIn, JobStreet
+Singapore, SEEK Australia, and SEEK New Zealand. Thymeleaf renders the links in a dedicated **Search
+more job portals** panel with an explicit warning that those results are not copied into JobLens or
+scored. No portal credentials, scraping, result parsing, or provider impersonation were introduced.
+
+`PortalSearchLinkFactoryTests` verifies provider order, region labels, LinkedIn query encoding, and
+deterministic keyword-slug URLs for all three SEEK-family destinations. Final verification on
+2026-08-31: `./mvnw clean test` completed with 70 tests, 0 failures, 0 errors, and 0 skipped;
+`git diff --check` completed without output. The rebuilt Compose app returned health `UP`; a real
+workspace dashboard render contained **Search LinkedIn — Singapore**, **Search JobStreet —
+Singapore**, **Search SEEK — Australia**, and **Search SEEK — New Zealand**, with the expected
+preference-derived SEEK URLs.
+
+## Live Jooble Acceptance Evidence
+
+The user added a Singapore regional API key only to ignored `.env`; verification checked presence and
+length without printing the value. The Compose app was recreated, and the existing workspace's exact
+preferences were resaved and confirmed through `/setup/preferences` and `/setup/confirm`. Profile
+version 1 became `SUPERSEDED`, version 2 became `ACTIVE`, and active `ADZUNA` plus `JOOBLE` search
+profiles were verified through SQL.
+
+`POST /api/batch/find-jobs/run?businessDate=2026-08-31` completed as JobExecution 22 / JobInstance 19.
+Adzuna and Jooble each completed three pages and reported 60 received records. Jooble produced 60 raw
+JSONB landing rows, 60 normalized rows with source URLs, 60 workspace sightings, and 60 candidate
+scores ranging from 14 to 50. Adzuna's 60 received records reconciled to 58 unique raw identities.
+
+All six Find Jobs steps completed with zero rollbacks: discovery, normalization (118/118), skill
+extraction (60/60), exact duplicates, fuzzy suggestions, and scoring (120/120). REST inspection of job
+442 returned source `JOOBLE`; the dashboard rendered **Open on JOOBLE**; and the workspace view
+endpoint returned `302` with an original `https://sg.jooble.org/desc/...` location. The key was never
+logged, queried from the container, written to tracked files, or included in command output.
 
 Final verification on 2026-08-30:
 

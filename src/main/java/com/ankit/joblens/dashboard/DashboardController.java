@@ -13,7 +13,6 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.util.UriComponentsBuilder;
 
 @Controller
 public class DashboardController {
@@ -21,16 +20,19 @@ public class DashboardController {
   private final WorkspaceContext workspaceContext;
   private final WorkspaceCandidateProfileService candidateProfiles;
   private final OnboardingService onboarding;
+  private final PortalSearchLinkFactory portalSearchLinks;
 
   public DashboardController(
       NamedParameterJdbcTemplate jdbc,
       WorkspaceContext workspaceContext,
       WorkspaceCandidateProfileService candidateProfiles,
-      OnboardingService onboarding) {
+      OnboardingService onboarding,
+      PortalSearchLinkFactory portalSearchLinks) {
     this.jdbc = jdbc;
     this.workspaceContext = workspaceContext;
     this.candidateProfiles = candidateProfiles;
     this.onboarding = onboarding;
+    this.portalSearchLinks = portalSearchLinks;
   }
 
   @GetMapping({"/", "/dashboard"})
@@ -48,18 +50,8 @@ public class DashboardController {
     onboarding
         .preferences(workspaceId)
         .ifPresent(
-            preferences -> {
-              model.addAttribute(
-                  "linkedInSearchUrl",
-                  UriComponentsBuilder.fromUriString("https://www.linkedin.com/jobs/search/")
-                      .queryParam("keywords", preferences.keywords())
-                      .queryParam("location", preferences.searchLocation())
-                      .encode()
-                      .toUriString());
-              model.addAttribute(
-                  "jobStreetSearchUrl",
-                  "https://sg.jobstreet.com/" + slug(preferences.keywords()) + "-jobs");
-            });
+            preferences ->
+                model.addAttribute("portalSearchLinks", portalSearchLinks.create(preferences)));
     model.addAttribute(
         "jobs",
         jdbc.query(
@@ -89,10 +81,5 @@ public class DashboardController {
     model.addAttribute(
         "insights", jdbc.queryForList(load("sql/dashboard/list-insights.sql"), Map.of()));
     return "dashboard";
-  }
-
-  private static String slug(String value) {
-    String slug = value.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
-    return slug.replaceAll("(^-)|(-$)", "");
   }
 }
