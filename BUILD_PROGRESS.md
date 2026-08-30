@@ -80,6 +80,11 @@ The generated project currently contains:
 | 18 | Integration tests pass                           | COMPLETE    |
 | 19 | Dockerized application works                     | COMPLETE    |
 | 20 | README and interview demonstration complete      | COMPLETE    |
+| 21 | Anonymous workspace onboarding works             | COMPLETE    |
+| 22 | UI-managed source definitions work               | COMPLETE    |
+| 23 | Adzuna and Greenhouse source adapters work       | COMPLETE    |
+| 24 | One-click restartable Find jobs workflow works   | COMPLETE    |
+| 25 | Workspace ownership and isolation work           | COMPLETE    |
 
 ## Verified Evidence
 
@@ -222,13 +227,28 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-Dashboard source links now use a tracked redirect. Flyway V10 stores one view projection per candidate/job with first view, last view, and count. Opening a source listing records `VIEWED` only; it does not create or transition an application.
+Anonymous workspace onboarding and the one-click job-search redesign are complete. Flyway V11 adds validated resume metadata, versioned profile drafts, preferences, and workspace candidate ownership. Flyway V12 adds UI-owned source definitions, projected runtime search profiles, workspace job sightings, run history, Greenhouse support, and ownership filters.
 
-Application lifecycle, market insights, dashboard, and Docker packaging are complete and verified against PostgreSQL. The implementation stops before the final demo runbook and microservices.
+`findJobsJob` executes discovery, normalization, skill extraction, exact duplicate detection, fuzzy duplicate analysis, and workspace candidate scoring as one restartable Spring Batch Job. Adzuna and Greenhouse sit behind `JobSourceClient`; provider JSON is stored before provider-specific normalization. Complex discovery and inspection SQL is externalized and uses `NamedParameterJdbcTemplate`.
 
 ## Next Observable Milestone
 
-The next observable milestone is the interview/demo runbook. The dashboard is available at `/` and `/dashboard`.
+No implementation milestone is active. Deferred product choices are original-resume object storage, profile skill review, lifecycle UI, optional schedules/notifications, verified additional public source APIs, and optional login/cross-device recovery.
+
+## Workspace Onboarding and Find Jobs Evidence
+
+`WorkspaceOnboardingIntegrationTests` proves two anonymous workspaces create independent candidate profiles and source projections, and that revising an active profile creates a new draft before superseding the prior version. `FindJobsIntegrationTests` proves all six steps complete, workspace sightings and candidate scores persist, identical identifying parameters are idempotently rejected after completion, and a controlled normalization failure restarts the same JobInstance without repeating the completed HTTP discovery step.
+
+Greenhouse client and normalizer tests verify the official public `GET /v1/boards/{board_token}/jobs?content=true` contract, local keyword/location filtering, raw JSON hashing, and provider-specific normalization. No live Greenhouse board is claimed.
+
+Final verification on 2026-08-30:
+
+```text
+./mvnw clean test
+BUILD SUCCESS
+Tests run: 57, Failures: 0, Errors: 0, Skipped: 0
+Flyway migrations applied by integration tests: 12
+```
 
 ## Dockerized Application Milestone
 

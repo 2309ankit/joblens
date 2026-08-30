@@ -79,8 +79,12 @@ The repository currently has these verified working slices:
 * Swagger/OpenAPI inspection at `/swagger-ui.html` and `/v3/api-docs`
 * Thymeleaf dashboard at `/` and `/dashboard`
 * Dockerized application image with Compose PostgreSQL dependency
+* anonymous browser workspaces with validated, versioned resume/profile onboarding and UI-managed preferences
+* workspace-owned search definitions, job sightings, rankings, views, applications, and follow-ups
+* `findJobsJob`, a six-step one-click workflow from discovery through candidate scoring
+* source-adapter registry with Adzuna and the public Greenhouse Job Board API
 
-Application lifecycle, follow-up generation, weekly market insights, dashboard, and application Dockerization are complete. The next milestone is the interview/demo runbook; do not start microservices unless explicitly requested.
+The redesigned onboarding and one-click job-search core is complete. Remaining product work is documented in `README.md`; do not start object storage, schedules, login, unsupported portal scraping, or microservices unless explicitly requested.
 
 Read `SESSION_HANDOFF.md` first for the indexed session handoff, `README.md` for the operator runbook, and `BUILD_PROGRESS.md` for detailed evidence and milestone history before beginning a new session.
 

@@ -1,6 +1,17 @@
 # JobLens Session Handoff
 
-This document is the indexed handoff for the work completed through application lifecycle and follow-up generation on 2026-08-29. Read it together with [AGENTS.md](AGENTS.md), [README.md](README.md), and [BUILD_PROGRESS.md](BUILD_PROGRESS.md).
+This document is the indexed handoff for JobLens through the anonymous-workspace and one-click search redesign on 2026-08-30. Read it together with [AGENTS.md](AGENTS.md), [README.md](README.md), and [BUILD_PROGRESS.md](BUILD_PROGRESS.md).
+
+## Current redesign summary
+
+- Flyway V11 adds anonymous browser workspaces, validated resume metadata, versioned profile drafts, preferences, search definitions, and candidate ownership.
+- Flyway V12 adds Adzuna/Greenhouse source projections, workspace job sightings, and workspace Find-jobs run history.
+- `/setup` is the first-time flow: upload resume, save preferences/sources, then confirm.
+- `/dashboard` has **Find and rank jobs**, which launches `findJobsJob` with discovery, normalization, skills, exact duplicates, fuzzy duplicates, and candidate scoring.
+- Rankings, job inspection, views, applications, transitions, and follow-up reads are candidate/workspace-scoped.
+- Discovery SQL and newly touched inspection SQL are external `.sql` resources using named parameters.
+- Greenhouse uses its official public Job Board GET API and requires configured board tokens, not credentials. Adzuna still requires ignored environment credentials.
+- Verified result: `./mvnw clean test` passed 57 tests, with zero failures/errors/skips and all 12 Flyway migrations applied in PostgreSQL Testcontainers.
 
 ## Index
 
@@ -332,17 +343,7 @@ candidate preferences: 12
 
 ## 10. Current working-tree state
 
-At handoff creation, the lifecycle milestone implementation and documentation are intentionally uncommitted:
-
-```text
-M  AGENTS.md
-M  README.md
-M  SESSION_HANDOFF.md
-M  BUILD_PROGRESS.md
-M/?? lifecycle Batch, REST, SQL, migration, shared JDBC support, and tests under src/
-```
-
-Application implementation through fuzzy duplicates is committed at `9884ff1`.
+Workspace onboarding is committed at `9763a19`; candidate activity scoping is committed at `37a9fbe`. The source-adapter and one-click orchestration slice described above is the current verified session work and should be committed with its documentation after final checks.
 
 Before starting new code, run:
 
@@ -357,19 +358,21 @@ Preserve and commit the documentation changes when requested.
 ## 11. Known limitations
 
 - Live Adzuna discovery still requires user credentials.
+- The original resume bytes are not stored; only validated metadata and SHA-256 are retained pending an object-storage decision.
+- Greenhouse requires users to supply specific public company board tokens and has only mocked contract verification so far.
+- Anonymous workspaces depend on a browser cookie and have no account recovery or cross-device sync.
 - Discovery is sequential; partitioning is deferred.
-- Only one candidate profile is seeded.
-- Scoring currently recalculates all normalized jobs each intelligence run.
+- The seeded default candidate remains for legacy tests/operator flows; browser workspaces have independent profiles.
+- Workspace scoring reads only jobs sighted by that workspace; global duplicate analysis still reconciles the shared public-job corpus.
 - Fuzzy candidate generation currently examines in-memory pairs and applies a cheap block; this is suitable for the current personal-scale dataset but should move to database blocking if volume proves it necessary.
 - Fuzzy thresholds and weights are deterministic heuristics and require calibration against reviewed examples.
-- Lifecycle currently uses the single default candidate profile.
+- Lifecycle REST reads and commands enforce candidate ownership; Thymeleaf lifecycle controls remain deferred.
 - Follow-up rules are deterministic code configuration and generation uses a single transactional tasklet suitable for personal scale.
-- No Thymeleaf dashboard yet.
-- The application itself is not yet included in Compose.
+- Market insights remain a shared market-level projection rather than a private candidate projection.
 
 ## 12. Next-session starting point
 
-Application lifecycle, follow-up generation, weekly market insights, OpenAPI/Swagger inspection, the Thymeleaf dashboard, and application Dockerization are complete. The next milestone is the interview/demo runbook.
+The redesigned core workflow is complete. Do not infer a next coding milestone. Consult the explicit remaining-work list in `README.md` and wait for the user to select original-resume storage, profile skill review, lifecycle UI, scheduling, a verified additional source, or login/recovery.
 
 Before implementation:
 

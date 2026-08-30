@@ -1,22 +1,26 @@
 # JobLens
 
-JobLens is a modular Spring Boot application for personal job-market intelligence. It imports search profiles, discovers public Adzuna postings, stores raw JSON, normalizes and scores jobs, detects duplicates, and tracks applications with generated follow-ups.
+JobLens is a batch-first modular monolith for personal job-market intelligence. Each anonymous browser workspace can upload and validate a resume, control job preferences in the UI, discover public Adzuna and configured Greenhouse job-board postings, rank only its discovered jobs, and track applications.
 
 ## Architecture
 
 One Spring Boot application, one PostgreSQL database, one deployable process:
 
 ```text
-CSV → searchProfileImportJob → search_profile
-                              ↓
-                    jobDiscoveryJob → Adzuna → source_fetch_run/raw_job_posting
-                                                        ↓
-                    jobIntelligenceJob
+Browser cookie → workspace → validated resume draft → confirmed candidate/preferences
+                                                   ↓
+                    findJobsJob
+                    ├─ jobDiscoveryStep → JobSourceClient registry
+                    │                    ├─ Adzuna API
+                    │                    └─ Greenhouse public Job Board API
+                    │                    → raw_job_posting/workspace_job_sighting
                     ├─ jobNormalizationStep → normalized_job
                     ├─ skillExtractionStep   → job_skill
                     ├─ exactDuplicateDetectionStep → duplicate_cluster/membership/evidence
                     ├─ fuzzyDuplicateDetectionStep → job_similarity
                     └─ scoringStep            → job_score/job_score_reason
+
+CSV → searchProfileImportJob → search_profile (legacy/operator batch input remains supported)
 
                     applicationFollowUpJob
                     └─ applicationFollowUpGenerationStep → application_follow_up
@@ -27,12 +31,14 @@ Packages:
 ```text
 batchapi       REST launch, history, and job-read endpoints
 searchprofile  CSV reader, validation, rejection, and upsert
-discovery      JobSourceClient, Adzuna client, pagination, raw landing
+workspace      anonymous workspace cookie and candidate ownership
+onboarding     resume validation, versioned profile drafts, preferences, source definitions
+discovery      source adapters, workspace sightings, raw landing, one-click orchestration
 intelligence   normalization, skills, duplicate detection, candidate profile, and scoring
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental: V1 Batch metadata, V2 profile import, V3 discovery/raw landing, V4 normalized jobs, V5 skills/candidate/scoring, V6 exact duplicate clusters, V7 fuzzy similarities, and V8 application lifecycle/follow-ups.
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -64,15 +70,26 @@ JOBLENS_DB_PASSWORD=joblens-local
 
 Environment variables override these values. Never commit real credentials; `.env` is ignored.
 
+## First-time use
+
+1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.
+2. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text; the draft is accepted only when readable text and known skills are found. JobLens currently stores resume metadata and hash, not the original file bytes.
+3. Enter target roles, domains, location, keywords, sources, and page limit. For Greenhouse, enter public company board tokens such as the company part of its Greenhouse board URL. JobLens uses the documented public [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html); public GET requests do not require authentication.
+4. Confirm the draft. Confirmation versions the profile and activates candidate skills, preferences, and runnable source definitions.
+5. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
+6. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied.
+
+Swagger UI is `http://localhost:8080/swagger-ui.html`. Expand **Find jobs**, use `POST /api/batch/find-jobs/run`, optionally enter a `businessDate`, and click **Execute**. Swagger sends the request; the browser workspace cookie selects your confirmed profile. Inspect its run history with `GET /api/batch/find-jobs/runs`.
+
 ## What each batch does
 
-`searchProfileImportJob` reads a CSV file containing search profiles. It validates each row, saves valid profiles, and saves rejected rows with a reason. `jobDiscoveryJob` reads saved profiles, calls Adzuna, and stores raw provider responses. `jobIntelligenceJob` cleans raw jobs, extracts skills, finds exact/fuzzy duplicates, and calculates candidate-fit scores. `applicationFollowUpJob` creates reminders for active applications. `weeklyMarketInsightJob` creates weekly counts and salary aggregates.
+`findJobsJob` is the normal user flow: discovery, normalization, skills, exact/fuzzy duplicate analysis, and workspace candidate scoring in six ordered steps. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates reminders for active applications. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
 Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
 
-## Search-profile CSV import
+## Operator CSV import
 
-Swagger endpoint: `POST /api/batch/search-profiles/import`.
+This is the original Spring Batch learning path, not the first-time browser workflow. Swagger endpoint: `POST /api/batch/search-profiles/import`.
 
 `inputFile` is the readable CSV path seen by the application. `businessDate` is the ISO date used to identify this logical run. `failOnRow` is optional and only for restart testing; value `3` intentionally fails on data row 3. A normal example is:
 
@@ -274,7 +291,7 @@ open http://localhost:8080/dashboard
 
 The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. The Thymeleaf dashboard is available at `/dashboard`.
 
-Dashboard job rows include **Open on ADZUNA**. Clicking it records the job as viewed and redirects to the original source listing. Viewing does not create an application or mark a job as applied. Inspect view history with `GET /api/job-views`.
+Dashboard job rows include **Open on ADZUNA** or **Open on GREENHOUSE**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. Inspect view history with `GET /api/job-views`.
 
 ## Batch history and restart
 
@@ -289,7 +306,7 @@ On failure, committed chunks remain committed. A restart creates a new JobExecut
 
 ## Tests
 
-Docker is required for PostgreSQL Testcontainers tests; Adzuna tests use MockWebServer.
+Docker is required for PostgreSQL Testcontainers tests; source-adapter tests use MockWebServer.
 
 ```bash
 set -a; source .env; set +a
@@ -306,33 +323,29 @@ Focused suites:
 
 ## Troubleshooting
 
-If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If `/api/jobs` is empty, run discovery or load raw development data, then run intelligence. If discovery reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`.
+If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, confirm the setup profile and click **Find and rank jobs**. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. Greenhouse GET access needs no API key, but each company board token must be configured in `/setup`.
 
 ## Interview/demo runbook
 
 1. Start the stack: `docker compose up -d` and confirm `docker compose ps` reports both services healthy/running.
-2. Open `/dashboard` and `/swagger-ui.html`.
-3. Import a CSV profile, then launch discovery and intelligence through the documented batch endpoints.
-4. Demonstrate exact/fuzzy duplicate inspection with `/api/duplicates` and `/api/duplicates/similarities`.
+2. Open `/setup`, upload a resume, save preferences, and confirm the versioned profile.
+3. Open `/dashboard`, click **Find and rank jobs**, then show the six StepExecutions through `/api/batch/executions`.
+4. Open `/swagger-ui.html`; demonstrate **Find jobs**, `/api/jobs`, and exact/fuzzy duplicate inspection.
 5. Create an application, transition it to `APPLIED`, run follow-up generation, and complete one follow-up.
 6. Run market insights for a Monday week start and inspect `/api/market-insights`.
 7. Show restartability with `/api/batch/executions` and the Batch metadata SQL queries above.
 8. Tear down with `docker compose down` (add `-v` only when intentionally deleting local database data).
 
-## Remaining milestones
+## Remaining work
 
-## Resume profile reader
+The redesigned core flow is complete. Deferred product work is intentionally separate:
 
-Upload a PDF or DOCX resume; Apache Tika extracts text and deterministically matches skills from the database catalog:
+- Store original resume bytes through an object-storage adapter; V11 currently stores validated metadata and SHA-256 only.
+- Add a profile-review editor for correcting extracted resume skills before confirmation.
+- Add lifecycle and follow-up controls to Thymeleaf; REST ownership and persistence already exist.
+- Add optional schedules/notifications after the manual one-click workflow is proven useful.
+- Add more legitimate source adapters when a public API exists. Greenhouse is implemented against its public Job Board API; JobStreet requires a verified supported interface. LinkedIn and Indeed scraping remain prohibited.
+- Add login/account recovery only if anonymous browser-cookie workspaces need cross-device persistence.
+- Calibrate deterministic scoring and fuzzy thresholds against reviewed real examples.
 
-```bash
-curl -F 'file=@/path/to/resume.pdf' http://localhost:8080/api/candidate-profile/resume
-```
-
-The response includes `detectedSkills` and `reviewRequired=true`; review the profile before relying on new rankings.
-
-Review profile at `http://localhost:8080/profile`, inspect with `GET /api/candidate-profile`, and save corrected skills with `PUT /api/candidate-profile` and body `{"skills":["Java","Spring Boot"]}`.
-
-Implemented: PostgreSQL/Flyway/Batch metadata, profile import, Adzuna raw discovery, normalization, skills, candidate scoring, duplicate detection, application lifecycle, follow-up generation, restartability, and REST APIs.
-
-All implementation milestones and the interview/demo runbook are complete. Live Adzuna verification is also complete when valid credentials are supplied through `.env`.
+The full verified result is 57 tests with no failures, errors, or skips from `./mvnw clean test` on PostgreSQL Testcontainers.
