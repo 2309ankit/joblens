@@ -2,48 +2,68 @@ package com.ankit.joblens.dashboard;
 
 import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
+import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
+import com.ankit.joblens.workspace.WorkspaceContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.LinkedHashMap;
-import org.springframework.jdbc.core.JdbcTemplate;
+import java.util.Map;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 @Controller
 public class DashboardController {
-  private final JdbcTemplate jdbc;
+  private final NamedParameterJdbcTemplate jdbc;
+  private final WorkspaceContext workspaceContext;
+  private final WorkspaceCandidateProfileService candidateProfiles;
 
-  public DashboardController(JdbcTemplate jdbc) {
+  public DashboardController(
+      NamedParameterJdbcTemplate jdbc,
+      WorkspaceContext workspaceContext,
+      WorkspaceCandidateProfileService candidateProfiles) {
     this.jdbc = jdbc;
+    this.workspaceContext = workspaceContext;
+    this.candidateProfiles = candidateProfiles;
   }
 
   @GetMapping({"/", "/dashboard"})
-  public String dashboard(Model model) {
+  public String dashboard(Model model, HttpServletRequest request, HttpServletResponse response) {
+    long candidateProfileId;
+    try {
+      candidateProfileId =
+          candidateProfiles.requireCandidateProfile(workspaceContext.resolve(request, response));
+    } catch (IllegalStateException exception) {
+      return "redirect:/setup";
+    }
+    Map<String, Object> parameters = Map.of("candidateProfileId", candidateProfileId);
     model.addAttribute(
         "jobs",
         jdbc.query(
             load("sql/dashboard/list-ranked-jobs.sql"),
-            (rs, i) -> {
+            parameters,
+            (resultSet, rowNumber) -> {
               var row = new LinkedHashMap<String, Object>();
-              row.put("id", rs.getLong("id"));
-              row.put("title", rs.getString("title"));
-              row.put("company", rs.getString("company"));
-              row.put("location", rs.getString("location"));
-              row.put("score", rs.getBigDecimal("score"));
-              row.put("source", rs.getString("source"));
-              row.put("viewCount", rs.getInt("view_count"));
+              row.put("id", resultSet.getLong("id"));
+              row.put("title", resultSet.getString("title"));
+              row.put("company", resultSet.getString("company"));
+              row.put("location", resultSet.getString("location"));
+              row.put("score", resultSet.getBigDecimal("score"));
+              row.put("source", resultSet.getString("source"));
+              row.put("viewCount", resultSet.getInt("view_count"));
               return row;
             }));
     model.addAttribute(
         "applicationCount",
-        jdbc.queryForObject("SELECT count(*) FROM job_application", Integer.class));
+        jdbc.queryForObject(
+            load("sql/dashboard/count-applications.sql"), parameters, Integer.class));
     model.addAttribute(
         "openFollowUpCount",
         jdbc.queryForObject(
-            "SELECT count(*) FROM application_follow_up WHERE status='OPEN'", Integer.class));
+            load("sql/dashboard/count-open-follow-ups.sql"), parameters, Integer.class));
     model.addAttribute(
-        "insights",
-        jdbc.queryForList(
-            "SELECT week_start,source,job_count,remote_job_count,average_salary FROM weekly_market_insight ORDER BY week_start DESC,source LIMIT 12"));
+        "insights", jdbc.queryForList(load("sql/dashboard/list-insights.sql"), Map.of()));
     return "dashboard";
   }
 }

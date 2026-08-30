@@ -158,6 +158,7 @@ public class ApplicationLifecycleRepository {
                 new FollowUpRecord(
                     rs.getLong("id"),
                     rs.getLong("application_id"),
+                    rs.getLong("candidate_profile_id"),
                     rs.getString("status"),
                     rs.getObject("due_date", LocalDate.class)));
     return followUps.isEmpty() ? null : followUps.getFirst();

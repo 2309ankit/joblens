@@ -15,9 +15,17 @@ public class CandidateProfileService {
   }
 
   public CandidateProfileConfig loadDefault() {
+    long profileId =
+        jdbc.queryForObject(
+            "SELECT id FROM candidate_profile WHERE name='default' AND active=true", Long.class);
+    return load(profileId);
+  }
+
+  public CandidateProfileConfig load(long profileId) {
     var base =
         jdbc.queryForMap(
-            "SELECT id,primary_location,target_roles,target_domains FROM candidate_profile WHERE name='default' AND active=true");
+            "SELECT id,primary_location,target_roles,target_domains FROM candidate_profile WHERE id=? AND active=true",
+            profileId);
     var skills = new LinkedHashMap<Long, CandidateProfileConfig.CandidateSkill>();
     jdbc.query(
         "SELECT s.id,s.canonical_name,cs.status,cs.importance FROM candidate_skill cs JOIN skill s ON s.id=cs.skill_id WHERE cs.candidate_profile_id=?",

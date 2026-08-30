@@ -15,13 +15,12 @@ public class JobViewRepository {
     this.jdbc = jdbc;
   }
 
-  public OpenTarget findOpenTarget(long jobId) {
+  public String findOpenTarget(long jobId) {
     return jdbc
         .query(
             load("sql/job-view/find-open-target.sql"),
             Map.of("jobId", jobId),
-            (rs, row) ->
-                new OpenTarget(rs.getString("source_url"), rs.getLong("candidate_profile_id")))
+            (rs, row) -> rs.getString("source_url"))
         .stream()
         .findFirst()
         .orElseThrow(() -> new JobViewNotFoundException(jobId));
@@ -33,9 +32,8 @@ public class JobViewRepository {
         Map.of("jobId", jobId, "candidateProfileId", candidateProfileId));
   }
 
-  public List<Map<String, Object>> list() {
-    return jdbc.queryForList(load("sql/job-view/list-views.sql"), Map.of());
+  public List<Map<String, Object>> list(long candidateProfileId) {
+    return jdbc.queryForList(
+        load("sql/job-view/list-views.sql"), Map.of("candidateProfileId", candidateProfileId));
   }
-
-  public record OpenTarget(String sourceUrl, long candidateProfileId) {}
 }

@@ -15,15 +15,14 @@ public class JobViewService {
   }
 
   @Transactional
-  public URI recordAndResolve(long jobId) {
-    var target = repository.findOpenTarget(jobId);
-    URI uri = validate(target.sourceUrl());
-    repository.record(jobId, target.candidateProfileId());
+  public URI recordAndResolve(long jobId, long candidateProfileId) {
+    URI uri = validate(repository.findOpenTarget(jobId));
+    repository.record(jobId, candidateProfileId);
     return uri;
   }
 
-  public List<Map<String, Object>> list() {
-    return repository.list();
+  public List<Map<String, Object>> list(long candidateProfileId) {
+    return repository.list(candidateProfileId);
   }
 
   private static URI validate(String value) {

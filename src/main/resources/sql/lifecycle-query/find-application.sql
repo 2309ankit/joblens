@@ -6,3 +6,4 @@ FROM job_application a
 JOIN normalized_job n ON n.id = a.normalized_job_id
 JOIN candidate_profile c ON c.id = a.candidate_profile_id
 WHERE a.id = :id
+  AND (CAST(:candidateProfileId AS BIGINT) IS NULL OR a.candidate_profile_id = :candidateProfileId)

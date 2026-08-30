@@ -1,5 +1,9 @@
 package com.ankit.joblens.batchapi;
 
+import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
+import com.ankit.joblens.workspace.WorkspaceContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDate;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
@@ -21,11 +25,18 @@ public class JobIntelligenceController {
 
   private final JobOperator jobOperator;
   private final Job jobIntelligenceJob;
+  private final WorkspaceContext workspaceContext;
+  private final WorkspaceCandidateProfileService candidateProfiles;
 
   public JobIntelligenceController(
-      JobOperator jobOperator, @Qualifier("jobIntelligenceJob") Job jobIntelligenceJob) {
+      JobOperator jobOperator,
+      @Qualifier("jobIntelligenceJob") Job jobIntelligenceJob,
+      WorkspaceContext workspaceContext,
+      WorkspaceCandidateProfileService candidateProfiles) {
     this.jobOperator = jobOperator;
     this.jobIntelligenceJob = jobIntelligenceJob;
+    this.workspaceContext = workspaceContext;
+    this.candidateProfiles = candidateProfiles;
   }
 
   @PostMapping("/run")
@@ -34,14 +45,25 @@ public class JobIntelligenceController {
       @RequestParam LocalDate businessDate,
       @RequestParam(required = false) Long failAfterItems,
       @RequestParam(required = false, defaultValue = "false") boolean failDuplicateDetection,
-      @RequestParam(required = false, defaultValue = "false") boolean failFuzzyDetection)
+      @RequestParam(required = false, defaultValue = "false") boolean failFuzzyDetection,
+      HttpServletRequest request,
+      HttpServletResponse response)
       throws JobExecutionException {
     if (failAfterItems != null && failAfterItems < 1) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "failAfterItems must be positive");
     }
+    var workspaceId = workspaceContext.resolve(request, response);
+    long candidateProfileId;
+    try {
+      candidateProfileId = candidateProfiles.requireCandidateProfile(workspaceId);
+    } catch (IllegalStateException exception) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getMessage(), exception);
+    }
     JobParametersBuilder parameters =
         new JobParametersBuilder()
             .addLocalDate("businessDate", businessDate, true)
+            .addString("workspaceId", workspaceId.toString(), true)
+            .addLong("candidateProfileId", candidateProfileId, true)
             .addString("normalizationVersion", "v1", true)
             .addString("duplicateDetectionVersion", "fuzzy-v1", true);
     if (failAfterItems != null) {

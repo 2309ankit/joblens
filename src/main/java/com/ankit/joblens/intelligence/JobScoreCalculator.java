@@ -17,7 +17,11 @@ public class JobScoreCalculator {
   }
 
   public JobScore calculate(NormalizedJobView j) {
-    var c = profiles.loadDefault();
+    return calculate(j, null);
+  }
+
+  public JobScore calculate(NormalizedJobView j, Long candidateProfileId) {
+    var c = candidateProfileId == null ? profiles.loadDefault() : profiles.load(candidateProfileId);
     var reasons = new ArrayList<JobScore.Reason>();
     var names = new LinkedHashSet<String>();
     jdbc.query(
@@ -119,6 +123,7 @@ public class JobScoreCalculator {
     int max = weight(c, "weight.location", 10);
     int x =
         j.location() != null
+                && c.location() != null
                 && j.location()
                     .toLowerCase(Locale.ROOT)
                     .contains(c.location().toLowerCase(Locale.ROOT))

@@ -32,11 +32,28 @@ public class ApplicationQueryRepository {
   }
 
   public List<Map<String, Object>> findApplications(String status) {
-    return query(LIST_APPLICATIONS, new MapSqlParameterSource().addValue("status", status));
+    return findApplications(status, null);
+  }
+
+  public List<Map<String, Object>> findApplications(String status, Long candidateProfileId) {
+    return query(
+        LIST_APPLICATIONS,
+        new MapSqlParameterSource()
+            .addValue("status", status)
+            .addValue("candidateProfileId", candidateProfileId));
   }
 
   public Map<String, Object> findApplication(long id) {
-    List<Map<String, Object>> rows = query(FIND_APPLICATION, Map.of("id", id));
+    return findApplication(id, null);
+  }
+
+  public Map<String, Object> findApplication(long id, Long candidateProfileId) {
+    List<Map<String, Object>> rows =
+        query(
+            FIND_APPLICATION,
+            new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("candidateProfileId", candidateProfileId));
     if (rows.isEmpty()) {
       return null;
     }
@@ -47,15 +64,30 @@ public class ApplicationQueryRepository {
   }
 
   public List<Map<String, Object>> findFollowUps(String status, LocalDate dueOnOrBefore) {
+    return findFollowUps(status, dueOnOrBefore, null);
+  }
+
+  public List<Map<String, Object>> findFollowUps(
+      String status, LocalDate dueOnOrBefore, Long candidateProfileId) {
     return query(
         LIST_FOLLOW_UPS,
         new MapSqlParameterSource()
             .addValue("status", status)
-            .addValue("dueOnOrBefore", dueOnOrBefore));
+            .addValue("dueOnOrBefore", dueOnOrBefore)
+            .addValue("candidateProfileId", candidateProfileId));
   }
 
   public Map<String, Object> findFollowUp(long id) {
-    List<Map<String, Object>> rows = query(FIND_FOLLOW_UP, Map.of("id", id));
+    return findFollowUp(id, null);
+  }
+
+  public Map<String, Object> findFollowUp(long id, Long candidateProfileId) {
+    List<Map<String, Object>> rows =
+        query(
+            FIND_FOLLOW_UP,
+            new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("candidateProfileId", candidateProfileId));
     return rows.isEmpty() ? null : rows.getFirst();
   }
 

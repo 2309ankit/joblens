@@ -75,8 +75,10 @@ public class JobIntelligenceConfiguration {
 
   @Bean
   @StepScope
-  ScoringProcessor scoringProcessor(JobScoreCalculator calculator) {
-    return new ScoringProcessor(calculator);
+  ScoringProcessor scoringProcessor(
+      JobScoreCalculator calculator,
+      @Value("#{jobParameters['candidateProfileId']}") Long candidateProfileId) {
+    return new ScoringProcessor(calculator, candidateProfileId);
   }
 
   @Bean
