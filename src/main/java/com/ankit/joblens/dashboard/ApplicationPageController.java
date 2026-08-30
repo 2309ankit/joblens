@@ -50,7 +50,12 @@ public class ApplicationPageController {
   @GetMapping("/applications")
   public String applications(
       Model model, HttpServletRequest request, HttpServletResponse response) {
-    WorkspaceCandidate owner = owner(request, response);
+    WorkspaceCandidate owner;
+    try {
+      owner = owner(request, response);
+    } catch (IllegalStateException exception) {
+      return "redirect:/setup";
+    }
     List<Map<String, Object>> applications =
         queries.findApplications(null, owner.candidateProfileId()).stream()
             .map(this::withAllowedTransitions)
