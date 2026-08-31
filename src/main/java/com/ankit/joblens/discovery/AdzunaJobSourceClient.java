@@ -99,7 +99,7 @@ public class AdzunaJobSourceClient implements JobSourceClient {
       throw new JobSourceException(
           "Adzuna returned no response body for profile " + profile.profileId());
     }
-    return parse(body, request);
+    return parse(body, request, profile.sourceKey());
   }
 
   private Mono<String> handleResponse(HttpStatusCode statusCode, Mono<String> body) {
@@ -128,7 +128,7 @@ public class AdzunaJobSourceClient implements JobSourceClient {
         || throwable instanceof TimeoutException;
   }
 
-  private JobPage parse(String body, PageRequest request) {
+  private JobPage parse(String body, PageRequest request, String market) {
     try {
       JsonNode root = objectMapper.readTree(body);
       JsonNode results = root.get("results");
@@ -147,7 +147,9 @@ public class AdzunaJobSourceClient implements JobSourceClient {
         jobs.add(
             new RawSourceJob(
                 id.asString(),
-                redirectUrl == null || redirectUrl.isNull() ? null : redirectUrl.asString(),
+                redirectUrl == null || redirectUrl.isNull()
+                    ? null
+                    : AdzunaListingUrlNormalizer.normalize(market, redirectUrl.asString()),
                 rawJson,
                 sha256(rawJson)));
       }

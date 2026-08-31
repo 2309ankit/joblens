@@ -170,7 +170,7 @@ public class OnboardingRepository {
             load("sql/onboarding/upsert-search-definition.sql"),
             new MapSqlParameterSource()
                 .addValue("workspaceId", workspaceId)
-                .addValue("keywords", preferences.keywords())
+                .addValue("keywords", SearchKeywordNormalizer.normalize(preferences.keywords()))
                 .addValue("maxPages", preferences.maxPages()),
             Long.class);
     jdbc.update(
@@ -304,7 +304,7 @@ public class OnboardingRepository {
             .addValue("profileId", profileId)
             .addValue("source", source)
             .addValue("sourceKey", sourceKey)
-            .addValue("keywords", preferences.keywords())
+            .addValue("keywords", definition.keywords())
             .addValue("location", target.location())
             .addValue("employmentType", employmentType(preferences.employmentPreference()))
             .addValue("workspaceId", workspaceId)

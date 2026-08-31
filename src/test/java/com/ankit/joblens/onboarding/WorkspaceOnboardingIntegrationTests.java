@@ -422,6 +422,40 @@ class WorkspaceOnboardingIntegrationTests {
   }
 
   @Test
+  void preservesEscoRoleButUsesGeneralizedProviderKeywords() {
+    UUID workspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    long resumeId =
+        onboarding.saveResume(workspaceId, "resume.pdf", "application/pdf", 100, "e".repeat(64));
+    long profileId = onboarding.createDraft(workspaceId, resumeId, "Account manager");
+    onboarding.addSkills(profileId, List.of("Account management"));
+    onboarding.savePreferences(
+        workspaceId,
+        profileId,
+        new SearchPreferences(
+            "ICT account manager",
+            "technology",
+            "India",
+            "ICT account manager",
+            "IN | India",
+            2,
+            "PERMANENT",
+            "HYBRID"));
+    onboarding.confirm(workspaceId, onboarding.latestProfile(workspaceId).orElseThrow());
+
+    assertThat(onboarding.latestProfile(workspaceId).orElseThrow().targetRoles())
+        .containsExactly("ICT account manager");
+    assertThat(onboarding.preferences(workspaceId).orElseThrow().keywords())
+        .isEqualTo("account manager");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT keywords FROM search_profile WHERE workspace_id=? AND active=true",
+                String.class,
+                workspaceId))
+        .isEqualTo("account manager");
+  }
+
+  @Test
   void reviewsPreferencesAndSkillsInOneActivationTransaction() {
     UUID workspaceId = UUID.randomUUID();
     workspaces.create(workspaceId);

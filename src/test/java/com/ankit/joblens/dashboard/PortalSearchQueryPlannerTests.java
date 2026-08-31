@@ -48,6 +48,32 @@ class PortalSearchQueryPlannerTests {
             new PortalSearchQuery("Broad fallback", "\"Sales Executive\"", "Sales Executive"));
   }
 
+  @Test
+  void removesEscoIctQualifierFromPortalQueries() {
+    var preferences =
+        new SearchPreferences(
+            "ICT account manager",
+            "technology",
+            "Singapore",
+            "ICT account manager",
+            "SG | Singapore",
+            2,
+            "ANY",
+            "HYBRID");
+
+    assertThat(planner.plan(preferences, List.of()))
+        .containsExactly(
+            new PortalSearchQuery(
+                "Primary role + sectors",
+                "\"account manager\" AND (\"technology\")",
+                "account manager technology"),
+            new PortalSearchQuery(
+                "Alternate role + technology + sector",
+                "(\"account manager\") AND (\"account manager\") AND (\"technology\")",
+                "account manager account manager technology"),
+            new PortalSearchQuery("Broad fallback", "\"account manager\"", "account manager"));
+  }
+
   private static SearchPreferences preferences() {
     return new SearchPreferences(
         "Senior Java Developer, Senior Backend Engineer",

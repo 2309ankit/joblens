@@ -53,6 +53,20 @@ class AdzunaJobPostingNormalizerTests {
   }
 
   @Test
+  void prefersTheMarketValidatedLandingUrlOverTheRawPayloadRedirect() {
+    RawJobPosting raw =
+        new RawJobPosting(
+            1,
+            "ADZUNA",
+            "A1",
+            "https://www.adzuna.in/details/A1",
+            "hash",
+            "{\"title\":\"Account Manager\",\"redirect_url\":\"https://www.adzuna.co.uk/details/A1\"}");
+
+    assertThat(normalizer.normalize(raw).sourceUrl()).isEqualTo("https://www.adzuna.in/details/A1");
+  }
+
+  @Test
   void rejectsMissingTitleAndMalformedJson() {
     assertThatThrownBy(() -> normalize("{\"description\":\"No title\"}"))
         .isInstanceOf(NormalizationRejectedException.class)

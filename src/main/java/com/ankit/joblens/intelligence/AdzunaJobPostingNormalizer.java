@@ -47,6 +47,7 @@ public class AdzunaJobPostingNormalizer implements JobPostingNormalizer {
     }
 
     String payloadUrl = text(root.get("redirect_url"));
+    String landedSourceUrl = blankToNull(raw.sourceUrl());
     NormalizedJob withoutHash =
         new NormalizedJob(
             raw.id(),
@@ -62,7 +63,7 @@ public class AdzunaJobPostingNormalizer implements JobPostingNormalizer {
             currency(root.get("salary_currency")),
             remoteType(root.get("remote_type")),
             timestamp(root.get("created")),
-            payloadUrl != null ? payloadUrl : blankToNull(raw.sourceUrl()),
+            landedSourceUrl != null ? landedSourceUrl : payloadUrl,
             null);
     return new NormalizedJob(
         withoutHash.rawJobPostingId(),

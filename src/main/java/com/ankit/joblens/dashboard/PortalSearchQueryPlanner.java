@@ -1,5 +1,6 @@
 package com.ankit.joblens.dashboard;
 
+import com.ankit.joblens.onboarding.SearchKeywordNormalizer;
 import com.ankit.joblens.onboarding.SearchPreferences;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,9 +14,10 @@ import org.springframework.stereotype.Component;
 public class PortalSearchQueryPlanner {
 
   public List<PortalSearchQuery> plan(SearchPreferences preferences, List<String> candidateSkills) {
-    List<String> roles = csv(preferences.targetRoles());
+    List<String> roles =
+        csv(preferences.targetRoles()).stream().map(SearchKeywordNormalizer::normalize).toList();
     if (roles.isEmpty()) {
-      roles = List.of(preferences.keywords().trim());
+      roles = List.of(SearchKeywordNormalizer.normalize(preferences.keywords()));
     }
     List<String> sectors = csv(preferences.targetDomains());
     List<String> technologies = technologies(preferences.keywords(), candidateSkills);
@@ -41,7 +43,7 @@ public class PortalSearchQueryPlanner {
         new PortalSearchQuery(
             "Broad fallback",
             broadRoleQuery(primaryRole, alternateRole),
-            preferences.keywords().trim()));
+            SearchKeywordNormalizer.normalize(preferences.keywords())));
   }
 
   private static List<String> technologies(String keywords, List<String> candidateSkills) {
@@ -65,7 +67,7 @@ public class PortalSearchQueryPlanner {
       candidateSkills.stream().limit(2).forEach(selected::add);
     }
     if (selected.isEmpty()) {
-      selected.add(keywords.trim());
+      selected.add(SearchKeywordNormalizer.normalize(keywords));
     }
     return List.copyOf(selected);
   }
