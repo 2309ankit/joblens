@@ -21,7 +21,8 @@ import tools.jackson.databind.ObjectMapper;
 @EnableConfigurationProperties({
   AdzunaProperties.class,
   GreenhouseProperties.class,
-  JoobleProperties.class
+  JoobleProperties.class,
+  LeverProperties.class
 })
 public class JobDiscoveryConfiguration {
 
@@ -43,6 +44,12 @@ public class JobDiscoveryConfiguration {
   JoobleJobSourceClient joobleJobSourceClient(
       WebClient.Builder webClientBuilder, ObjectMapper objectMapper, JoobleProperties properties) {
     return new JoobleJobSourceClient(webClientBuilder, objectMapper, properties);
+  }
+
+  @Bean
+  LeverJobSourceClient leverJobSourceClient(
+      WebClient.Builder webClientBuilder, ObjectMapper objectMapper, LeverProperties properties) {
+    return new LeverJobSourceClient(webClientBuilder, objectMapper, properties);
   }
 
   @Bean

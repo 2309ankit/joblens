@@ -88,6 +88,7 @@ The generated project currently contains:
 | 26 | Workspace resume skill review works              | COMPLETE    |
 | 27 | Lifecycle and follow-up Thymeleaf controls work  | COMPLETE    |
 | 28 | Source health and run observability works       | COMPLETE    |
+| 29 | Public Lever posting source works               | COMPLETE    |
 
 ## Verified Evidence
 
@@ -364,6 +365,33 @@ and 0 skipped. Flyway applied all 15 migrations to fresh PostgreSQL 17 Testconta
 `spotless:apply` and `git diff --check` completed without errors.
 The packaged Compose image was rebuilt and recreated; actuator health returned `UP`, PostgreSQL
 reported Flyway `15:true`, and live `/v3/api-docs` exposed the owned run-detail and restart operations.
+
+## Lever Public Posting Source Evidence
+
+M2 adds one bounded ATS adapter after verifying Lever's official site-scoped public Postings API.
+JobLens accepts only direct global `https://jobs.lever.co/{site}/...` URLs exposed by an existing
+source, stores the detected site in the workspace board registry, and requests
+`GET /v0/postings/{site}` with offset/limit pagination. It does not crawl boards, follow tracking
+redirects, accept lookalike hosts, use applicant credentials, or assume the separate EU API contract.
+
+Flyway V16 extends source constraints for `LEVER`. The adapter preserves each provider job as raw
+JSONB with `site:id` identity and payload hash before `LeverJobPostingNormalizer` cleans HTML and maps
+location, commitment, salary, workplace type, and official hosted URL. Search terms and location are
+filtered locally because Lever's endpoint is site-scoped rather than global full-text search. Empty
+filtered pages still advance provider pagination. Generic source-board detection retains separate
+strict Greenhouse and Lever URL policies.
+
+MockWebServer tests verify request shape, pagination offset, local filters, raw hashing, URL identity,
+bounded transient retry, and malformed payload rejection. Unit tests cover strict board detection and
+deterministic normalization. PostgreSQL Testcontainers runs the complete six-step Find-jobs pipeline
+for a discovered Lever site and proves that a failed Lever page restarts without repeating the already
+completed broad-source request. REST/job detail inspection includes both the broad and Lever source.
+
+Final verification on 2026-08-31: `./mvnw clean test` completed with 80 tests, 0 failures, 0 errors,
+and 0 skipped. Flyway applied all 16 migrations to fresh PostgreSQL 17 Testcontainers databases;
+`spotless:apply` and `git diff --check` completed without errors. The packaged Compose image was
+rebuilt and recreated; actuator health returned `UP`, PostgreSQL reported Flyway `16:true`, and live
+OpenAPI described both Greenhouse and Lever board discovery.
 
 Final verification on 2026-08-30:
 

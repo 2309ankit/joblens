@@ -35,11 +35,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 class FindJobsIntegrationTests {
   private static final MockWebServer ADZUNA = new MockWebServer();
   private static final MockWebServer GREENHOUSE = new MockWebServer();
+  private static final MockWebServer LEVER = new MockWebServer();
 
   static {
     try {
       ADZUNA.start();
       GREENHOUSE.start();
+      LEVER.start();
     } catch (java.io.IOException exception) {
       throw new ExceptionInInitializerError(exception);
     }
@@ -56,6 +58,7 @@ class FindJobsIntegrationTests {
   static void stopServer() throws Exception {
     ADZUNA.shutdown();
     GREENHOUSE.shutdown();
+    LEVER.shutdown();
   }
 
   @DynamicPropertySource
@@ -72,6 +75,10 @@ class FindJobsIntegrationTests {
     registry.add("joblens.greenhouse.base-url", () -> GREENHOUSE.url("/").toString());
     registry.add("joblens.greenhouse.retry-attempts", () -> "1");
     registry.add("joblens.greenhouse.retry-backoff", () -> "1ms");
+    registry.add("joblens.lever.base-url", () -> LEVER.url("/").toString());
+    registry.add("joblens.lever.page-size", () -> "20");
+    registry.add("joblens.lever.retry-attempts", () -> "1");
+    registry.add("joblens.lever.retry-backoff", () -> "1ms");
   }
 
   @Autowired private WorkspaceRepository workspaces;
@@ -241,6 +248,69 @@ class FindJobsIntegrationTests {
   }
 
   @Test
+  void discoversPublicLeverSiteAndRunsItThroughTheFullPipeline() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    long candidateProfileId = confirm(workspaceId, "5");
+    ADZUNA.enqueue(response("LEVER-SEED", "https://jobs.lever.co/examplebank/lever-job-1"));
+    LEVER.enqueue(leverResponse());
+
+    JobExecution execution =
+        findJobs.run(workspaceId, candidateProfileId, LocalDate.of(2060, 1, 6));
+
+    assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(
+            jdbc.queryForMap(
+                """
+                SELECT board.source, board.source_key, board.status
+                FROM workspace_source_board workspace_board
+                JOIN discovered_source_board board
+                  ON board.id=workspace_board.discovered_source_board_id
+                WHERE workspace_board.workspace_id=?
+                """,
+                workspaceId))
+        .containsEntry("source", "LEVER")
+        .containsEntry("source_key", "examplebank")
+        .containsEntry("status", "VALIDATED");
+    assertThat(
+            jdbc.queryForObject(
+                """
+                SELECT count(*) FROM normalized_job normalized
+                JOIN raw_job_posting raw ON raw.id=normalized.raw_job_posting_id
+                JOIN workspace_job_sighting sighting ON sighting.raw_job_posting_id=raw.id
+                WHERE sighting.workspace_id=? AND normalized.source='LEVER'
+                """,
+                Integer.class,
+                workspaceId))
+        .isEqualTo(1);
+    assertThat(findJobs.detail(workspaceId, execution.getId()).orElseThrow().sources())
+        .extracting(SourceRunSummary::source, SourceRunSummary::status)
+        .containsExactly(tuple("ADZUNA", "COMPLETED"), tuple("LEVER", "COMPLETED"));
+  }
+
+  @Test
+  void restartsFailedLeverPageWithoutRepeatingCompletedBroadSource() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    long candidateProfileId = confirm(workspaceId, "6");
+    ADZUNA.enqueue(response("LEVER-RESTART-SEED", "https://jobs.lever.co/retrybank/lever-job-1"));
+    LEVER.enqueue(new MockResponse().setResponseCode(503).setBody("unavailable"));
+    int adzunaRequestsBefore = ADZUNA.getRequestCount();
+
+    JobExecution failed = findJobs.run(workspaceId, candidateProfileId, LocalDate.of(2060, 1, 7));
+
+    assertThat(failed.getStatus()).isEqualTo(BatchStatus.FAILED);
+    assertThat(findJobs.detail(workspaceId, failed.getId()).orElseThrow().run().outcome())
+        .isEqualTo("PARTIAL");
+
+    LEVER.enqueue(leverResponse("retrybank"));
+    JobExecution restarted = findJobs.restart(workspaceId, failed.getId());
+
+    assertThat(restarted.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(restarted.getJobInstanceId()).isEqualTo(failed.getJobInstanceId());
+    assertThat(ADZUNA.getRequestCount()).isEqualTo(adzunaRequestsBefore + 1);
+    assertThat(countSightings(workspaceId)).isEqualTo(2);
+  }
+
+  @Test
   void restartsFailedParentJobWithoutRepeatingCompletedDiscovery() throws Exception {
     UUID workspaceId = UUID.randomUUID();
     long candidateProfileId = confirm(workspaceId, "2");
@@ -346,5 +416,25 @@ class FindJobsIntegrationTests {
             }]}
             """
                 .formatted(board));
+  }
+
+  private static MockResponse leverResponse() {
+    return leverResponse("examplebank");
+  }
+
+  private static MockResponse leverResponse(String site) {
+    return new MockResponse()
+        .setHeader("Content-Type", "application/json")
+        .setBody(
+            """
+            [{"id":"lever-job-1","text":"Senior Java Platform Engineer",
+              "categories":{"location":"Singapore","commitment":"Full-time"},
+              "description":"<p>Java Spring Boot payments platform</p>",
+              "descriptionPlain":"Java Spring Boot payments platform",
+              "hostedUrl":"https://jobs.lever.co/%s/lever-job-1",
+              "applyUrl":"https://jobs.lever.co/%s/lever-job-1/apply",
+              "workplaceType":"hybrid"}]
+            """
+                .formatted(site, site));
   }
 }

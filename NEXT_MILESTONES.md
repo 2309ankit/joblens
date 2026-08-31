@@ -21,7 +21,7 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 | 0.5 | Portal Search Hub — COMPLETE | Open preference-filled official portal searches without scraping | None |
 | 0.6 | Smart Portal Query Planner — COMPLETE | Combine roles, sectors, and resume technologies into focused searches | None |
 | 1 | Source health and run observability — COMPLETE | Makes missing credentials, quota failures, source counts, and partial results clear in the UI | None for mocked tests |
-| 2 | Public ATS source expansion | Increase legitimate coverage through verified public company-board APIs | Provider contract and board discovery strategy |
+| 2 | Lever public ATS source — COMPLETE | Adds legitimate employer-direct listings through a verified public API | None; direct official board URL required |
 | 3 | Ranking calibration workflow | Improve relevance using reviewed decisions instead of guessed weights | User-reviewed job examples |
 | 4 | Original resume storage | Retain the uploaded source document through a storage abstraction | Storage choice and retention policy |
 | 5 | Scheduling and notifications | Automate proven manual jobs and follow-ups | Delivery channel and frequency choices |
@@ -95,6 +95,8 @@ update the landing rows.
 
 ## M2 — Public ATS source expansion
 
+Status: complete on 2026-08-31 for one deliberately bounded provider: Lever.
+
 Goal: add more legitimate employer-direct listings without scraping search portals.
 
 Candidate adapters to verify before implementation:
@@ -115,6 +117,15 @@ Acceptance criteria follow the established source contract: Flyway constraints, 
 provider-specific normalization, deterministic identity/hash, retries, paging checkpoints,
 idempotency, source links, mocked contract tests, PostgreSQL job integration, REST inspection, and
 updated runbook evidence.
+
+Implemented slice: JobLens recognizes only direct global `https://jobs.lever.co/{site}/...` URLs,
+registers the site as a workspace source, and reads its public postings API without credentials.
+Provider pages land as raw JSON before Lever-specific normalization. Pagination checkpoints continue
+across pages even when local keyword/location filtering yields no matches on an intermediate page.
+Transient failures are bounded and restart resumes the unfinished Lever source without repeating a
+completed broad source. Tracking redirects, lookalike hosts, the separate EU host, and undisclosed
+board crawling remain out of scope. Any second ATS adapter requires its own contract gate and
+milestone.
 
 ## M3 — Ranking calibration workflow
 

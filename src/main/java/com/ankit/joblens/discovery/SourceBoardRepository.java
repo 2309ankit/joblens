@@ -22,8 +22,7 @@ public class SourceBoardRepository {
     this.jdbc = jdbc;
   }
 
-  public void register(
-      SearchProfile discoveryProfile, GreenhouseBoardDetector.DetectedBoard detectedBoard) {
+  public void register(SearchProfile discoveryProfile, DetectedSourceBoard detectedBoard) {
     if (discoveryProfile.workspaceId() == null || discoveryProfile.searchDefinitionId() == null) {
       return;
     }
@@ -31,6 +30,7 @@ public class SourceBoardRepository {
         jdbc.queryForObject(
             load("sql/discovery/register-source-board.sql"),
             Map.of(
+                "source", detectedBoard.source().name(),
                 "sourceKey", detectedBoard.sourceKey(),
                 "canonicalUrl", detectedBoard.canonicalUrl()),
             Long.class);
@@ -41,14 +41,22 @@ public class SourceBoardRepository {
             .addValue("searchDefinitionId", discoveryProfile.searchDefinitionId());
     jdbc.update(load("sql/discovery/link-workspace-source-board.sql"), parameters);
     jdbc.update(
-        load("sql/discovery/upsert-discovered-greenhouse-profile.sql"),
+        load("sql/discovery/upsert-discovered-source-profile.sql"),
         parameters
             .addValue(
-                "profileId", profileId(discoveryProfile.workspaceId(), detectedBoard.sourceKey()))
+                "profileId",
+                profileId(
+                    discoveryProfile.workspaceId(),
+                    detectedBoard.source(),
+                    detectedBoard.sourceKey()))
+            .addValue("source", detectedBoard.source().name())
             .addValue("sourceKey", detectedBoard.sourceKey())
             .addValue("keywords", discoveryProfile.keywords())
             .addValue("location", discoveryProfile.location())
-            .addValue("employmentType", discoveryProfile.employmentType()));
+            .addValue("employmentType", discoveryProfile.employmentType())
+            .addValue(
+                "maxPages",
+                detectedBoard.source() == JobSource.GREENHOUSE ? 1 : discoveryProfile.maxPages()));
   }
 
   public void markValidated(SearchProfile profile) {
@@ -76,7 +84,8 @@ public class SourceBoardRepository {
   }
 
   private void updateStatus(String sql, SearchProfile profile, String reason) {
-    if (!JobSource.GREENHOUSE.name().equals(profile.source())) {
+    if (!JobSource.GREENHOUSE.name().equals(profile.source())
+        && !JobSource.LEVER.name().equals(profile.source())) {
       return;
     }
     var parameters =
@@ -89,9 +98,15 @@ public class SourceBoardRepository {
     jdbc.update(sql, parameters);
   }
 
-  private static String profileId(UUID workspaceId, String sourceKey) {
+  private static String profileId(UUID workspaceId, JobSource source, String sourceKey) {
     String workspaceToken = workspaceId.toString().replace("-", "").substring(0, 20);
-    return "w-" + workspaceToken + "-gh-" + hash(sourceKey).substring(0, 12);
+    String sourceToken =
+        switch (source) {
+          case GREENHOUSE -> "gh";
+          case LEVER -> "lv";
+          default -> throw new IllegalArgumentException("Unsupported detected source " + source);
+        };
+    return "w-" + workspaceToken + "-" + sourceToken + "-" + hash(sourceKey).substring(0, 12);
   }
 
   private static String hash(String value) {

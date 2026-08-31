@@ -11,12 +11,12 @@ class GreenhouseBoardDetectorTests {
   void detectsCurrentAndLegacyOfficialBoardUrls() {
     assertThat(detector.detect("https://job-boards.greenhouse.io/ExampleCo/jobs/123"))
         .contains(
-            new GreenhouseBoardDetector.DetectedBoard(
-                "exampleco", "https://job-boards.greenhouse.io/exampleco"));
+            new DetectedSourceBoard(
+                JobSource.GREENHOUSE, "exampleco", "https://job-boards.greenhouse.io/exampleco"));
     assertThat(detector.detect("https://boards.greenhouse.io/embed/job_app?for=ExampleCo"))
         .contains(
-            new GreenhouseBoardDetector.DetectedBoard(
-                "exampleco", "https://job-boards.greenhouse.io/exampleco"));
+            new DetectedSourceBoard(
+                JobSource.GREENHOUSE, "exampleco", "https://job-boards.greenhouse.io/exampleco"));
   }
 
   @Test

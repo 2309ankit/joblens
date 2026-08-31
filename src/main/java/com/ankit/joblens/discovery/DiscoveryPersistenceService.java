@@ -16,17 +16,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DiscoveryPersistenceService {
   private final NamedParameterJdbcTemplate jdbc;
-  private final GreenhouseBoardDetector greenhouseBoardDetector;
+  private final List<SourceBoardDetector> sourceBoardDetectors;
   private final SourceBoardRepository sourceBoards;
   private final FailureReasonSanitizer failureReasons;
 
   public DiscoveryPersistenceService(
       NamedParameterJdbcTemplate jdbc,
-      GreenhouseBoardDetector greenhouseBoardDetector,
+      List<SourceBoardDetector> sourceBoardDetectors,
       SourceBoardRepository sourceBoards,
       FailureReasonSanitizer failureReasons) {
     this.jdbc = jdbc;
-    this.greenhouseBoardDetector = greenhouseBoardDetector;
+    this.sourceBoardDetectors = List.copyOf(sourceBoardDetectors);
     this.sourceBoards = sourceBoards;
     this.failureReasons = failureReasons;
   }
@@ -167,7 +167,9 @@ public class DiscoveryPersistenceService {
                     page.jobs().stream().map(RawSourceJob::externalJobId).toList()));
         page.jobs().stream()
             .map(RawSourceJob::sourceUrl)
-            .map(greenhouseBoardDetector::detect)
+            .flatMap(
+                sourceUrl ->
+                    sourceBoardDetectors.stream().map(detector -> detector.detect(sourceUrl)))
             .flatMap(java.util.Optional::stream)
             .distinct()
             .forEach(board -> sourceBoards.register(profile, board));

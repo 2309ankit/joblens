@@ -32,7 +32,7 @@ public class SourceBoardController {
   @Operation(
       summary = "List automatically discovered company boards",
       description =
-          "Returns this browser workspace's Greenhouse boards and their DISCOVERED, VALIDATED, or FAILED validation state. A board appears only when a public source exposes an official Greenhouse-hosted URL.")
+          "Returns this browser workspace's Greenhouse and Lever boards with their DISCOVERED, VALIDATED, or FAILED validation state. A board appears only when a public source exposes a direct official hosted-job URL.")
   public List<SourceBoardView> list(HttpServletRequest request, HttpServletResponse response) {
     return sourceBoards.list(workspaceContext.resolve(request, response));
   }

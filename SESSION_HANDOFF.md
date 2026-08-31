@@ -9,14 +9,14 @@ future work is indexed in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
-Implementation baseline: M1 source health and run observability (this handoff commit)
+Implementation baseline: M2 public Lever posting source (this handoff commit)
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V15
-Latest full test: 74 tests, 0 failures, 0 errors, 0 skipped
-Latest Docker check: actuator health UP, Flyway version 15, M1 OpenAPI operations present
+Latest Flyway migration: V16
+Latest full test: 80 tests, 0 failures, 0 errors, 0 skipped
+Latest Docker check: actuator health UP, Flyway version 16, Lever OpenAPI description present
 ```
 
 Before making changes:
@@ -98,6 +98,7 @@ ExecutionContext checkpoints, observable failures, restarts, and idempotent writ
 | Adzuna | Default broad public discovery source | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` |
 | Jooble | Optional broad source; live Singapore flow verified | Regional `JOOBLE_API_KEY` |
 | Greenhouse | Automatically detected only from direct official board URLs and validated internally | None |
+| Lever | Automatically detected only from direct global official hosted URLs and validated internally | None |
 | LinkedIn | Three smart outbound searches using role/sector/technology Boolean queries | None |
 | JobStreet Singapore | Three smart outbound searches using concise natural queries | None |
 | SEEK Australia/New Zealand | Three smart outbound searches per region using concise natural queries | None |
@@ -117,7 +118,7 @@ search profile.
 
 ## 5. Data and processing decisions
 
-- Flyway V1-V15 owns application and Spring Batch metadata schemas.
+- Flyway V1-V16 owns application and Spring Batch metadata schemas.
 - Spring JDBC is used; JPA and Lombok are intentionally absent.
 - Complex or reused SQL lives under `src/main/resources/sql/` and is loaded with named parameters.
 - Original resume bytes are not stored. Only validated metadata, extracted text-derived profile data,
@@ -169,7 +170,7 @@ src/main/java/com/ankit/joblens/
   dashboard/      Thymeleaf controllers and view tracking
 
 src/main/resources/
-  db/migration/   Flyway V1-V15
+  db/migration/   Flyway V1-V16
   sql/            externalized SQL grouped by feature
   templates/      setup, dashboard, applications
 ```
@@ -194,6 +195,8 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Anonymous cookie workspaces have no account recovery or cross-device synchronization.
 - Jooble needs a regional key and its provider quota must be monitored.
 - Greenhouse enrichment activates only when a legitimate source exposes a direct official board URL.
+- Lever enrichment activates only for a direct global `jobs.lever.co` URL; tracking redirects and the
+  separate EU host are deliberately unsupported.
 - Discovery is sequential and intentionally unpartitioned at current personal scale.
 - Fuzzy thresholds and scoring weights need reviewed real-world calibration.
 - Original resume storage, schedules, and external notifications are not implemented.
@@ -201,8 +204,8 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 
 ## 10. Handoff rule
 
-M0 Jooble live acceptance, M0.5 Portal Search Hub, M0.6 Smart Portal Query Planner, and M1 source
-health/run observability are complete. M2 public ATS source expansion is the next indexed option, but
-requires a provider contract/design gate before implementation.
+M0 Jooble live acceptance, M0.5 Portal Search Hub, M0.6 Smart Portal Query Planner, M1 source
+health/run observability, and the M2 Lever source are complete. M3 ranking calibration is the next
+recommended option. A second ATS provider remains possible only as a separately gated milestone.
 Choose one entry from [NEXT_MILESTONES.md](NEXT_MILESTONES.md), define its observable acceptance
 criteria, implement only that slice, finish with `./mvnw clean test`, update evidence, and commit it.

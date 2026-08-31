@@ -99,7 +99,7 @@ public class JobDiscoveryTasklet implements Tasklet {
       persistence.persistPage(fetchRunId, profile, page, jobExecutionId);
 
       int maxPages = profile.maxPages() == null ? properties.maxPages() : profile.maxPages();
-      boolean complete = page.jobs().isEmpty() || !page.hasMore() || nextPage >= maxPages;
+      boolean complete = !page.hasMore() || nextPage >= maxPages;
       if (complete) {
         persistence.completeFetchRun(fetchRunId, profile, jobExecutionId);
         context.putString(LAST_COMPLETED_PROFILE, profile.profileId());

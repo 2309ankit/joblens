@@ -9,11 +9,12 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
-public class GreenhouseBoardDetector {
+public class GreenhouseBoardDetector implements SourceBoardDetector {
   private static final String CURRENT_HOST = "job-boards.greenhouse.io";
   private static final String LEGACY_HOST = "boards.greenhouse.io";
 
-  public Optional<DetectedBoard> detect(String sourceUrl) {
+  @Override
+  public Optional<DetectedSourceBoard> detect(String sourceUrl) {
     if (sourceUrl == null || sourceUrl.isBlank()) {
       return Optional.empty();
     }
@@ -30,7 +31,9 @@ public class GreenhouseBoardDetector {
       if (!sourceKey.matches("[a-z0-9_-]+")) {
         return Optional.empty();
       }
-      return Optional.of(new DetectedBoard(sourceKey, "https://" + CURRENT_HOST + "/" + sourceKey));
+      return Optional.of(
+          new DetectedSourceBoard(
+              JobSource.GREENHOUSE, sourceKey, "https://" + CURRENT_HOST + "/" + sourceKey));
     } catch (IllegalArgumentException exception) {
       return Optional.empty();
     }
@@ -61,6 +64,4 @@ public class GreenhouseBoardDetector {
         .findFirst()
         .orElse("");
   }
-
-  public record DetectedBoard(String sourceKey, String canonicalUrl) {}
 }
