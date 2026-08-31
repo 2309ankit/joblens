@@ -70,6 +70,7 @@ public class OnboardingService {
     repository.addSkills(
         profileVersionId,
         extraction.skills().stream()
+            .filter(ProfileIntelligenceExtractor.DetectedSkill::selectedByDefault)
             .map(ProfileIntelligenceExtractor.DetectedSkill::name)
             .toList());
     intelligenceRepository.saveSuggestions(profileVersionId, extraction);

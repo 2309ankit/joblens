@@ -53,8 +53,10 @@ public class ProfileIntelligenceRepository {
               long id = resultSet.getLong("id");
               String name = resultSet.getString("canonical_name");
               String category = resultSet.getString("category");
+              String taxonomyVersion = resultSet.getString("taxonomy_version");
               definitions
-                  .computeIfAbsent(id, ignored -> new TaxonomyTerms(id, name, category))
+                  .computeIfAbsent(
+                      id, ignored -> new TaxonomyTerms(id, name, category, taxonomyVersion))
                   .terms()
                   .add(resultSet.getString("term"));
             });
@@ -65,7 +67,8 @@ public class ProfileIntelligenceRepository {
                     definition.id(),
                     definition.name(),
                     definition.category(),
-                    List.copyOf(definition.terms())))
+                    List.copyOf(definition.terms()),
+                    definition.taxonomyVersion()))
         .toList();
   }
 
@@ -79,8 +82,10 @@ public class ProfileIntelligenceRepository {
               long id = resultSet.getLong("id");
               String name = resultSet.getString("canonical_name");
               String category = resultSet.getString("category");
+              String taxonomyVersion = resultSet.getString("taxonomy_version");
               definitions
-                  .computeIfAbsent(id, ignored -> new TaxonomyTerms(id, name, category))
+                  .computeIfAbsent(
+                      id, ignored -> new TaxonomyTerms(id, name, category, taxonomyVersion))
                   .terms()
                   .add(resultSet.getString("term"));
             });
@@ -91,7 +96,8 @@ public class ProfileIntelligenceRepository {
                     definition.id(),
                     definition.name(),
                     definition.category(),
-                    List.copyOf(definition.terms())))
+                    List.copyOf(definition.terms()),
+                    definition.taxonomyVersion()))
         .toList();
   }
 
@@ -108,7 +114,14 @@ public class ProfileIntelligenceRepository {
                         .addValue("skillId", skill.id())
                         .addValue("matchedTerm", skill.matchedTerm())
                         .addValue("evidence", skill.evidence())
-                        .addValue("confidence", skill.confidence())));
+                        .addValue("confidence", skill.confidence())
+                        .addValue("evidenceSection", skill.evidenceSection())
+                        .addValue("matchType", skill.matchType())
+                        .addValue(
+                            "extractorVersion", ProfileIntelligenceExtractor.EXTRACTOR_VERSION)
+                        .addValue("taxonomyVersion", skill.taxonomyVersion())
+                        .addValue("startOffset", skill.startOffset())
+                        .addValue("endOffset", skill.endOffset())));
     extraction
         .roles()
         .forEach(
@@ -121,7 +134,30 @@ public class ProfileIntelligenceRepository {
                         .addValue("evidenceSource", role.evidenceSource())
                         .addValue("evidence", role.evidence())
                         .addValue("confidence", role.confidence())
-                        .addValue("priority", role.priority())));
+                        .addValue("priority", role.priority())
+                        .addValue("matchType", role.matchType())
+                        .addValue(
+                            "extractorVersion", ProfileIntelligenceExtractor.EXTRACTOR_VERSION)
+                        .addValue("taxonomyVersion", role.taxonomyVersion())
+                        .addValue("startOffset", role.startOffset())
+                        .addValue("endOffset", role.endOffset())));
+    extraction
+        .terms()
+        .forEach(
+            term ->
+                jdbc.update(
+                    load("sql/onboarding/insert-term-suggestion.sql"),
+                    new MapSqlParameterSource()
+                        .addValue("profileVersionId", profileVersionId)
+                        .addValue("termKind", term.termKind())
+                        .addValue("normalizedTerm", term.normalizedTerm())
+                        .addValue("evidenceSection", term.evidenceSection())
+                        .addValue("evidence", term.evidence())
+                        .addValue("evidenceStrength", term.evidenceStrength())
+                        .addValue("reviewState", term.reviewState())
+                        .addValue(
+                            "extractorVersion", ProfileIntelligenceExtractor.EXTRACTOR_VERSION)
+                        .addValue("priority", term.priority())));
   }
 
   public ProfileIntelligence intelligence(UUID workspaceId, long profileVersionId) {
@@ -135,7 +171,11 @@ public class ProfileIntelligenceRepository {
                     resultSet.getString("category"),
                     resultSet.getString("matched_term"),
                     resultSet.getString("evidence"),
-                    resultSet.getBigDecimal("confidence")));
+                    resultSet.getBigDecimal("confidence"),
+                    resultSet.getString("evidence_section"),
+                    resultSet.getString("match_type"),
+                    resultSet.getString("extractor_version"),
+                    resultSet.getString("taxonomy_version")));
     var roleSuggestions =
         jdbc.query(
             load("sql/onboarding/find-profile-role-suggestions.sql"),
@@ -146,8 +186,23 @@ public class ProfileIntelligenceRepository {
                     resultSet.getString("category"),
                     resultSet.getString("evidence_source"),
                     resultSet.getString("evidence"),
-                    resultSet.getBigDecimal("confidence")));
-    return new ProfileIntelligence(skillSuggestions, roleSuggestions);
+                    resultSet.getBigDecimal("confidence"),
+                    resultSet.getString("match_type"),
+                    resultSet.getString("extractor_version"),
+                    resultSet.getString("taxonomy_version")));
+    var termSuggestions =
+        jdbc.query(
+            load("sql/onboarding/find-profile-term-suggestions.sql"),
+            Map.of("workspaceId", workspaceId, "profileVersionId", profileVersionId),
+            (resultSet, row) ->
+                new ProfileIntelligence.TermSuggestion(
+                    resultSet.getString("normalized_term"),
+                    resultSet.getString("term_kind"),
+                    resultSet.getString("evidence_section"),
+                    resultSet.getString("evidence"),
+                    resultSet.getBigDecimal("evidence_strength"),
+                    resultSet.getString("review_state")));
+    return new ProfileIntelligence(skillSuggestions, roleSuggestions, termSuggestions);
   }
 
   public List<String> resolveOrCreateSkills(UUID workspaceId, List<String> requestedSkills) {
@@ -229,9 +284,10 @@ public class ProfileIntelligenceRepository {
 
   public record NamedValue(long id, String name) {}
 
-  private record TaxonomyTerms(long id, String name, String category, List<String> terms) {
-    private TaxonomyTerms(long id, String name, String category) {
-      this(id, name, category, new ArrayList<>());
+  private record TaxonomyTerms(
+      long id, String name, String category, String taxonomyVersion, List<String> terms) {
+    private TaxonomyTerms(long id, String name, String category, String taxonomyVersion) {
+      this(id, name, category, taxonomyVersion, new ArrayList<>());
     }
   }
 }

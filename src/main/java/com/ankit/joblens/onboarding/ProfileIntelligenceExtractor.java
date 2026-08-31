@@ -1,57 +1,90 @@
 package com.ankit.joblens.onboarding;
 
+import com.ankit.joblens.intelligence.PhraseAutomaton;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ProfileIntelligenceExtractor {
-  private static final Pattern EXPERIENCE_HEADING =
-      Pattern.compile("(?i)^(professional |work |employment )?experience:?$");
-  private static final Pattern SECTION_HEADING =
-      Pattern.compile(
-          "(?i)^(education|skills|technical skills|projects|certifications|achievements|professional summary|summary|profile|objective):?$");
+  public static final String EXTRACTOR_VERSION = "esco-deterministic-v2";
+
+  private static final Pattern EXPLICIT_GROUP_LABEL =
+      Pattern.compile("\\b([A-Z][A-Za-z/&-]*(?: [A-Z&][A-Za-z/&-]*){1,5}):");
+  private static final Pattern ACRONYM = Pattern.compile("\\b[A-Z][A-Z0-9+.-]{2,}\\b");
+  private static final Set<String> CANDIDATE_STOP_WORDS =
+      Set.of("and", "or", "with", "skills", "competencies", "tools", "ecosystems");
+
+  private final ResumeDocumentParser documentParser = new ResumeDocumentParser();
 
   public Extraction extract(String text, List<SkillDefinition> skills, List<RoleDefinition> roles) {
-    List<String> lines = text.lines().map(String::trim).filter(line -> !line.isBlank()).toList();
+    ResumeDocument document = documentParser.parse(text);
+    List<TermHit<SkillDefinition>> skillHits = findTerms(document.text(), skills);
+    List<TermHit<RoleDefinition>> roleHits = findTerms(document.text(), roles);
+
+    var rejected = new ArrayList<TermSuggestion>();
     var detectedSkills = new ArrayList<DetectedSkill>();
     for (SkillDefinition skill : skills) {
-      Match match = firstMatch(lines, skill.terms());
-      if (match != null) {
-        BigDecimal confidence =
-            match.term().equalsIgnoreCase(skill.name())
-                ? new BigDecimal("0.950")
-                : new BigDecimal("0.900");
-        detectedSkills.add(
-            new DetectedSkill(
-                skill.id(),
-                skill.name(),
-                skill.category(),
-                match.term(),
-                match.line(),
-                confidence));
+      List<TermHit<SkillDefinition>> hits =
+          skillHits.stream().filter(hit -> hit.definition().id() == skill.id()).toList();
+      TermHit<SkillDefinition> best = bestSkillHit(document, hits, rejected);
+      if (best == null) {
+        continue;
       }
+      ResumeDocument.Section section = document.sectionAt(best.start());
+      detectedSkills.add(
+          new DetectedSkill(
+              skill.id(),
+              skill.name(),
+              skill.category(),
+              best.surface(),
+              document.evidenceAt(best.start()),
+              skillStrength(section, best.canonical()),
+              section.name(),
+              best.canonical() ? "EXACT_CANONICAL" : "EXACT_ALIAS",
+              best.start(),
+              best.end(),
+              skill.taxonomyVersion(),
+              section.explicitlyListsSkills()));
     }
     detectedSkills.sort(Comparator.comparing(DetectedSkill::name));
 
-    int experienceLine = experienceLine(lines);
     var detectedRoles = new ArrayList<DetectedRole>();
     for (RoleDefinition role : roles) {
-      RoleMatch match = bestRoleMatch(lines, experienceLine, role.terms());
-      if (match != null) {
-        detectedRoles.add(
-            new DetectedRole(
-                role.id(),
-                role.name(),
-                role.category(),
-                match.source(),
-                match.evidence(),
-                match.confidence(),
-                0));
+      TermHit<RoleDefinition> best =
+          roleHits.stream()
+              .filter(hit -> hit.definition().id() == role.id())
+              .filter(hit -> roleContext(document, hit))
+              .max(roleComparator(document))
+              .orElse(null);
+      if (best == null || !safeShortTerm(best, document.sectionAt(best.start()))) {
+        continue;
       }
+      ResumeDocument.Section section = document.sectionAt(best.start());
+      String source = roleSource(document, section, best.start());
+      detectedRoles.add(
+          new DetectedRole(
+              role.id(),
+              role.name(),
+              role.category(),
+              source,
+              document.evidenceAt(best.start()),
+              roleStrength(source),
+              0,
+              best.canonical() ? "EXACT_CANONICAL" : "EXACT_ALIAS",
+              best.start(),
+              best.end(),
+              role.taxonomyVersion()));
     }
     detectedRoles.sort(
         Comparator.comparing(DetectedRole::confidence)
@@ -68,84 +101,272 @@ public class ProfileIntelligenceExtractor {
               role.evidenceSource(),
               role.evidence(),
               role.confidence(),
-              index + 1));
+              index + 1,
+              role.matchType(),
+              role.startOffset(),
+              role.endOffset(),
+              role.taxonomyVersion()));
     }
-    return new Extraction(List.copyOf(detectedSkills), List.copyOf(rankedRoles));
+
+    var allTerms = new ArrayList<TermSuggestion>();
+    allTerms.addAll(explicitCandidates(document, detectedSkills, rankedRoles));
+    allTerms.addAll(rejected);
+    return new Extraction(
+        List.copyOf(detectedSkills), List.copyOf(rankedRoles), List.copyOf(rankTerms(allTerms)));
   }
 
-  private static RoleMatch bestRoleMatch(
-      List<String> lines, int experienceLine, List<String> terms) {
-    RoleMatch best = null;
-    for (int index = 0; index < lines.size(); index++) {
-      String line = lines.get(index);
-      for (String term : terms) {
-        if (!containsTerm(line, term)) {
-          continue;
-        }
-        RoleMatch candidate;
-        if (index <= 7 && (experienceLine < 0 || index < experienceLine)) {
-          candidate = new RoleMatch("RESUME_HEADLINE", line, new BigDecimal("0.950"), index);
-        } else if (experienceLine >= 0
-            && index > experienceLine
-            && index <= experienceLine + 12
-            && !SECTION_HEADING.matcher(line).matches()) {
-          candidate = new RoleMatch("RECENT_EXPERIENCE", line, new BigDecimal("0.850"), index);
-        } else {
-          candidate = new RoleMatch("RESUME_BODY", line, new BigDecimal("0.600"), index);
-        }
-        if (best == null
-            || candidate.confidence().compareTo(best.confidence()) > 0
-            || (candidate.confidence().equals(best.confidence())
-                && candidate.lineIndex() < best.lineIndex())) {
-          best = candidate;
-        }
-      }
-    }
-    return best;
-  }
-
-  private static Match firstMatch(List<String> lines, List<String> terms) {
-    return terms.stream()
-        .sorted(Comparator.comparingInt(String::length).reversed())
-        .map(term -> firstMatch(lines, term))
-        .filter(java.util.Objects::nonNull)
-        .findFirst()
+  private static TermHit<SkillDefinition> bestSkillHit(
+      ResumeDocument document, List<TermHit<SkillDefinition>> hits, List<TermSuggestion> rejected) {
+    return hits.stream()
+        .filter(
+            hit -> {
+              ResumeDocument.Section section = document.sectionAt(hit.start());
+              boolean safe = safeShortTerm(hit, section);
+              if (!safe) {
+                rejected.add(
+                    new TermSuggestion(
+                        "SKILL",
+                        hit.surface(),
+                        section.name(),
+                        document.evidenceAt(hit.start()),
+                        new BigDecimal("0.100"),
+                        "REJECTED",
+                        0));
+              }
+              return safe;
+            })
+        .max(skillComparator(document))
         .orElse(null);
   }
 
-  private static Match firstMatch(List<String> lines, String term) {
-    for (String line : lines) {
-      if (containsTerm(line, term)) {
-        return new Match(term, evidence(line));
+  private static <D extends TermDefinition> boolean safeShortTerm(
+      TermHit<D> hit, ResumeDocument.Section section) {
+    String term = hit.term().trim();
+    if (term.length() == 1) {
+      return false;
+    }
+    if (term.length() == 2) {
+      return section.explicitlyListsSkills()
+          && hit.surface().equals(hit.surface().toUpperCase(Locale.ROOT));
+    }
+    return true;
+  }
+
+  private static Comparator<TermHit<SkillDefinition>> skillComparator(ResumeDocument document) {
+    return Comparator.<TermHit<SkillDefinition>>comparingInt(hit -> hit.term().length())
+        .thenComparing(hit -> skillStrength(document.sectionAt(hit.start()), hit.canonical()))
+        .thenComparing(Comparator.comparingInt(TermHit<SkillDefinition>::start).reversed());
+  }
+
+  private static Comparator<TermHit<RoleDefinition>> roleComparator(ResumeDocument document) {
+    return Comparator.<TermHit<RoleDefinition>, BigDecimal>comparing(
+            hit -> roleStrength(roleSource(document, document.sectionAt(hit.start()), hit.start())))
+        .thenComparingInt(hit -> hit.term().length())
+        .thenComparing(Comparator.comparingInt(TermHit<RoleDefinition>::start).reversed());
+  }
+
+  private static BigDecimal skillStrength(ResumeDocument.Section section, boolean canonicalMatch) {
+    BigDecimal base =
+        switch (section) {
+          case CORE_COMPETENCIES, SKILLS, TOOLS -> new BigDecimal("0.990");
+          case EXPERIENCE -> new BigDecimal("0.900");
+          case SUMMARY -> new BigDecimal("0.850");
+          case DOMAIN_EXPERTISE -> new BigDecimal("0.800");
+          case EDUCATION -> new BigDecimal("0.600");
+          default -> new BigDecimal("0.700");
+        };
+    return canonicalMatch ? base : base.subtract(new BigDecimal("0.030"));
+  }
+
+  private static String roleSource(
+      ResumeDocument document, ResumeDocument.Section section, int start) {
+    if (section == ResumeDocument.Section.EXPERIENCE) {
+      return "RECENT_EXPERIENCE";
+    }
+    if ((section == ResumeDocument.Section.CONTACT || section == ResumeDocument.Section.SUMMARY)
+        && document.beforeExperience(start)) {
+      return "RESUME_HEADLINE";
+    }
+    return "RESUME_BODY";
+  }
+
+  private static BigDecimal roleStrength(String source) {
+    return switch (source) {
+      case "RESUME_HEADLINE" -> new BigDecimal("0.950");
+      case "RECENT_EXPERIENCE" -> new BigDecimal("0.900");
+      default -> new BigDecimal("0.600");
+    };
+  }
+
+  private static boolean roleContext(ResumeDocument document, TermHit<RoleDefinition> hit) {
+    ResumeDocument.Section section = document.sectionAt(hit.start());
+    if (section == ResumeDocument.Section.SUMMARY || section == ResumeDocument.Section.CONTACT) {
+      return document.beforeExperience(hit.start());
+    }
+    if (section != ResumeDocument.Section.EXPERIENCE) {
+      return false;
+    }
+    String evidence = document.evidenceAt(hit.start());
+    return evidence.matches(
+        ".*(?i)(\\b(19|20)\\d{2}\\b|present|current|\\||—|-\\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)).*");
+  }
+
+  private static List<TermSuggestion> explicitCandidates(
+      ResumeDocument document, List<DetectedSkill> skills, List<DetectedRole> roles) {
+    Set<String> known = new LinkedHashSet<>();
+    skills.forEach(
+        skill -> {
+          known.add(key(skill.name()));
+          known.add(key(skill.matchedTerm()));
+        });
+    roles.forEach(role -> known.add(key(role.name())));
+    var candidates = new LinkedHashMap<String, TermSuggestion>();
+    for (ResumeDocument.Segment segment : document.segments()) {
+      if (!segment.section().explicitlyListsSkills()) {
+        continue;
+      }
+      String grouped = EXPLICIT_GROUP_LABEL.matcher(segment.text()).replaceAll("$1;");
+      for (String rawCandidate : grouped.split("[,;]|\\s+&\\s+")) {
+        addCandidate(candidates, known, segment, rawCandidate);
+        Matcher acronyms = ACRONYM.matcher(rawCandidate);
+        while (acronyms.find()) {
+          addCandidate(candidates, known, segment, acronyms.group());
+        }
+        int open = rawCandidate.indexOf('(');
+        int close = rawCandidate.indexOf(')', open + 1);
+        if (open >= 0 && close > open) {
+          addCandidate(candidates, known, segment, rawCandidate.substring(0, open));
+          for (String nested : rawCandidate.substring(open + 1, close).split("[/,]")) {
+            addCandidate(candidates, known, segment, nested);
+          }
+        }
       }
     }
-    return null;
+    return List.copyOf(candidates.values());
   }
 
-  private static boolean containsTerm(String text, String term) {
-    return Pattern.compile(
-            "(?<![A-Za-z0-9+#])" + Pattern.quote(term) + "(?![A-Za-z0-9+#])",
-            Pattern.CASE_INSENSITIVE)
-        .matcher(text)
-        .find();
-  }
-
-  private static int experienceLine(List<String> lines) {
-    for (int index = 0; index < lines.size(); index++) {
-      if (EXPERIENCE_HEADING.matcher(lines.get(index)).matches()) {
-        return index;
-      }
+  private static void addCandidate(
+      Map<String, TermSuggestion> candidates,
+      Set<String> known,
+      ResumeDocument.Segment segment,
+      String rawCandidate) {
+    String candidate =
+        rawCandidate
+            .replaceAll("^[^\\p{L}\\p{N}+#]+|[^\\p{L}\\p{N}+#.)-]+$", "")
+            .replaceAll("\\s+", " ")
+            .trim();
+    String normalized = key(candidate);
+    if (candidate.length() < 2
+        || candidate.length() > 100
+        || candidate.split("\\s+").length > 10
+        || CANDIDATE_STOP_WORDS.contains(normalized)
+        || known.contains(normalized)
+        || candidate.matches(".*[.!?].*[.!?].*")) {
+      return;
     }
-    return -1;
+    String evidence =
+        segment.text().length() <= 300 ? segment.text() : segment.text().substring(0, 297) + "...";
+    candidates.putIfAbsent(
+        normalized,
+        new TermSuggestion(
+            "SKILL",
+            candidate,
+            segment.section().name(),
+            evidence,
+            new BigDecimal("0.750"),
+            "SUGGESTED",
+            0));
   }
 
-  private static String evidence(String line) {
-    return line.length() <= 300 ? line : line.substring(0, 297) + "...";
+  private static List<TermSuggestion> rankTerms(List<TermSuggestion> terms) {
+    Map<String, TermSuggestion> distinct = new LinkedHashMap<>();
+    terms.stream()
+        .sorted(
+            Comparator.comparing(TermSuggestion::evidenceStrength)
+                .reversed()
+                .thenComparing(TermSuggestion::normalizedTerm))
+        .forEach(
+            term ->
+                distinct.putIfAbsent(term.reviewState() + ":" + key(term.normalizedTerm()), term));
+    var ranked = new ArrayList<TermSuggestion>();
+    int priority = 1;
+    for (TermSuggestion term : distinct.values()) {
+      ranked.add(
+          new TermSuggestion(
+              term.termKind(),
+              term.normalizedTerm(),
+              term.evidenceSection(),
+              term.evidence(),
+              term.evidenceStrength(),
+              term.reviewState(),
+              priority++));
+    }
+    return ranked;
   }
 
-  public record SkillDefinition(long id, String name, String category, List<String> terms) {}
+  private static String key(String value) {
+    return value.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
+  }
 
-  public record RoleDefinition(long id, String name, String category, List<String> terms) {}
+  private static <D extends TermDefinition> List<TermHit<D>> findTerms(
+      String text, List<D> definitions) {
+    List<PhraseAutomaton.Entry<IndexedTerm<D>>> entries =
+        definitions.stream()
+            .flatMap(
+                definition ->
+                    definition.terms().stream()
+                        .filter(Objects::nonNull)
+                        .map(String::trim)
+                        .filter(term -> !term.isBlank())
+                        .distinct()
+                        .map(
+                            term ->
+                                new PhraseAutomaton.Entry<>(
+                                    new IndexedTerm<>(
+                                        definition, term, term.equalsIgnoreCase(definition.name())),
+                                    term)))
+            .toList();
+    return new PhraseAutomaton<>(entries)
+        .find(text).stream()
+            .map(
+                hit ->
+                    new TermHit<>(
+                        hit.value().definition(),
+                        hit.value().term(),
+                        hit.surface(),
+                        hit.start(),
+                        hit.end(),
+                        hit.value().canonical()))
+            .toList();
+  }
+
+  public sealed interface TermDefinition permits SkillDefinition, RoleDefinition {
+    long id();
+
+    String name();
+
+    String category();
+
+    List<String> terms();
+
+    String taxonomyVersion();
+  }
+
+  public record SkillDefinition(
+      long id, String name, String category, List<String> terms, String taxonomyVersion)
+      implements TermDefinition {
+    public SkillDefinition(long id, String name, String category, List<String> terms) {
+      this(id, name, category, terms, null);
+    }
+  }
+
+  public record RoleDefinition(
+      long id, String name, String category, List<String> terms, String taxonomyVersion)
+      implements TermDefinition {
+    public RoleDefinition(long id, String name, String category, List<String> terms) {
+      this(id, name, category, terms, null);
+    }
+  }
 
   public record DetectedSkill(
       long id,
@@ -153,7 +374,13 @@ public class ProfileIntelligenceExtractor {
       String category,
       String matchedTerm,
       String evidence,
-      BigDecimal confidence) {}
+      BigDecimal confidence,
+      String evidenceSection,
+      String matchType,
+      int startOffset,
+      int endOffset,
+      String taxonomyVersion,
+      boolean selectedByDefault) {}
 
   public record DetectedRole(
       long id,
@@ -162,15 +389,27 @@ public class ProfileIntelligenceExtractor {
       String evidenceSource,
       String evidence,
       BigDecimal confidence,
+      int priority,
+      String matchType,
+      int startOffset,
+      int endOffset,
+      String taxonomyVersion) {}
+
+  public record TermSuggestion(
+      String termKind,
+      String normalizedTerm,
+      String evidenceSection,
+      String evidence,
+      BigDecimal evidenceStrength,
+      String reviewState,
       int priority) {}
 
-  public record Extraction(List<DetectedSkill> skills, List<DetectedRole> roles) {}
+  public record Extraction(
+      List<DetectedSkill> skills, List<DetectedRole> roles, List<TermSuggestion> terms) {}
 
-  private record Match(String term, String line) {}
+  private record TermHit<D extends TermDefinition>(
+      D definition, String term, String surface, int start, int end, boolean canonical) {}
 
-  private record RoleMatch(String source, String evidence, BigDecimal confidence, int lineIndex) {
-    private RoleMatch {
-      evidence = ProfileIntelligenceExtractor.evidence(evidence);
-    }
-  }
+  private record IndexedTerm<D extends TermDefinition>(
+      D definition, String term, boolean canonical) {}
 }

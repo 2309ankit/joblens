@@ -62,6 +62,18 @@
           <button class="secondary" type="button" th:attr="data-add-skill=${suggestion.name}">Add suggestion</button>
         </div>
       </div>
+      <div class="suggestions" th:if="${!profileIntelligence.termSuggestions.empty}">
+        <div class="suggestion" th:each="suggestion : ${profileIntelligence.termSuggestions}" th:if="${suggestion.kind == 'SKILL' and suggestion.reviewState == 'SUGGESTED'}">
+          <strong th:text="${suggestion.term}">Account Farming</strong>
+          <span class="help">Uncatalogued résumé competency</span>
+          <p class="evidence" th:text="${suggestion.evidence}">Evidence</p>
+          <button class="secondary" type="button" th:attr="data-add-skill=${suggestion.term}">Review as skill</button>
+        </div>
+      </div>
+      <details th:if="${!profileIntelligence.termSuggestions.empty}">
+        <summary>Rejected or ambiguous text</summary>
+        <p class="evidence" th:each="suggestion : ${profileIntelligence.termSuggestions}" th:if="${suggestion.reviewState != 'SUGGESTED'}" th:text="${suggestion.term + ' — ' + suggestion.reviewState + ': ' + suggestion.evidence}">Rejected evidence</p>
+      </details>
       <div id="selected-skills" class="chips">
         <span class="chip" th:each="skill : ${profile.skills}"><span th:text="${skill}">Java</span><input type="hidden" name="skills" th:value="${skill}"><button type="button" aria-label="Remove skill">×</button></span>
       </div>

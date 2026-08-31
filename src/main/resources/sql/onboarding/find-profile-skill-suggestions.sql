@@ -1,5 +1,6 @@
 SELECT skill.canonical_name, skill.category, suggestion.matched_term,
-       suggestion.evidence, suggestion.confidence
+       suggestion.evidence, suggestion.confidence, suggestion.evidence_section,
+       suggestion.match_type, suggestion.extractor_version, suggestion.taxonomy_version
 FROM workspace_profile_skill_suggestion suggestion
 JOIN skill ON skill.id = suggestion.skill_id
 JOIN workspace_profile_version profile ON profile.id = suggestion.profile_version_id

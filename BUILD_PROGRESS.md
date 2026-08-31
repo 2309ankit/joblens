@@ -237,7 +237,8 @@ No external job-source integrations have been implemented.
 M2.6 Inclusive Profile Intelligence is complete. The repository is stopped at the approval boundary
 before M2.7. Flyway V18 extends the existing profile-version model with categorized taxonomy,
 workspace-private additions, and versioned deterministic suggestion evidence; V19 keeps private-skill
-references cleanup-safe when a workspace is deleted.
+references cleanup-safe when a workspace is deleted; V20 adds a restartable, idempotent ESCO release
+import and uncatalogued-term review artifacts.
 
 Documentation navigation is split by purpose: `SESSION_HANDOFF.md` is the concise resume point,
 `NEXT_MILESTONES.md` is the selection index for future work, `README.md` is the user/operator runbook,
@@ -261,9 +262,11 @@ to another. Version-owned skill and role suggestion tables store bounded resume-
 matched terms, deterministic confidence, evidence source, and stable priority.
 
 Resume acceptance remains structure-based and no longer rejects a valid resume because the catalogue
-found zero skills. Matching loads the applicable PostgreSQL taxonomy and aliases as one set and then
-uses case-insensitive token boundaries in memory. Skill evidence records the actual matched term and
-line. Role suggestions distinguish `RESUME_HEADLINE` (0.950), `RECENT_EXPERIENCE` (0.850), and
+found zero skills. Matching loads the active PostgreSQL taxonomy and aliases once and scans each
+document with a deterministic phrase automaton, selecting longest token-boundary matches. Skill
+evidence records the actual matched term and line. Explicit competency terms that are not catalogued
+are retained as reviewable suggestions; unsafe one-character terms (for example a naked `R`) are
+rejected with evidence. Role suggestions distinguish `RESUME_HEADLINE` (0.950), `RECENT_EXPERIENCE` (0.900), and
 `RESUME_BODY` (0.600); these values order evidence and are explicitly not probabilities or factual
 employment claims. Suggestions upsert by profile version and taxonomy identity, so replay is
 idempotent. Forking an active profile copies the original evidence into the new draft.
@@ -286,12 +289,13 @@ REST/Swagger inspection is available through:
 * `GET /api/candidate-profile/skills/catalog?query=...`
 * `GET /api/candidate-profile/roles/catalog?query=...`
 * `GET /api/candidate-profile/countries`
+* `POST /api/batch/taxonomy/esco/import?taxonomyVersion=1.2.1`
 
 Focused tests cover frontend aliases and a recent-experience title, a nursing resume headline, a
 valid DOCX culinary resume with zero known matches, evidence/confidence persistence, replay
 idempotency, private custom term deduplication and isolation, country-name/provider capabilities,
 unsupported-country rejection, REST fields, Thymeleaf chip/dropdown rendering, and live generated
-OpenAPI paths. PostgreSQL 17 Testcontainers applied all 19 migrations from an empty schema. V19 was
+OpenAPI paths. PostgreSQL 17 Testcontainers applied all 20 migrations from an empty schema. V20 was
 added as a forward migration after V18 had been applied locally; no Flyway history repair or migration
 rewrite was used.
 
@@ -300,11 +304,12 @@ Regression verification on 2026-08-31:
 ```text
 ./mvnw clean test
 BUILD SUCCESS
-Tests run: 95, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 97, Failures: 0, Errors: 0, Skipped: 0
 ```
 
-The clean build used PostgreSQL 17 Testcontainers and applied all migrations through V19 from an
-empty schema. Diff checks and the conventional commit are recorded at handoff.
+The clean build used PostgreSQL 17 Testcontainers and applied all migrations through V20 from an
+empty schema. `git diff --check` and Spotless verification pass; the conventional commit is pending
+because this execution environment does not permit writes to `.git`.
 
 ## Profile Review and Lifecycle UI Evidence
 

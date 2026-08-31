@@ -177,6 +177,9 @@ inspection, PostgreSQL Testcontainers, idempotency, documentation, and `./mvnw c
 Implemented slice: Flyway V18 categorizes and broadens the skill seed, adds normalized role and alias
 catalogues, workspace-private user additions, and versioned skill/title suggestion evidence. V19
 adds forward-only cascading cleanup for candidate/profile references to private skills.
+V20 adds a restartable, idempotent ESCO release importer, active-version filtering, and persisted
+uncatalogued/rejected term suggestions. Matching uses a deterministic longest-phrase automaton with
+section-aware evidence, so broad terms such as `R` are not accepted as skills merely by substring.
 Resume matching loads the relevant database set once and performs deterministic token-boundary
 matching in memory. Structurally valid resumes no longer require a known skill. Title suggestions are
 ranked by transparent evidence source and remain unselected until user review. Setup uses searchable,

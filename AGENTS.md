@@ -85,7 +85,7 @@ The repository currently has these verified working slices:
 * source-adapter registry with Adzuna, optional Jooble, and safe automatic enrichment through the public Greenhouse and Lever posting APIs
 * normalized multi-market search targets with independent provider profiles, checkpoints, scoring evidence, and market-aware portal links
 * resume-structure validation and a two-step setup flow with one transactional review/activation action
-* inclusive categorized skill and role intelligence with explainable resume evidence, workspace-private additions, and provider-aware country selection
+* inclusive categorized skill and role intelligence with explainable resume evidence, workspace-private additions, provider-aware country selection, and versioned ESCO taxonomy import
 * outbound Portal Search Hub for LinkedIn, JobStreet Singapore, SEEK Australia, and SEEK New Zealand without scraping or importing portal results
 * deterministic smart portal queries derived from preferred roles, sectors, confirmed resume skills, and a broad fallback
 * workspace-scoped resume skill review with draft-before-activation semantics

@@ -3,46 +3,80 @@ package com.ankit.joblens.intelligence;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 @Component
 public class SkillExtractor {
   private final SkillCatalogService catalog;
+  private volatile IndexedCatalog indexedCatalog;
 
   public SkillExtractor(SkillCatalogService catalog) {
     this.catalog = catalog;
   }
 
   public ExtractedJobSkills extract(long id, String hash, String title, String description) {
-    String text = ((title == null ? "" : title) + "\n" + (description == null ? "" : description));
-    Map<Long, ExtractedJobSkills.SkillMatch> found = new LinkedHashMap<>();
-    for (var entry : catalog.load().entrySet()) {
-      String phrase = entry.getKey();
-      Pattern pattern =
-          Pattern.compile(
-              "(?<![A-Za-z0-9+#])" + Pattern.quote(phrase) + "(?![A-Za-z0-9+#])",
-              Pattern.CASE_INSENSITIVE);
-      var matcher = pattern.matcher(text);
-      int count = 0;
-      while (matcher.find()) count++;
-      if (count > 0)
-        found.put(
-            entry.getValue().id(),
-            new ExtractedJobSkills.SkillMatch(
-                entry.getValue().id(),
-                entry.getValue().name(),
-                count,
-                matcherEvidence(text, pattern)));
+    String text = (title == null ? "" : title) + "\n" + (description == null ? "" : description);
+    SkillCatalogService.Snapshot snapshot = catalog.load();
+    PhraseAutomaton<SkillCatalogService.SkillDefinition> index = index(snapshot);
+    Map<Long, MutableMatch> found = new LinkedHashMap<>();
+    for (PhraseAutomaton.Hit<SkillCatalogService.SkillDefinition> hit : index.find(text)) {
+      if (!safeTerm(hit.phrase(), hit.surface())) {
+        continue;
+      }
+      found.compute(
+          hit.value().id(),
+          (ignored, current) ->
+              current == null
+                  ? new MutableMatch(hit.value(), 1, hit.surface())
+                  : new MutableMatch(current.skill(), current.count() + 1, current.evidence()));
     }
-    var matches = new ArrayList<>(found.values());
+    var matches = new ArrayList<ExtractedJobSkills.SkillMatch>();
+    found
+        .values()
+        .forEach(
+            match ->
+                matches.add(
+                    new ExtractedJobSkills.SkillMatch(
+                        match.skill().id(),
+                        match.skill().name(),
+                        match.count(),
+                        match.evidence())));
     matches.sort(Comparator.comparing(ExtractedJobSkills.SkillMatch::skillName));
     return new ExtractedJobSkills(id, hash, matches);
   }
 
-  private static String matcherEvidence(String text, Pattern pattern) {
-    var m = pattern.matcher(text);
-    return m.find() ? m.group() : "";
+  private PhraseAutomaton<SkillCatalogService.SkillDefinition> index(
+      SkillCatalogService.Snapshot snapshot) {
+    IndexedCatalog current = indexedCatalog;
+    if (current != null && current.signature().equals(snapshot.signature())) {
+      return current.index();
+    }
+    synchronized (this) {
+      current = indexedCatalog;
+      if (current != null && current.signature().equals(snapshot.signature())) {
+        return current.index();
+      }
+      var entries =
+          snapshot.terms().stream()
+              .map(term -> new PhraseAutomaton.Entry<>(term.skill(), term.phrase()))
+              .toList();
+      indexedCatalog = new IndexedCatalog(snapshot.signature(), new PhraseAutomaton<>(entries));
+      return indexedCatalog.index();
+    }
   }
+
+  private static boolean safeTerm(String phrase, String surface) {
+    if (phrase.length() == 1) {
+      return false;
+    }
+    return phrase.length() > 2 || surface.equals(surface.toUpperCase(Locale.ROOT));
+  }
+
+  private record IndexedCatalog(
+      String signature, PhraseAutomaton<SkillCatalogService.SkillDefinition> index) {}
+
+  private record MutableMatch(
+      SkillCatalogService.SkillDefinition skill, int count, String evidence) {}
 }

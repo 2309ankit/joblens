@@ -14,8 +14,8 @@ Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V19
-Latest full test: 95 tests, 0 failures, 0 errors, 0 skipped
+Latest Flyway migration: V20
+Latest full test: 97 tests, 0 failures, 0 errors, 0 skipped
 Latest focused check: fresh PostgreSQL 17, assisted setup render, and profile-intelligence OpenAPI verified
 ```
 
@@ -118,7 +118,7 @@ search profile.
 
 ## 5. Data and processing decisions
 
-- Flyway V1-V19 owns application and Spring Batch metadata schemas.
+- Flyway V1-V20 owns application and Spring Batch metadata schemas.
 - Search countries/locations are normalized as independent `workspace_search_target` rows. Confirming
   preferences creates one provider profile and checkpoint per supported source/market combination.
 - Spring JDBC is used; JPA and Lombok are intentionally absent.
@@ -178,7 +178,7 @@ src/main/java/com/ankit/joblens/
   dashboard/      Thymeleaf controllers and view tracking
 
 src/main/resources/
-  db/migration/   Flyway V1-V19
+  db/migration/   Flyway V1-V20
   sql/            externalized SQL grouped by feature
   templates/      setup, dashboard, applications
 ```
@@ -211,7 +211,8 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Fuzzy thresholds and scoring weights need reviewed real-world calibration.
 - Original resume storage, schedules, and external notifications are not implemented.
 - Market insights are shared market-level projections rather than private workspace projections.
-- The inclusive taxonomy is a curated starter set, not an occupational ontology. Users can add
+- The inclusive taxonomy is a curated starter set, with optional versioned ESCO skill/occupation
+  releases imported by `escoTaxonomyImportJob`; users can add
   workspace-private skills and roles; expanding or governing the shared seed remains deliberate work.
 - Title confidence orders deterministic evidence sources and is not a probability or claim that a
   suggested title is factually correct.
@@ -226,7 +227,7 @@ Profile Intelligence are complete. M2.7 remains blocked on explicit user approva
 is:
 
 ```text
-M2.6 Inclusive Profile Intelligence — COMPLETE
+M2.6 Inclusive Profile Intelligence — COMPLETE (reopened implementation, now ESCO-backed)
   → STOP, demonstrate it, and ask the user for approval — CURRENT BOUNDARY
 M2.7 Explainable ATS Readiness Advisor
   → STOP, demonstrate it, and ask the user for approval

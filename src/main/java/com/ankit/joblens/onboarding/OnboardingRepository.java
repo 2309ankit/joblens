@@ -76,6 +76,9 @@ public class OnboardingRepository {
     jdbc.update(
         load("sql/onboarding/copy-role-suggestions.sql"),
         Map.of("sourceProfileVersionId", activeProfile.id(), "draftProfileVersionId", draftId));
+    jdbc.update(
+        load("sql/onboarding/copy-term-suggestions.sql"),
+        Map.of("sourceProfileVersionId", activeProfile.id(), "draftProfileVersionId", draftId));
     return latestProfile(workspaceId).orElseThrow();
   }
 

@@ -48,7 +48,7 @@ class ProfileIntelligenceExtractorTests {
               assertThat(role.name()).isEqualTo("Frontend Engineer");
               assertThat(role.evidenceSource()).isEqualTo("RECENT_EXPERIENCE");
               assertThat(role.evidence()).contains("Front End Developer");
-              assertThat(role.confidence()).isEqualByComparingTo("0.850");
+              assertThat(role.confidence()).isEqualByComparingTo("0.900");
             });
   }
 
@@ -86,6 +86,56 @@ class ProfileIntelligenceExtractorTests {
               assertThat(role.name()).isEqualTo("Registered Nurse");
               assertThat(role.evidenceSource()).isEqualTo("RESUME_HEADLINE");
               assertThat(role.confidence()).isEqualByComparingTo("0.950");
+            });
+  }
+
+  @Test
+  void extractsSalesCompetenciesAndPreservesUncataloguedTermsWithoutAcceptingNakedR() {
+    var result =
+        extractor.extract(
+            """
+            SAHIL
+            Bengaluru, India
+            PROFESSIONAL SUMMARY
+            Customer Success & Account Management Professional with enterprise growth experience.
+            CORE COMPETENCIES
+            Growth & Lead Generation: Outbound Prospecting, Cold Outreach & Email Sequencing, Account Mining, Lead Qualification (BANT/MEDDPICC) Account Management & Farming: Relationship Management, Upselling, Cross-selling, Retention Strategy
+            TOOLS & ECOSYSTEMS
+            LinkedIn Navigator, ZoomInfo, Salesforce, Zoho CRM, MS Office Suite
+            PROFESSIONAL EXPERIENCE
+            Calsoft Senior Sales Executive | September 2025 – Present
+            Tata Elxsi Account Executive | November 2022 – September 2025
+            R
+            EDUCATION
+            B.Tech in Computer Science
+            """,
+            List.of(
+                new ProfileIntelligenceExtractor.SkillDefinition(1, "CRM", "SALES", List.of("CRM")),
+                new ProfileIntelligenceExtractor.SkillDefinition(
+                    2, "Account Management", "SALES", List.of("Account Management")),
+                new ProfileIntelligenceExtractor.SkillDefinition(
+                    3, "Sales", "SALES", List.of("Sales")),
+                new ProfileIntelligenceExtractor.SkillDefinition(4, "R", "DATA", List.of("R"))),
+            List.of(
+                new ProfileIntelligenceExtractor.RoleDefinition(
+                    5, "Sales Executive", "SALES", List.of("Sales Executive")),
+                new ProfileIntelligenceExtractor.RoleDefinition(
+                    6, "Account Executive", "SALES", List.of("Account Executive"))));
+
+    assertThat(result.skills())
+        .extracting(ProfileIntelligenceExtractor.DetectedSkill::name)
+        .containsExactly("Account Management", "CRM", "Sales");
+    assertThat(result.roles())
+        .extracting(ProfileIntelligenceExtractor.DetectedRole::name)
+        .containsExactly("Account Executive", "Sales Executive");
+    assertThat(result.terms())
+        .extracting(ProfileIntelligenceExtractor.TermSuggestion::normalizedTerm)
+        .contains("Outbound Prospecting", "Cold Outreach", "BANT", "MEDDPICC", "Salesforce");
+    assertThat(result.terms())
+        .anySatisfy(
+            term -> {
+              assertThat(term.normalizedTerm()).isEqualTo("R");
+              assertThat(term.reviewState()).isEqualTo("REJECTED");
             });
   }
 
