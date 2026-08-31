@@ -14,6 +14,9 @@ public class PortalSearchQueryPlanner {
 
   public List<PortalSearchQuery> plan(SearchPreferences preferences, List<String> candidateSkills) {
     List<String> roles = csv(preferences.targetRoles());
+    if (roles.isEmpty()) {
+      roles = List.of(preferences.keywords().trim());
+    }
     List<String> sectors = csv(preferences.targetDomains());
     List<String> technologies = technologies(preferences.keywords(), candidateSkills);
 
@@ -26,15 +29,12 @@ public class PortalSearchQueryPlanner {
     return List.of(
         new PortalSearchQuery(
             "Primary role + sectors",
-            quote(primaryRole) + " AND " + booleanGroup(selectedSectors),
+            appendGroup(quote(primaryRole), selectedSectors),
             natural(primaryRole, selectedSectors)),
         new PortalSearchQuery(
             "Alternate role + technology + sector",
-            booleanGroup(selectedRoles)
-                + " AND "
-                + booleanGroup(selectedTechnologies)
-                + " AND "
-                + booleanGroup(selectedSectors),
+            appendGroup(
+                appendGroup(booleanGroup(selectedRoles), selectedTechnologies), selectedSectors),
             natural(
                 alternateRole,
                 concat(selectedTechnologies, selectedSectors.stream().limit(1).toList()))),
@@ -89,6 +89,10 @@ public class PortalSearchQueryPlanner {
       return quote(primaryRole);
     }
     return quote(primaryRole) + " OR " + quote(alternateRole);
+  }
+
+  private static String appendGroup(String query, List<String> values) {
+    return values.isEmpty() ? query : query + " AND " + booleanGroup(values);
   }
 
   private static String quote(String value) {

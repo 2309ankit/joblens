@@ -31,6 +31,23 @@ class PortalSearchQueryPlannerTests {
                 "Java Spring Boot"));
   }
 
+  @Test
+  void fallsBackToSearchKeywordsWhenLatestDraftHasNoRolesSkillsOrSectors() {
+    var preferences =
+        new SearchPreferences(
+            "", "", "Singapore", "Sales Executive", "SG | Singapore", 2, "ANY", "HYBRID");
+
+    assertThat(planner.plan(preferences, List.of()))
+        .containsExactly(
+            new PortalSearchQuery(
+                "Primary role + sectors", "\"Sales Executive\"", "Sales Executive"),
+            new PortalSearchQuery(
+                "Alternate role + technology + sector",
+                "(\"Sales Executive\") AND (\"Sales Executive\")",
+                "Sales Executive Sales Executive"),
+            new PortalSearchQuery("Broad fallback", "\"Sales Executive\"", "Sales Executive"));
+  }
+
   private static SearchPreferences preferences() {
     return new SearchPreferences(
         "Senior Java Developer, Senior Backend Engineer",
