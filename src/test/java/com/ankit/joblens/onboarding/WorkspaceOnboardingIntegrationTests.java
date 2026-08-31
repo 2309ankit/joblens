@@ -238,6 +238,41 @@ class WorkspaceOnboardingIntegrationTests {
         .isEqualTo(3);
   }
 
+  @Test
+  void reviewsPreferencesAndSkillsInOneActivationTransaction() {
+    UUID workspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    long resumeId =
+        onboarding.saveResume(workspaceId, "resume.pdf", "application/pdf", 100, "c".repeat(64));
+    long profileId = onboarding.createDraft(workspaceId, resumeId, "Backend engineer");
+    onboarding.addSkills(profileId, List.of("Java"));
+
+    long candidateId =
+        onboardingService.completeSetup(
+            workspaceId,
+            List.of("Java", "Spring Boot"),
+            new SearchPreferences(
+                "Senior Backend Engineer",
+                "banking",
+                "Singapore",
+                "Java Spring Boot",
+                "SG | Singapore\nAU | Sydney",
+                2,
+                "PERMANENT",
+                "HYBRID"));
+
+    assertThat(onboarding.latestProfile(workspaceId).orElseThrow().status()).isEqualTo("ACTIVE");
+    assertThat(candidateSkills(candidateId)).containsExactly("Java", "Spring Boot");
+    assertThat(onboarding.preferences(workspaceId).orElseThrow().targets())
+        .containsExactly(new SearchTarget("SG", "Singapore"), new SearchTarget("AU", "Sydney"));
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM search_profile WHERE workspace_id=? AND active=true",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(2);
+  }
+
   private List<String> candidateSkills(long candidateProfileId) {
     return jdbc.queryForList(
         """

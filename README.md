@@ -82,17 +82,16 @@ Environment variables override these values. Never commit real credentials; `.en
 ## First-time use
 
 1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.
-2. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text; the draft is accepted only when readable text and known skills are found. JobLens currently stores resume metadata and hash, not the original file bytes.
-3. Review the detected skill checkboxes. Add skills the reader missed or remove incorrect matches, then save the reviewed draft. An active profile is never changed until its new draft is confirmed.
-4. Enter target roles, domains, current location, keywords, and up to ten search markets. Put one market on each line as `SG | Singapore`, `AU | Sydney`, or `NZ | Auckland`. Each market becomes an independent provider profile with its own pagination and restart checkpoint. JobLens searches Adzuna for every market and Jooble only for the regional country configured by `JOOBLE_COUNTRY_CODE`. Direct official Greenhouse or Lever URLs are validated and searched without ATS credentials.
-5. Confirm the draft. Confirmation versions the profile and activates candidate skills, preferences, and runnable source definitions. If you add `JOOBLE_API_KEY` later, save and confirm preferences once more to activate its source profile.
-6. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
+2. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text. JobLens requires resume evidence such as contact details plus recognizable Experience, Education, or Skills sections; a software interview requirement or job description containing skill words is rejected. JobLens currently stores resume metadata and hash, not the original file bytes.
+3. In the single **Review and activate** form, correct the detected skills and enter target roles, preferred sectors, and your one current city. Add desired job locations as structured country/location rows; use **Add another location** only when you genuinely want another market. Provider keywords, page count, employment type, and work arrangement are under **Advanced search options**.
+4. Click **Save and activate profile** once. This versions the reviewed skills and preferences together and activates the runnable source definitions. Each desired market becomes an independent provider profile with its own pagination and restart checkpoint. JobLens searches Adzuna for every market and Jooble only for the regional country configured by `JOOBLE_COUNTRY_CODE`. Direct official Greenhouse or Lever URLs are validated and searched without ATS credentials.
+5. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
    The **Latest source run** panel then shows each source's status, attempted/fetched pages, received and
    new/changed/unchanged records, raw/normalized/sighted/scored totals, and any safe failure reason.
    If a later source fails, earlier results remain available and the panel reports `PARTIAL` with a
    **Restart failed run** button.
-7. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
-8. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
+6. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
+7. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
 
 Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, normalized search preferences at `GET /api/candidate-profile/preferences`, the skill catalog, and reviewed-skill replacement. **Find jobs** runs and inspects the complete search pipeline. **Discovered source boards** lists Greenhouse and Lever boards found for this browser workspace and their `DISCOVERED`, `VALIDATED`, or `FAILED` status. **Applications** and **Follow-ups** document the same ownership-safe operations exposed in the Thymeleaf pages. Swagger sends the browser workspace cookie with each request.
 
@@ -378,12 +377,12 @@ Focused suites:
 
 ## Troubleshooting
 
-If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, confirm the setup profile and click **Find and rank jobs**. Enter markets one per line in `CC | Location` format; commas are deliberately rejected because each market is a normalized row. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. To enable Jooble, set its regional `JOOBLE_API_KEY` and matching `JOOBLE_COUNTRY_CODE`, recreate/restart the app, then save and confirm preferences again. Greenhouse and Lever GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
+If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, activate the setup profile and click **Find and rank jobs**. If a document is rejected as not being a resume, upload the candidate's actual career resume with contact details and normal resume sections rather than a vacancy or interview specification. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. To enable Jooble, set its regional `JOOBLE_API_KEY` and matching `JOOBLE_COUNTRY_CODE`, recreate/restart the app, then activate the profile again. Greenhouse and Lever GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
 
 ## Interview/demo runbook
 
 1. Start the stack: `docker compose up -d` and confirm `docker compose ps` reports both services healthy/running.
-2. Open `/setup`, upload a resume, save preferences, and confirm the versioned profile.
+2. Open `/setup`, upload a resume, then review and activate skills and preferences with the single combined action.
 3. Open `/dashboard`, click **Find and rank jobs**, then show the six StepExecutions through `/api/batch/executions`.
 4. Open `/swagger-ui.html`; demonstrate **Find jobs**, `/api/jobs`, and exact/fuzzy duplicate inspection.
 5. Save a ranked job, open `/applications`, transition it to `APPLIED`, refresh follow-ups, and complete one reminder.

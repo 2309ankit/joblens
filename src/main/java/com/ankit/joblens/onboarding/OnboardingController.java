@@ -50,7 +50,52 @@ public class OnboardingController {
                           "PERMANENT",
                           "REMOTE,HYBRID,ONSITE")));
     }
+    SearchPreferences preferences = (SearchPreferences) model.getAttribute("preferences");
+    model.addAttribute("searchTargets", preferences.targets());
     return "setup";
+  }
+
+  @PostMapping("/setup/complete")
+  public String complete(
+      @RequestParam(name = "skills", required = false) List<String> skills,
+      @RequestParam String targetRoles,
+      @RequestParam String targetDomains,
+      @RequestParam String primaryLocation,
+      @RequestParam String keywords,
+      @RequestParam List<String> countryCodes,
+      @RequestParam List<String> locations,
+      @RequestParam int maxPages,
+      @RequestParam String employmentPreference,
+      @RequestParam String workPreference,
+      HttpServletRequest request,
+      HttpServletResponse response,
+      RedirectAttributes redirectAttributes) {
+    UUID workspaceId = workspaceContext.resolve(request, response);
+    try {
+      if (countryCodes.size() != locations.size()) {
+        throw new IllegalArgumentException("Every country needs one search location");
+      }
+      List<SearchTarget> targets =
+          java.util.stream.IntStream.range(0, countryCodes.size())
+              .mapToObj(index -> new SearchTarget(countryCodes.get(index), locations.get(index)))
+              .toList();
+      SearchPreferences preferences =
+          new SearchPreferences(
+              targetRoles,
+              targetDomains,
+              primaryLocation,
+              keywords,
+              SearchTarget.format(targets),
+              maxPages,
+              employmentPreference,
+              workPreference);
+      long candidateProfileId = onboardingService.completeSetup(workspaceId, skills, preferences);
+      redirectAttributes.addFlashAttribute(
+          "message", "Profile activated. Candidate profile " + candidateProfileId + " is ready.");
+    } catch (RuntimeException exception) {
+      redirectAttributes.addFlashAttribute("error", exception.getMessage());
+    }
+    return "redirect:/setup";
   }
 
   @PostMapping("/setup/skills")

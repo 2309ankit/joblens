@@ -42,6 +42,7 @@ public class OnboardingService {
     if (text.length() < 80) {
       throw new IllegalArgumentException("Resume has too little readable text");
     }
+    ResumeTextValidator.validate(text);
     String lower = text.toLowerCase(Locale.ROOT);
     var skills =
         repository.skillCatalog().stream()
@@ -97,6 +98,7 @@ public class OnboardingService {
 
   @Transactional
   public void savePreferences(UUID workspaceId, SearchPreferences preferences) {
+    validatePreferences(preferences);
     OnboardingProfile profile =
         repository
             .latestProfile(workspaceId)
@@ -107,6 +109,29 @@ public class OnboardingService {
       throw new IllegalStateException("Upload a resume before changing this profile");
     }
     repository.savePreferences(workspaceId, profile.id(), preferences);
+  }
+
+  @Transactional
+  public long completeSetup(
+      UUID workspaceId, List<String> requestedSkills, SearchPreferences preferences) {
+    validatePreferences(preferences);
+    List<String> skills = canonicalSkills(requestedSkills);
+    if (skills.isEmpty()) {
+      throw new IllegalArgumentException("Select at least one skill");
+    }
+    OnboardingProfile profile =
+        repository
+            .latestProfile(workspaceId)
+            .orElseThrow(() -> new IllegalStateException("Upload a valid resume first"));
+    if ("ACTIVE".equals(profile.status())) {
+      profile = repository.forkDraft(workspaceId, profile);
+    } else if (!"DRAFT".equals(profile.status())) {
+      throw new IllegalStateException("Upload a resume before changing this profile");
+    }
+    repository.replaceDraftSkills(workspaceId, profile.id(), skills);
+    repository.savePreferences(workspaceId, profile.id(), preferences);
+    OnboardingProfile completed = repository.latestProfile(workspaceId).orElseThrow();
+    return repository.confirm(workspaceId, completed);
   }
 
   @Transactional
@@ -168,5 +193,21 @@ public class OnboardingService {
       throw new IllegalArgumentException("Choose skills from the supported catalog");
     }
     return normalized;
+  }
+
+  private static void validatePreferences(SearchPreferences preferences) {
+    if (preferences == null
+        || preferences.targetRoles().isBlank()
+        || preferences.targetDomains().isBlank()
+        || preferences.primaryLocation().isBlank()
+        || preferences.keywords().isBlank()
+        || preferences.employmentPreference().isBlank()
+        || preferences.workPreference().isBlank()) {
+      throw new IllegalArgumentException("Complete all required preferences");
+    }
+    if (preferences.maxPages() < 1 || preferences.maxPages() > 20) {
+      throw new IllegalArgumentException("Maximum pages must be between 1 and 20");
+    }
+    preferences.targets();
   }
 }

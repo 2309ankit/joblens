@@ -90,6 +90,7 @@ The generated project currently contains:
 | 28 | Source health and run observability works       | COMPLETE    |
 | 29 | Public Lever posting source works               | COMPLETE    |
 | 30 | Normalized multi-market preferences work        | COMPLETE    |
+| 31 | Resume validation and simplified setup work     | COMPLETE    |
 
 ## Verified Evidence
 
@@ -403,7 +404,8 @@ search definition. Country codes, nonblank locations, priority, identity, and th
 are constrained. Targets are activated/deactivated rather than packed into CSV, arrays, or JSON;
 stable identities preserve the confirmed profile while a replacement draft is reviewed.
 
-The setup page accepts one explicit `CC | Location` line per market. Confirmation creates a stable
+The backend retains one explicit country/location pair per market. Setup renders these as structured,
+repeatable rows instead of exposing the serialized `CC | Location` representation. Confirmation creates a stable
 Adzuna source profile per target and a Jooble profile only for the configured regional
 `JOOBLE_COUNTRY_CODE`. Each source/market combination retains its own fetch run, page checkpoint,
 failure, and restart state. Greenhouse and Lever enrichment carries the originating target and does
@@ -423,6 +425,29 @@ and 0 skipped. Flyway applied all 17 migrations to fresh PostgreSQL 17 Testconta
 rebuilt and recreated; actuator health returned `UP`, Flyway reported `17:true`, the existing database
 backfilled one unique normalized target with two active attached source profiles, `/setup` rendered
 the multi-market instructions, and live OpenAPI exposed the normalized preference inspection API.
+
+## Resume Validation and Simplified Setup Evidence
+
+Resume acceptance now requires deterministic resume structure: readable content, known skills,
+contact details or an explicit resume title, and multiple recognizable resume sections. Strong job or
+interview-document language is rejected instead of treating a software requirement as a candidate
+resume. Unit coverage includes a normal resume, a software interview requirement containing known
+skills, and an unstructured skill document.
+
+`/setup` is now a two-step workflow. After upload, one **Review and activate** form combines skill
+review and preferences. The former technical market textarea is replaced with repeatable normalized
+country/location rows, one current-city field is explicitly separated from desired job locations,
+and provider-specific controls are grouped as advanced options. The combined service operation
+updates the draft skills and preferences and activates the profile in one database transaction.
+PostgreSQL Testcontainers coverage verifies the combined activation, candidate skills, normalized
+targets, and independent source profiles.
+
+Final verification on 2026-08-31: `./mvnw clean test` completed with 88 tests, 0 failures, 0 errors,
+and 0 skipped. Spotless formatted the Java changes, and all 17 Flyway migrations applied to fresh
+PostgreSQL 17 Testcontainers databases. The Compose image was rebuilt and recreated; actuator health
+returned `UP`, the no-profile and draft-profile setup states rendered successfully, the structured
+country/location controls and combined activation button were present, and live OpenAPI documented
+the stronger resume validation. The exact synthetic workspace used for the draft render was deleted.
 
 Final verification on 2026-08-30:
 

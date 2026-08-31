@@ -9,7 +9,7 @@ future work is indexed in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
-Implementation baseline: M2.5 normalized multi-market preferences (this handoff commit)
+Implementation baseline: normalized multi-market preferences plus resume-validation/setup UX fixes
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
@@ -34,7 +34,9 @@ Read [AGENTS.md](AGENTS.md), then select exactly one milestone from
 
 ```text
 /setup
-  → upload and validate PDF/DOC/DOCX resume
+  → upload PDF/DOC/DOCX and reject job/interview documents without resume structure
+  → review skills, current city, and structured desired-market rows in one form
+  → save and activate the reviewed profile in one transaction
   → review extracted skills
   → save job preferences
   → confirm versioned candidate profile

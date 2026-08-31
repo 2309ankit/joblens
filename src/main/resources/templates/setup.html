@@ -5,71 +5,112 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Set up JobLens</title>
   <style>
-    body{font:16px system-ui;margin:2rem;background:#f6f7fb;color:#182230}main{max-width:850px;margin:auto}
-    section{background:#fff;padding:1.2rem 1.5rem;margin:1rem 0;border-radius:10px;box-shadow:0 1px 5px #ccd}
-    label{display:block;margin:.8rem 0 .25rem}input{width:100%;padding:.55rem;box-sizing:border-box}button{margin-top:1rem;padding:.6rem 1rem}
-    .skill-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.35rem}.skill-grid label{margin:0;padding:.35rem;background:#f6f7fb;border-radius:6px}
-    .ok{color:#176b36}.error{color:#a51d2d}.skills{line-height:1.8}.muted{color:#667}
+    :root{color-scheme:light;--ink:#172033;--muted:#647087;--line:#dce2ec;--brand:#275efe;--soft:#f4f7ff}
+    *{box-sizing:border-box}body{font:16px/1.5 system-ui;margin:0;background:#f5f7fb;color:var(--ink)}main{max-width:900px;margin:2rem auto;padding:0 1rem}
+    .header{display:flex;justify-content:space-between;align-items:end;gap:1rem}.workspace{font-size:.8rem;color:var(--muted)}
+    section{background:#fff;padding:1.5rem;margin:1rem 0;border:1px solid var(--line);border-radius:14px;box-shadow:0 4px 18px #25314d0d}
+    h1,h2,h3{line-height:1.2}h2{margin-top:0}.step{display:inline-block;color:var(--brand);font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em}
+    label{display:block;margin:.9rem 0 .3rem;font-weight:650}input,textarea,select{width:100%;padding:.7rem;border:1px solid #b9c3d3;border-radius:7px;font:inherit;background:#fff}
+    button,.button{display:inline-block;margin-top:1rem;padding:.7rem 1rem;border:0;border-radius:8px;background:var(--brand);color:#fff;font:inherit;font-weight:650;cursor:pointer;text-decoration:none}
+    button.secondary{background:#e9eefb;color:#253552;margin:.3rem 0}button.remove{background:transparent;color:#9b2937;margin:0;padding:.6rem}
+    .notice{padding:.8rem 1rem;border-radius:8px}.ok{background:#eaf8ef;color:#176b36}.error{background:#fff0f1;color:#9d2434}.muted,.help{color:var(--muted)}.help{font-size:.9rem;margin:.25rem 0}
+    .profile-card{padding:1rem;background:var(--soft);border-radius:9px}.skills{line-height:1.8}.skill-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.4rem}
+    .skill-grid label{margin:0;padding:.45rem;background:#f6f7fb;border-radius:6px;font-weight:500}.skill-grid input{width:auto;margin-right:.35rem}
+    .target-row{display:grid;grid-template-columns:140px 1fr auto;gap:.5rem;align-items:end;margin:.5rem 0}.target-row label{margin:0;font-size:.85rem}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}details{margin-top:1.25rem;padding:1rem;background:#f8f9fc;border-radius:8px}summary{cursor:pointer;font-weight:650}
+    @media(max-width:650px){.header,.form-grid,.target-row{display:block}.target-row button{margin-top:.25rem}}
   </style>
 </head>
 <body><main>
-  <h1>Set up JobLens</h1>
-  <p class="muted">Workspace <span th:text="${workspaceId}">id</span></p>
-  <p class="ok" th:if="${message}" th:text="${message}"></p>
-  <p class="error" th:if="${error}" th:text="${error}"></p>
+  <div class="header">
+    <div><h1>Set up JobLens</h1><p class="muted">Two steps: upload your resume, then choose the jobs you want.</p></div>
+    <span class="workspace">Workspace <span th:text="${workspaceId}">id</span></span>
+  </div>
+  <p class="notice ok" th:if="${message}" th:text="${message}"></p>
+  <p class="notice error" th:if="${error}" th:text="${error}"></p>
 
   <section>
-    <h2>1. Upload resume</h2>
-    <p>PDF, DOC, or DOCX. Maximum 5 MB. The resume is validated before a profile draft is created.</p>
+    <span class="step">Step 1</span>
+    <h2>Upload your resume</h2>
+    <p>Upload your own career resume—not a job description or interview requirement. JobLens checks its structure before reading skills.</p>
     <form method="post" action="/setup/resume" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".pdf,.doc,.docx" required>
-      <button type="submit">Validate and read resume</button>
+      <label for="resume-file">Resume file</label>
+      <input id="resume-file" type="file" name="file" accept=".pdf,.doc,.docx" required>
+      <p class="help">PDF, DOC, or DOCX, up to 5 MB. The original file is not retained.</p>
+      <button type="submit">Read resume</button>
     </form>
-    <div th:if="${profile}">
-      <p>Status: <strong th:text="${profile.status}">DRAFT</strong></p>
-      <p>Summary: <span th:text="${profile.summary}"></span></p>
-      <p class="skills">Skills: <span th:text="${#strings.listJoin(profile.skills, ', ')}"></span></p>
+    <div class="profile-card" th:if="${profile}">
+      <strong th:text="${profile.status == 'ACTIVE' ? 'Active profile' : 'Resume ready for review'}">Resume ready</strong>
+      <p th:text="${profile.summary}"></p>
+      <p class="skills"><strong>Detected skills:</strong> <span th:text="${#strings.listJoin(profile.skills, ', ')}"></span></p>
     </div>
   </section>
 
-  <section>
-    <h2>2. Review resume skills</h2>
-    <p>Keep the skills that describe you and add any supported skills the resume reader missed. Changes remain a draft until confirmation.</p>
-    <form th:if="${profile}" method="post" action="/setup/skills">
+  <section th:if="${profile}">
+    <span class="step">Step 2</span>
+    <h2>Review and activate</h2>
+    <p class="muted">Review the detected skills and job choices once. One button saves and activates everything.</p>
+    <form id="profile-form" method="post" action="/setup/complete" th:object="${preferences}">
+      <h3>Your skills</h3>
       <div class="skill-grid">
         <label th:each="skill : ${skillCatalog}">
-          <input style="width:auto" type="checkbox" name="skills" th:value="${skill}" th:checked="${#lists.contains(profile.skills, skill)}">
+          <input type="checkbox" name="skills" th:value="${skill}" th:checked="${#lists.contains(profile.skills, skill)}">
           <span th:text="${skill}">Java</span>
         </label>
       </div>
-      <button type="submit">Save reviewed skills</button>
-    </form>
-    <p class="muted" th:unless="${profile}">Upload a resume to review its extracted skills.</p>
-  </section>
 
-  <section>
-    <h2>3. Tell us what you want</h2>
-    <form method="post" action="/setup/preferences" th:object="${preferences}">
-      <label>Target roles, comma separated</label><input th:field="*{targetRoles}" required>
-      <label>Target domains, comma separated</label><input th:field="*{targetDomains}" required>
-      <label>Your primary location</label><input th:field="*{primaryLocation}" required>
-      <label>Search keywords</label><input th:field="*{keywords}" required>
-      <label>Search markets</label>
-      <textarea th:field="*{searchMarkets}" rows="5" required placeholder="SG | Singapore&#10;AU | Sydney&#10;NZ | Auckland"></textarea>
-      <p class="muted">Enter one market per line as a two-letter country code, a vertical bar, and the provider location. Example: <code>AU | Sydney</code>. Up to 10 markets.</p>
-      <label>Job sources</label>
-      <p>JobLens creates an independent source search for each market. It searches Adzuna and, when its API key is configured, Jooble automatically. Direct official Greenhouse or Lever URLs are detected and searched without ATS credentials.</p>
-      <label>Maximum pages per paged source</label><input type="number" th:field="*{maxPages}" min="1" max="20">
-      <label>Employment preference</label><input th:field="*{employmentPreference}" required>
-      <label>Work preference</label><input th:field="*{workPreference}" required>
-      <button type="submit">Save preferences</button>
+      <h3>Jobs you want</h3>
+      <div class="form-grid">
+        <div><label for="targetRoles">Target roles</label><input id="targetRoles" th:field="*{targetRoles}" required><p class="help">Example: Senior Java Developer, Backend Engineer</p></div>
+        <div><label for="targetDomains">Preferred sectors</label><input id="targetDomains" th:field="*{targetDomains}" required><p class="help">Example: banking, payments</p></div>
+      </div>
+      <label for="primaryLocation">Where you live now</label>
+      <input id="primaryLocation" th:field="*{primaryLocation}" required>
+      <p class="help">One current city for your profile. This is not another country filter.</p>
+
+      <h3>Where you want to search</h3>
+      <p class="help">Add one row for each desired job location. Country is entered once per location.</p>
+      <div id="search-targets">
+        <div class="target-row" th:each="target : ${searchTargets}">
+          <label>Country code<input name="countryCodes" th:value="${target.countryCode}" maxlength="2" pattern="[A-Za-z]{2}" placeholder="SG" required></label>
+          <label>City or region<input name="locations" th:value="${target.location}" placeholder="Singapore" required></label>
+          <button class="remove" type="button" aria-label="Remove search location">Remove</button>
+        </div>
+      </div>
+      <button class="secondary" id="add-target" type="button">Add another location</button>
+
+      <details>
+        <summary>Advanced search options</summary>
+        <label for="keywords">Provider search terms</label><input id="keywords" th:field="*{keywords}" required>
+        <p class="help">Short terms sent to job APIs, such as Java Spring Boot.</p>
+        <div class="form-grid">
+          <div><label for="maxPages">Pages per source</label><input id="maxPages" type="number" th:field="*{maxPages}" min="1" max="20"></div>
+          <div><label for="employmentPreference">Employment type</label><select id="employmentPreference" th:field="*{employmentPreference}"><option value="ANY">Any</option><option value="PERMANENT">Permanent</option><option value="CONTRACT">Contract</option></select></div>
+        </div>
+        <label for="workPreference">Work arrangement</label>
+        <select id="workPreference" th:field="*{workPreference}"><option value="REMOTE,HYBRID,ONSITE">Any arrangement</option><option value="REMOTE">Remote</option><option value="HYBRID">Hybrid</option><option value="ONSITE">On-site</option></select>
+      </details>
+      <button type="submit">Save and activate profile</button>
     </form>
   </section>
-
-  <section>
-    <h2>4. Confirm</h2>
-    <p>Confirmation activates this profile and its search definitions. Use Find jobs on the dashboard when you are ready.</p>
-    <form method="post" action="/setup/confirm"><button type="submit">Confirm profile</button></form>
-  </section>
-  <a href="/dashboard">Back to dashboard</a>
-</main></body></html>
+  <section th:unless="${profile}"><p class="muted">Step 2 will appear after JobLens accepts your resume.</p></section>
+  <a class="button" href="/dashboard">Go to dashboard</a>
+</main>
+<script>
+  const targets = document.getElementById('search-targets');
+  const addTarget = document.getElementById('add-target');
+  if (targets && addTarget) {
+    addTarget.addEventListener('click', () => {
+      if (targets.children.length >= 10) return;
+      const row = targets.firstElementChild.cloneNode(true);
+      row.querySelectorAll('input').forEach(input => input.value = '');
+      targets.appendChild(row);
+    });
+    targets.addEventListener('click', event => {
+      if (event.target.classList.contains('remove') && targets.children.length > 1) {
+        event.target.closest('.target-row').remove();
+      }
+    });
+  }
+</script>
+</body></html>

@@ -98,7 +98,7 @@ public class ResumeProfileController {
   @Operation(
       summary = "Read a resume",
       description =
-          "Validates a PDF, DOC, or DOCX up to 5 MB, extracts readable text, detects catalog skills, and creates a versioned profile draft for this browser workspace. Original file bytes are not retained.")
+          "Validates a PDF, DOC, or DOCX up to 5 MB, checks for resume structure such as contact details and work-history sections, extracts catalog skills, and creates a versioned profile draft for this browser workspace. Job descriptions and interview requirement documents are rejected. Original file bytes are not retained.")
   public OnboardingProfile upload(
       @RequestPart("file") MultipartFile file,
       HttpServletRequest request,
