@@ -89,6 +89,7 @@ The generated project currently contains:
 | 27 | Lifecycle and follow-up Thymeleaf controls work  | COMPLETE    |
 | 28 | Source health and run observability works       | COMPLETE    |
 | 29 | Public Lever posting source works               | COMPLETE    |
+| 30 | Normalized multi-market preferences work        | COMPLETE    |
 
 ## Verified Evidence
 
@@ -241,9 +242,10 @@ and this file remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-No implementation milestone is active. The next indexed option is M2, one verified public ATS source
-adapter at a time. Ranking calibration, original-resume object storage, schedules/notifications, and
-login/cross-device recovery remain separate product choices.
+No implementation milestone is active. The multi-market backend bug is fixed before frontend
+migration. Ranking calibration remains the next indexed product milestone; React presentation-layer
+migration, original-resume object storage, schedules/notifications, and login/cross-device recovery
+remain separate choices.
 
 ## Profile Review and Lifecycle UI Evidence
 
@@ -392,6 +394,35 @@ and 0 skipped. Flyway applied all 16 migrations to fresh PostgreSQL 17 Testconta
 `spotless:apply` and `git diff --check` completed without errors. The packaged Compose image was
 rebuilt and recreated; actuator health returned `UP`, PostgreSQL reported Flyway `16:true`, and live
 OpenAPI described both Greenhouse and Lever board discovery.
+
+## Normalized Multi-Market Preference Evidence
+
+Flyway V17 introduces `workspace_search_target`, backfills every existing single market, links
+workspace source profiles to their target, and removes country/location ownership from the parent
+search definition. Country codes, nonblank locations, priority, identity, and the ten-market limit
+are constrained. Targets are activated/deactivated rather than packed into CSV, arrays, or JSON;
+stable identities preserve the confirmed profile while a replacement draft is reviewed.
+
+The setup page accepts one explicit `CC | Location` line per market. Confirmation creates a stable
+Adzuna source profile per target and a Jooble profile only for the configured regional
+`JOOBLE_COUNTRY_CODE`. Each source/market combination retains its own fetch run, page checkpoint,
+failure, and restart state. Greenhouse and Lever enrichment carries the originating target and does
+not recursively rediscover its own hosted URLs. Candidate scoring reads normalized confirmed targets
+and emits reasons such as `Matched preferred market: Sydney, AU` instead of the previous hardcoded
+Singapore message.
+
+`GET /api/candidate-profile/preferences` exposes normalized markets through Swagger. Portal searches
+now follow selected markets: LinkedIn for every target, JobStreet for Singapore, and the matching SEEK
+site only for selected Australia or New Zealand targets. New unit and PostgreSQL Testcontainers tests
+cover input validation/deduplication, normalized persistence, repeated-save idempotency, two-market
+Batch fan-out, specific scoring explanations, market-aware portal links, and existing restart paths.
+
+Final verification on 2026-08-31: `./mvnw clean test` completed with 84 tests, 0 failures, 0 errors,
+and 0 skipped. Flyway applied all 17 migrations to fresh PostgreSQL 17 Testcontainers databases;
+`spotless:apply` and `git diff --check` completed without errors. The packaged Compose image was
+rebuilt and recreated; actuator health returned `UP`, Flyway reported `17:true`, the existing database
+backfilled one unique normalized target with two active attached source profiles, `/setup` rendered
+the multi-market instructions, and live OpenAPI exposed the normalized preference inspection API.
 
 Final verification on 2026-08-30:
 

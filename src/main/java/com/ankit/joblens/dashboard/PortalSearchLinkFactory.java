@@ -1,6 +1,7 @@
 package com.ankit.joblens.dashboard;
 
 import com.ankit.joblens.onboarding.SearchPreferences;
+import com.ankit.joblens.onboarding.SearchTarget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -19,18 +20,28 @@ public class PortalSearchLinkFactory {
       SearchPreferences preferences, List<String> candidateSkills) {
     List<PortalSearchQuery> queries = planner.plan(preferences, candidateSkills);
     var links = new ArrayList<PortalSearchLink>();
-    queries.forEach(
-        query ->
-            links.add(
-                new PortalSearchLink(
-                    "LinkedIn",
-                    preferences.searchLocation(),
-                    query.intent(),
-                    query.linkedInQuery(),
-                    linkedInUrl(query.linkedInQuery(), preferences.searchLocation()))));
-    addNaturalLinks(links, queries, "JobStreet", "Singapore", "https://sg.jobstreet.com");
-    addNaturalLinks(links, queries, "SEEK", "Australia", "https://www.seek.com.au");
-    addNaturalLinks(links, queries, "SEEK", "New Zealand", "https://www.seek.co.nz");
+    for (SearchTarget target : preferences.targets()) {
+      queries.forEach(
+          query ->
+              links.add(
+                  new PortalSearchLink(
+                      "LinkedIn",
+                      target.location(),
+                      query.intent(),
+                      query.linkedInQuery(),
+                      linkedInUrl(query.linkedInQuery(), target.location()))));
+      switch (target.countryCode()) {
+        case "SG" ->
+            addNaturalLinks(links, queries, "JobStreet", "Singapore", "https://sg.jobstreet.com");
+        case "AU" ->
+            addNaturalLinks(links, queries, "SEEK", "Australia", "https://www.seek.com.au");
+        case "NZ" ->
+            addNaturalLinks(links, queries, "SEEK", "New Zealand", "https://www.seek.co.nz");
+        default -> {
+          // LinkedIn is the supported outbound search for other configured markets.
+        }
+      }
+    }
     return List.copyOf(links);
   }
 

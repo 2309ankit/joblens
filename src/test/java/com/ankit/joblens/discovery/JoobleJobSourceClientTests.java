@@ -76,6 +76,7 @@ class JoobleJobSourceClientTests {
         new JoobleProperties(
             apiKey,
             server.url("/").toString(),
+            "sg",
             Duration.ofSeconds(2),
             20,
             2,

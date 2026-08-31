@@ -2,6 +2,8 @@ package com.ankit.joblens.batchapi;
 
 import com.ankit.joblens.onboarding.OnboardingProfile;
 import com.ankit.joblens.onboarding.OnboardingService;
+import com.ankit.joblens.onboarding.SearchPreferences;
+import com.ankit.joblens.onboarding.SearchTarget;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -57,6 +59,28 @@ public class ResumeProfileController {
     return service.skillCatalog();
   }
 
+  @GetMapping("/preferences")
+  @Operation(
+      summary = "Get current search preferences",
+      description =
+          "Returns the workspace's roles, domains, keywords, and normalized search-market rows. Each market is executed independently after profile confirmation.")
+  public SearchPreferenceView preferences(
+      HttpServletRequest request, HttpServletResponse response) {
+    SearchPreferences preferences =
+        service
+            .preferences(workspaceContext.resolve(request, response))
+            .orElseThrow(() -> new IllegalStateException("Save job preferences first"));
+    return new SearchPreferenceView(
+        preferences.targetRoles(),
+        preferences.targetDomains(),
+        preferences.primaryLocation(),
+        preferences.keywords(),
+        preferences.targets(),
+        preferences.maxPages(),
+        preferences.employmentPreference(),
+        preferences.workPreference());
+  }
+
   @PutMapping
   @Operation(
       summary = "Save reviewed skills",
@@ -84,4 +108,14 @@ public class ResumeProfileController {
   }
 
   public record SkillsRequest(@NotEmpty List<@NotBlank String> skills) {}
+
+  public record SearchPreferenceView(
+      String targetRoles,
+      String targetDomains,
+      String primaryLocation,
+      String keywords,
+      List<SearchTarget> searchMarkets,
+      int maxPages,
+      String employmentPreference,
+      String workPreference) {}
 }

@@ -83,8 +83,7 @@ class WorkspaceOnboardingIntegrationTests {
             "banking",
             "Singapore",
             "Java Spring",
-            "Singapore",
-            "sg",
+            "SG | Singapore",
             4,
             "PERMANENT",
             "HYBRID"));
@@ -149,6 +148,7 @@ class WorkspaceOnboardingIntegrationTests {
             new JoobleProperties(
                 "test-jooble-key",
                 "https://sg.jooble.org",
+                "sg",
                 Duration.ofSeconds(10),
                 20,
                 1,
@@ -162,6 +162,80 @@ class WorkspaceOnboardingIntegrationTests {
                 String.class,
                 workspaceId))
         .containsExactly("ADZUNA", "JOOBLE");
+  }
+
+  @Test
+  void persistsNormalizedMarketsAndCreatesOneRestartableSourceProfilePerMarket() {
+    UUID workspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    long resumeId =
+        onboarding.saveResume(workspaceId, "resume.pdf", "application/pdf", 100, "b".repeat(64));
+    long profileId = onboarding.createDraft(workspaceId, resumeId, "Multi-market candidate");
+    onboarding.addSkills(profileId, List.of("Java"));
+    SearchPreferences preferences =
+        new SearchPreferences(
+            "Java Developer",
+            "banking",
+            "Singapore",
+            "Java Spring",
+            "SG | Singapore\nAU | Sydney\nNZ | Auckland",
+            2,
+            "PERMANENT",
+            "HYBRID");
+    onboarding.savePreferences(workspaceId, profileId, preferences);
+    onboarding.confirm(workspaceId, onboarding.latestProfile(workspaceId).orElseThrow());
+
+    assertThat(
+            jdbc.queryForList(
+                """
+                SELECT target.country_code || '|' || target.location
+                FROM workspace_search_target target
+                JOIN workspace_search_definition definition
+                  ON definition.id=target.search_definition_id
+                WHERE definition.workspace_id=?
+                ORDER BY target.priority
+                """,
+                String.class,
+                workspaceId))
+        .containsExactly("SG|Singapore", "AU|Sydney", "NZ|Auckland");
+    assertThat(
+            jdbc.queryForList(
+                """
+                SELECT source_key || '|' || location
+                FROM search_profile
+                WHERE workspace_id=? AND source='ADZUNA' AND active=true
+                ORDER BY location
+                """,
+                String.class,
+                workspaceId))
+        .containsExactly("nz|Auckland", "sg|Singapore", "au|Sydney");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM search_profile WHERE workspace_id=? AND search_target_id IS NOT NULL",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(3);
+    assertThat(onboarding.preferences(workspaceId).orElseThrow().targets())
+        .containsExactly(
+            new SearchTarget("SG", "Singapore"),
+            new SearchTarget("AU", "Sydney"),
+            new SearchTarget("NZ", "Auckland"));
+
+    onboardingService.savePreferences(workspaceId, preferences);
+    onboardingService.confirm(workspaceId);
+
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM search_profile WHERE workspace_id=? AND active=true",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(3);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM workspace_search_target target JOIN workspace_search_definition definition ON definition.id=target.search_definition_id WHERE definition.workspace_id=?",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(3);
   }
 
   private List<String> candidateSkills(long candidateProfileId) {
@@ -197,7 +271,7 @@ class WorkspaceOnboardingIntegrationTests {
         workspaceId,
         profileId,
         new SearchPreferences(
-            role, domain, "Singapore", skill, "Singapore", "sg", 2, "PERMANENT", "HYBRID"));
+            role, domain, "Singapore", skill, "SG | Singapore", 2, "PERMANENT", "HYBRID"));
     return repository.confirm(workspaceId, repository.latestProfile(workspaceId).orElseThrow());
   }
 }

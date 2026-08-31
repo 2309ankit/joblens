@@ -9,8 +9,12 @@ public record SearchPreferences(
     @NotBlank String targetDomains,
     @NotBlank String primaryLocation,
     @NotBlank String keywords,
-    @NotBlank String searchLocation,
-    @NotBlank String countryCode,
+    @NotBlank String searchMarkets,
     @Min(1) @Max(20) int maxPages,
     @NotBlank String employmentPreference,
-    @NotBlank String workPreference) {}
+    @NotBlank String workPreference) {
+
+  public java.util.List<SearchTarget> targets() {
+    return SearchTarget.parse(searchMarkets);
+  }
+}

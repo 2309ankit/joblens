@@ -339,7 +339,46 @@ class FindJobsIntegrationTests {
     assertThat(countSightings(workspaceId)).isEqualTo(1);
   }
 
+  @Test
+  void runsEachNormalizedSearchMarketAsAnIndependentSourceProfile() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    long candidateProfileId = confirm(workspaceId, "7", "SG | Singapore\nAU | Sydney");
+    ADZUNA.enqueue(responseWithLocation("MARKET-ONE", "Singapore"));
+    ADZUNA.enqueue(responseWithLocation("MARKET-TWO", "Sydney"));
+
+    JobExecution execution =
+        findJobs.run(workspaceId, candidateProfileId, LocalDate.of(2060, 1, 8));
+
+    assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(findJobs.detail(workspaceId, execution.getId()).orElseThrow().sources())
+        .extracting(SourceRunSummary::source, SourceRunSummary::status)
+        .containsExactly(tuple("ADZUNA", "COMPLETED"), tuple("ADZUNA", "COMPLETED"));
+    assertThat(
+            jdbc.queryForList(
+                "SELECT source_key FROM search_profile WHERE workspace_id=? AND active=true ORDER BY source_key",
+                String.class,
+                workspaceId))
+        .containsExactly("au", "sg");
+    assertThat(countSightings(workspaceId)).isEqualTo(2);
+    assertThat(
+            jdbc.queryForList(
+                """
+                SELECT reason_text FROM job_score_reason reason
+                JOIN job_score score ON score.id=reason.job_score_id
+                WHERE score.candidate_profile_id=? AND reason.category='LOCATION'
+                ORDER BY reason_text
+                """,
+                String.class,
+                candidateProfileId))
+        .containsExactly(
+            "Matched preferred market: Singapore, SG", "Matched preferred market: Sydney, AU");
+  }
+
   private long confirm(UUID workspaceId, String suffix) {
+    return confirm(workspaceId, suffix, "SG | Singapore");
+  }
+
+  private long confirm(UUID workspaceId, String suffix, String searchMarkets) {
     workspaces.create(workspaceId);
     long resumeId =
         onboarding.saveResume(
@@ -354,8 +393,7 @@ class FindJobsIntegrationTests {
             "banking",
             "Singapore",
             "Java Spring",
-            "Singapore",
-            "sg",
+            searchMarkets,
             2,
             "PERMANENT",
             "HYBRID"));
@@ -377,11 +415,19 @@ class FindJobsIntegrationTests {
     return response(id, "https://example.test/jobs/" + id);
   }
 
+  private static MockResponse responseWithLocation(String id, String location) {
+    return response(id, "https://example.test/jobs/" + id, "Senior Java Engineer", location);
+  }
+
   private static MockResponse response(String id, String sourceUrl) {
     return response(id, sourceUrl, "Senior Java Engineer");
   }
 
   private static MockResponse response(String id, String sourceUrl, String title) {
+    return response(id, sourceUrl, title, "Singapore");
+  }
+
+  private static MockResponse response(String id, String sourceUrl, String title, String location) {
     return new MockResponse()
         .setHeader("Content-Type", "application/json")
         .setBody(
@@ -389,13 +435,13 @@ class FindJobsIntegrationTests {
             {"count":1,"results":[{
               "id":"%s","title":"%s",
               "company":{"display_name":"Example Bank"},
-              "location":{"display_name":"Singapore"},
+              "location":{"display_name":"%s"},
               "description":"<p>Java Spring Boot Kafka payments</p>",
               "contract_type":"permanent","created":"2026-08-30T00:00:00Z",
               "redirect_url":"%s"
             }]}
             """
-                .formatted(id, title, sourceUrl));
+                .formatted(id, title, location, sourceUrl));
   }
 
   private static MockResponse greenhouseResponse() {

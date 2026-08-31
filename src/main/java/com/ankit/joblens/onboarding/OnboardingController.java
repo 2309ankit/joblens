@@ -45,8 +45,7 @@ public class OnboardingController {
                           "banking, payments",
                           "Singapore",
                           "Java Spring Boot",
-                          "Singapore",
-                          "sg",
+                          "SG | Singapore",
                           3,
                           "PERMANENT",
                           "REMOTE,HYBRID,ONSITE")));

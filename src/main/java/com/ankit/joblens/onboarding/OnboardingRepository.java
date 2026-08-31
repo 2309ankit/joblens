@@ -3,8 +3,12 @@ package com.ankit.joblens.onboarding;
 import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
 import com.ankit.joblens.discovery.JoobleProperties;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Array;
 import java.sql.SQLException;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -143,15 +147,27 @@ public class OnboardingRepository {
             jdbc.update(
                 load("sql/onboarding/upsert-preference.sql"),
                 Map.of("workspaceId", workspaceId, "key", key, "value", value)));
-    jdbc.queryForObject(
-        load("sql/onboarding/upsert-search-definition.sql"),
-        new MapSqlParameterSource()
-            .addValue("workspaceId", workspaceId)
-            .addValue("keywords", preferences.keywords())
-            .addValue("location", preferences.searchLocation())
-            .addValue("countryCode", preferences.countryCode().toLowerCase())
-            .addValue("maxPages", preferences.maxPages()),
-        Long.class);
+    long searchDefinitionId =
+        jdbc.queryForObject(
+            load("sql/onboarding/upsert-search-definition.sql"),
+            new MapSqlParameterSource()
+                .addValue("workspaceId", workspaceId)
+                .addValue("keywords", preferences.keywords())
+                .addValue("maxPages", preferences.maxPages()),
+            Long.class);
+    jdbc.update(
+        load("sql/onboarding/deactivate-search-targets.sql"),
+        Map.of("searchDefinitionId", searchDefinitionId));
+    int priority = 1;
+    for (SearchTarget target : preferences.targets()) {
+      jdbc.update(
+          load("sql/onboarding/insert-search-target.sql"),
+          new MapSqlParameterSource()
+              .addValue("searchDefinitionId", searchDefinitionId)
+              .addValue("countryCode", target.countryCode())
+              .addValue("location", target.location())
+              .addValue("priority", priority++));
+    }
   }
 
   public Optional<SearchPreferences> preferences(UUID workspaceId) {
@@ -165,9 +181,8 @@ public class OnboardingRepository {
             Map.of("workspaceId", workspaceId),
             (resultSet, row) ->
                 new SearchDefinition(
+                    resultSet.getLong("id"),
                     resultSet.getString("keywords"),
-                    resultSet.getString("location"),
-                    resultSet.getString("country_code"),
                     resultSet.getInt("max_pages")));
     if (definitions.isEmpty()) {
       return Optional.empty();
@@ -181,6 +196,13 @@ public class OnboardingRepository {
                     resultSet.getString("preference_key"), resultSet.getString("preference_value")))
         .forEach(entry -> values.put(entry.getKey(), entry.getValue()));
     SearchDefinition definition = definitions.getFirst();
+    List<SearchTarget> targets =
+        jdbc.query(
+            load("sql/onboarding/list-search-targets.sql"),
+            Map.of("searchDefinitionId", definition.id()),
+            (resultSet, row) ->
+                new SearchTarget(
+                    resultSet.getString("country_code"), resultSet.getString("location")));
     OnboardingProfile current = profile.get();
     return Optional.of(
         new SearchPreferences(
@@ -188,8 +210,7 @@ public class OnboardingRepository {
             String.join(", ", current.targetDomains()),
             current.primaryLocation(),
             definition.keywords(),
-            definition.location(),
-            definition.countryCode(),
+            SearchTarget.format(targets),
             definition.maxPages(),
             values.getOrDefault("employment.preference", "ANY"),
             values.getOrDefault("work.preference", "REMOTE,HYBRID,ONSITE")));
@@ -227,19 +248,27 @@ public class OnboardingRepository {
     jdbc.update(
         load("sql/onboarding/deactivate-workspace-search-profiles.sql"),
         Map.of("workspaceId", workspaceId));
-    upsertSearchProfile(
-        workspaceId,
-        "w-" + workspaceToken(workspaceId) + "-adzuna",
-        "ADZUNA",
-        preferences.countryCode().toLowerCase(),
-        preferences);
-    if (joobleProperties.hasCredentials()) {
+    SearchDefinition definition = searchDefinition(workspaceId);
+    for (StoredSearchTarget target : storedTargets(definition.id())) {
       upsertSearchProfile(
           workspaceId,
-          "w-" + workspaceToken(workspaceId) + "-jooble",
-          "JOOBLE",
-          preferences.countryCode().toLowerCase(),
+          profileId(workspaceId, "adzuna", target),
+          "ADZUNA",
+          target.countryCode().toLowerCase(),
+          definition,
+          target,
           preferences);
+      if (joobleProperties.hasCredentials()
+          && joobleProperties.supportsCountry(target.countryCode())) {
+        upsertSearchProfile(
+            workspaceId,
+            profileId(workspaceId, "jooble", target),
+            "JOOBLE",
+            target.countryCode().toLowerCase(),
+            definition,
+            target,
+            preferences);
+      }
     }
   }
 
@@ -248,12 +277,9 @@ public class OnboardingRepository {
       String profileId,
       String source,
       String sourceKey,
+      SearchDefinition definition,
+      StoredSearchTarget target,
       SearchPreferences preferences) {
-    long searchDefinitionId =
-        jdbc.queryForObject(
-            load("sql/onboarding/find-search-definition.sql"),
-            Map.of("workspaceId", workspaceId),
-            (resultSet, row) -> resultSet.getLong("id"));
     jdbc.update(
         load("sql/onboarding/upsert-workspace-search-profile.sql"),
         new MapSqlParameterSource()
@@ -261,11 +287,53 @@ public class OnboardingRepository {
             .addValue("source", source)
             .addValue("sourceKey", sourceKey)
             .addValue("keywords", preferences.keywords())
-            .addValue("location", preferences.searchLocation())
+            .addValue("location", target.location())
             .addValue("employmentType", employmentType(preferences.employmentPreference()))
             .addValue("workspaceId", workspaceId)
-            .addValue("searchDefinitionId", searchDefinitionId)
+            .addValue("searchDefinitionId", definition.id())
+            .addValue("searchTargetId", target.id())
             .addValue("maxPages", preferences.maxPages()));
+  }
+
+  private SearchDefinition searchDefinition(UUID workspaceId) {
+    return jdbc.queryForObject(
+        load("sql/onboarding/find-search-definition.sql"),
+        Map.of("workspaceId", workspaceId),
+        (resultSet, row) ->
+            new SearchDefinition(
+                resultSet.getLong("id"),
+                resultSet.getString("keywords"),
+                resultSet.getInt("max_pages")));
+  }
+
+  private List<StoredSearchTarget> storedTargets(long searchDefinitionId) {
+    return jdbc.query(
+        load("sql/onboarding/list-search-targets.sql"),
+        Map.of("searchDefinitionId", searchDefinitionId),
+        (resultSet, row) ->
+            new StoredSearchTarget(
+                resultSet.getLong("id"),
+                resultSet.getString("country_code"),
+                resultSet.getString("location")));
+  }
+
+  private static String profileId(UUID workspaceId, String source, StoredSearchTarget target) {
+    return "w-"
+        + workspaceToken(workspaceId)
+        + "-"
+        + source
+        + "-"
+        + hash(target.countryCode() + "|" + target.location()).substring(0, 10);
+  }
+
+  private static String hash(String value) {
+    try {
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 is unavailable", exception);
+    }
   }
 
   private Optional<Long> findCandidate(UUID workspaceId) {
@@ -313,6 +381,7 @@ public class OnboardingRepository {
     return List.of((String[]) array.getArray());
   }
 
-  private record SearchDefinition(
-      String keywords, String location, String countryCode, int maxPages) {}
+  private record SearchDefinition(long id, String keywords, int maxPages) {}
+
+  private record StoredSearchTarget(long id, String countryCode, String location) {}
 }

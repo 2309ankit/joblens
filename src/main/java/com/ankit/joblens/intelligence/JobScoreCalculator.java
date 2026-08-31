@@ -67,11 +67,10 @@ public class JobScoreCalculator {
             : 0;
     if (seniority > 0)
       reasons.add(new JobScore.Reason("SENIORITY", seniority, "Senior-level signal found"));
-    int location = locationScore(j, c);
+    LocationResult locationResult = locationScore(j, c);
+    int location = locationResult.points();
     if (location > 0)
-      reasons.add(
-          new JobScore.Reason(
-              "LOCATION", location, "Singapore/work arrangement preference matched"));
+      reasons.add(new JobScore.Reason("LOCATION", location, locationResult.reason()));
     int employment =
         "PERMANENT".equals(j.employmentType())
             ? weight(c, "weight.employment", 10)
@@ -119,20 +118,29 @@ public class JobScoreCalculator {
         reasons);
   }
 
-  private int locationScore(NormalizedJobView j, CandidateProfileConfig c) {
+  private LocationResult locationScore(NormalizedJobView j, CandidateProfileConfig c) {
     int max = weight(c, "weight.location", 10);
-    int x =
-        j.location() != null
-                && c.location() != null
-                && j.location()
-                    .toLowerCase(Locale.ROOT)
-                    .contains(c.location().toLowerCase(Locale.ROOT))
-            ? max / 2
-            : 0;
-    if ("REMOTE".equals(j.remoteType())) x += max / 2;
-    else if ("HYBRID".equals(j.remoteType())) x += max / 3;
-    return Math.min(max, x);
+    CandidateProfileConfig.LocationPreference matched =
+        c.locationPreferences().stream()
+            .filter(
+                target ->
+                    j.location() != null
+                        && j.location()
+                            .toLowerCase(Locale.ROOT)
+                            .contains(target.location().toLowerCase(Locale.ROOT)))
+            .findFirst()
+            .orElse(null);
+    int points = matched == null ? 0 : max / 2;
+    if ("REMOTE".equals(j.remoteType())) points += max / 2;
+    else if ("HYBRID".equals(j.remoteType())) points += max / 3;
+    String reason =
+        matched == null
+            ? "Preferred work arrangement matched"
+            : "Matched preferred market: " + matched.location() + ", " + matched.countryCode();
+    return new LocationResult(Math.min(max, points), reason);
   }
+
+  private record LocationResult(int points, String reason) {}
 
   private int freshness(OffsetDateTime d, CandidateProfileConfig c) {
     if (d == null) return 0;

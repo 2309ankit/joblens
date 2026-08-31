@@ -14,7 +14,8 @@ public record SearchProfile(
     boolean active,
     UUID workspaceId,
     Long searchDefinitionId,
-    Integer maxPages) {
+    Integer maxPages,
+    Long searchTargetId) {
 
   public SearchProfile(
       String profileId,
@@ -36,6 +37,7 @@ public record SearchProfile(
         excludeSkills,
         employmentType,
         active,
+        null,
         null,
         null,
         null);

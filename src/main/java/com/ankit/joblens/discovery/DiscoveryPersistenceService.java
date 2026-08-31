@@ -58,7 +58,8 @@ public class DiscoveryPersistenceService {
                     resultSet.getBoolean("active"),
                     resultSet.getObject("workspace_id", UUID.class),
                     resultSet.getObject("search_definition_id", Long.class),
-                    resultSet.getObject("max_pages", Integer.class)));
+                    resultSet.getObject("max_pages", Integer.class),
+                    resultSet.getObject("search_target_id", Long.class)));
     return profiles.isEmpty() ? null : profiles.getFirst();
   }
 
@@ -171,6 +172,7 @@ public class DiscoveryPersistenceService {
                 sourceUrl ->
                     sourceBoardDetectors.stream().map(detector -> detector.detect(sourceUrl)))
             .flatMap(java.util.Optional::stream)
+            .filter(board -> !board.source().name().equals(profile.source()))
             .distinct()
             .forEach(board -> sourceBoards.register(profile, board));
       }

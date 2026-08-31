@@ -7,12 +7,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record JoobleProperties(
     String apiKey,
     String baseUrl,
+    String countryCode,
     Duration timeout,
     int pageSize,
     int retryAttempts,
     Duration retryBackoff) {
 
   public JoobleProperties {
+    if (countryCode == null || !countryCode.matches("(?i)[a-z]{2}")) {
+      throw new IllegalArgumentException("Jooble country-code must contain two letters");
+    }
     if (pageSize < 1 || retryAttempts < 1) {
       throw new IllegalArgumentException("Jooble page-size and retry-attempts must be positive");
     }
@@ -26,5 +30,9 @@ public record JoobleProperties(
 
   public boolean hasCredentials() {
     return apiKey != null && !apiKey.isBlank();
+  }
+
+  public boolean supportsCountry(String requestedCountryCode) {
+    return countryCode.equalsIgnoreCase(requestedCountryCode);
   }
 }

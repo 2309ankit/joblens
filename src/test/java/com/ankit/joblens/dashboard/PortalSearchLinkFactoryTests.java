@@ -11,28 +11,24 @@ class PortalSearchLinkFactoryTests {
       new PortalSearchLinkFactory(new PortalSearchQueryPlanner());
 
   @Test
-  void createsThreeInspectableSearchesForEachOfficialPortal() {
+  void createsOnlyTheOfficialPortalSearchesForSelectedMarkets() {
     var links = factory.create(preferences(), List.of("Java", "Spring Boot"));
 
     assertThat(links).hasSize(12);
-    assertThat(links).filteredOn(link -> link.portal().equals("LinkedIn")).hasSize(3);
+    assertThat(links).filteredOn(link -> link.portal().equals("LinkedIn")).hasSize(6);
     assertThat(links).filteredOn(link -> link.portal().equals("JobStreet")).hasSize(3);
     assertThat(links)
         .filteredOn(link -> link.portal().equals("SEEK") && link.region().equals("Australia"))
         .hasSize(3);
-    assertThat(links)
-        .filteredOn(link -> link.portal().equals("SEEK") && link.region().equals("New Zealand"))
-        .hasSize(3);
+    assertThat(links).noneMatch(link -> link.region().equals("New Zealand"));
     assertThat(links.getFirst().url())
         .contains("https://www.linkedin.com/jobs/search/?keywords=")
         .contains("location=Singapore")
         .contains("%22Senior%20Java%20Developer%22%20AND");
     assertThat(links.get(3).url())
         .isEqualTo("https://sg.jobstreet.com/senior-java-developer-banking-payments-jobs");
-    assertThat(links.get(6).url())
-        .isEqualTo("https://www.seek.com.au/senior-java-developer-banking-payments-jobs");
     assertThat(links.get(9).url())
-        .isEqualTo("https://www.seek.co.nz/senior-java-developer-banking-payments-jobs");
+        .isEqualTo("https://www.seek.com.au/senior-java-developer-banking-payments-jobs");
   }
 
   private static SearchPreferences preferences() {
@@ -41,8 +37,7 @@ class PortalSearchLinkFactoryTests {
         "banking, payments",
         "Singapore",
         "Java Spring Boot",
-        "Singapore",
-        "sg",
+        "SG | Singapore\nAU | Sydney",
         2,
         "PERMANENT",
         "HYBRID");

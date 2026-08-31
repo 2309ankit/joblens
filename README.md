@@ -44,7 +44,7 @@ intelligence   normalization, skills, duplicate detection, candidate profile, an
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever to the source and board contracts.
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -74,6 +74,7 @@ JOBLENS_DB_USERNAME=joblens
 JOBLENS_DB_PASSWORD=joblens-local
 # Optional: a Singapore regional key from https://sg.jooble.org/api/about
 JOOBLE_API_KEY=
+JOOBLE_COUNTRY_CODE=sg
 ```
 
 Environment variables override these values. Never commit real credentials; `.env` is ignored.
@@ -83,7 +84,7 @@ Environment variables override these values. Never commit real credentials; `.en
 1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.
 2. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text; the draft is accepted only when readable text and known skills are found. JobLens currently stores resume metadata and hash, not the original file bytes.
 3. Review the detected skill checkboxes. Add skills the reader missed or remove incorrect matches, then save the reviewed draft. An active profile is never changed until its new draft is confirmed.
-4. Enter target roles, domains, location, keywords, and page limit. JobLens searches Adzuna and, when `JOOBLE_API_KEY` is configured, Jooble. If a source exposes a direct official Greenhouse- or Lever-hosted job URL, JobLens extracts the board identifier, validates it internally through the provider's public API, and searches it. Neither integration asks you for ATS credentials.
+4. Enter target roles, domains, current location, keywords, and up to ten search markets. Put one market on each line as `SG | Singapore`, `AU | Sydney`, or `NZ | Auckland`. Each market becomes an independent provider profile with its own pagination and restart checkpoint. JobLens searches Adzuna for every market and Jooble only for the regional country configured by `JOOBLE_COUNTRY_CODE`. Direct official Greenhouse or Lever URLs are validated and searched without ATS credentials.
 5. Confirm the draft. Confirmation versions the profile and activates candidate skills, preferences, and runnable source definitions. If you add `JOOBLE_API_KEY` later, save and confirm preferences once more to activate its source profile.
 6. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
    The **Latest source run** panel then shows each source's status, attempted/fetched pages, received and
@@ -93,11 +94,11 @@ Environment variables override these values. Never commit real credentials; `.en
 7. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
 8. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
 
-Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, the skill catalog, and reviewed-skill replacement. **Find jobs** runs and inspects the complete search pipeline. **Discovered source boards** lists Greenhouse and Lever boards found for this browser workspace and their `DISCOVERED`, `VALIDATED`, or `FAILED` status. **Applications** and **Follow-ups** document the same ownership-safe operations exposed in the Thymeleaf pages. Swagger sends the browser workspace cookie with each request.
+Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, normalized search preferences at `GET /api/candidate-profile/preferences`, the skill catalog, and reviewed-skill replacement. **Find jobs** runs and inspects the complete search pipeline. **Discovered source boards** lists Greenhouse and Lever boards found for this browser workspace and their `DISCOVERED`, `VALIDATED`, or `FAILED` status. **Applications** and **Follow-ups** document the same ownership-safe operations exposed in the Thymeleaf pages. Swagger sends the browser workspace cookie with each request.
 
 ## What each batch does
 
-`findJobsJob` is the normal user flow: discovery from Adzuna and configured Jooble, including safe Greenhouse and Lever board enrichment when direct official URLs are exposed; normalization; skills; exact/fuzzy duplicate analysis; and workspace candidate scoring in six ordered steps. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
+`findJobsJob` is the normal user flow: independent discovery for every confirmed source/market profile, including safe Greenhouse and Lever board enrichment when direct official URLs are exposed; normalization; skills; exact/fuzzy duplicate analysis; and workspace candidate scoring in six ordered steps. Location scoring matches any confirmed market and names the matched location and country in its reason. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
 Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
 
@@ -188,6 +189,7 @@ Adzuna is the default broad source. Optionally add a Singapore regional Jooble k
 ```env
 # Get the key from https://sg.jooble.org/api/about
 JOOBLE_API_KEY=your-singapore-regional-key
+JOOBLE_COUNTRY_CODE=sg
 ```
 
 Recreate the Compose app (or restart a locally run app), then save and confirm preferences again. That projects a Jooble search profile alongside Adzuna; it is not created when the key is absent, so a normal Find-jobs run stays runnable. Jooble's documented free plan has a request quota; keep page limits modest. Its API supplies listing snippets, source links, and update timestamps, which JobLens preserves and normalizes. Live Singapore acceptance completed on 2026-08-31 with 60 Jooble records fetched, normalized, sighted, and scored in one completed Find Jobs execution.
@@ -336,7 +338,7 @@ open http://localhost:8080/dashboard
 
 The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. The Thymeleaf dashboard is available at `/dashboard`.
 
-Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, **GREENHOUSE**, or **LEVER**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel generates three explainable searches—role plus sectors, alternate role plus technologies and sector, and broad fallback—for LinkedIn, JobStreet Singapore, SEEK Australia, and SEEK New Zealand. LinkedIn uses its supported Boolean syntax; the SEEK-family sites receive concise natural phrases. These portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
+Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, **GREENHOUSE**, or **LEVER**. Clicking records the job as viewed for this workspace and redirects to the original listing. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel creates three explainable queries for each selected market. LinkedIn is generated for every market; JobStreet appears for Singapore, SEEK Australia for `AU`, and SEEK New Zealand for `NZ`. Unselected regional links are not shown. These portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
 
 Inspect automatically detected company boards for the current browser workspace:
 
@@ -376,7 +378,7 @@ Focused suites:
 
 ## Troubleshooting
 
-If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, confirm the setup profile and click **Find and rank jobs**. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. To enable Jooble, set a Singapore regional `JOOBLE_API_KEY`, recreate/restart the app, then save and confirm preferences again. Greenhouse and Lever GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
+If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, confirm the setup profile and click **Find and rank jobs**. Enter markets one per line in `CC | Location` format; commas are deliberately rejected because each market is a normalized row. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. To enable Jooble, set its regional `JOOBLE_API_KEY` and matching `JOOBLE_COUNTRY_CODE`, recreate/restart the app, then save and confirm preferences again. Greenhouse and Lever GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
 
 ## Interview/demo runbook
 

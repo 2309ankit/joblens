@@ -37,8 +37,7 @@ class PortalSearchQueryPlannerTests {
         "banking, payments",
         "Singapore",
         "Java Spring Boot",
-        "Singapore",
-        "sg",
+        "SG | Singapore",
         2,
         "PERMANENT",
         "HYBRID");

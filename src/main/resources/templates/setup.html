@@ -54,10 +54,11 @@
       <label>Target domains, comma separated</label><input th:field="*{targetDomains}" required>
       <label>Your primary location</label><input th:field="*{primaryLocation}" required>
       <label>Search keywords</label><input th:field="*{keywords}" required>
-      <label>Search location</label><input th:field="*{searchLocation}" required>
-      <label>Country code</label><input th:field="*{countryCode}" maxlength="2" required>
+      <label>Search markets</label>
+      <textarea th:field="*{searchMarkets}" rows="5" required placeholder="SG | Singapore&#10;AU | Sydney&#10;NZ | Auckland"></textarea>
+      <p class="muted">Enter one market per line as a two-letter country code, a vertical bar, and the provider location. Example: <code>AU | Sydney</code>. Up to 10 markets.</p>
       <label>Job sources</label>
-      <p>JobLens searches Adzuna and, when its API key is configured, Jooble automatically. If a result exposes an official Greenhouse company-board URL, JobLens detects, validates, and searches that board without asking you for a provider token or credentials.</p>
+      <p>JobLens creates an independent source search for each market. It searches Adzuna and, when its API key is configured, Jooble automatically. Direct official Greenhouse or Lever URLs are detected and searched without ATS credentials.</p>
       <label>Maximum pages per paged source</label><input type="number" th:field="*{maxPages}" min="1" max="20">
       <label>Employment preference</label><input th:field="*{employmentPreference}" required>
       <label>Work preference</label><input th:field="*{workPreference}" required>

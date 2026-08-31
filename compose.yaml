@@ -26,6 +26,7 @@ services:
       ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
       ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
       JOOBLE_API_KEY: ${JOOBLE_API_KEY:-}
+      JOOBLE_COUNTRY_CODE: ${JOOBLE_COUNTRY_CODE:-sg}
     ports:
       - "${JOBLENS_SERVER_PORT:-8080}:8080"
     depends_on:
