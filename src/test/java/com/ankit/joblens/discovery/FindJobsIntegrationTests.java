@@ -1,5 +1,6 @@
 package com.ankit.joblens.discovery;
 
+import static com.ankit.joblens.jdbc.ClasspathSql.load;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
@@ -24,6 +25,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
@@ -86,6 +89,7 @@ class FindJobsIntegrationTests {
   @Autowired private FindJobsService findJobs;
   @Autowired private WorkspaceSearchRunRepository runs;
   @Autowired private JdbcTemplate jdbc;
+  @Autowired private NamedParameterJdbcTemplate namedJdbc;
   @Autowired private JobOperator jobOperator;
 
   @Autowired
@@ -180,6 +184,26 @@ class FindJobsIntegrationTests {
     assertThat(changed.sources().get(0).newRecords()).isZero();
     assertThat(changed.sources().get(1).unchangedRecords()).isEqualTo(1);
     assertThat(countSightings(workspaceId)).isEqualTo(2);
+
+    MapSqlParameterSource visibleJobParameters =
+        new MapSqlParameterSource()
+            .addValue("workspaceId", workspaceId)
+            .addValue("candidateProfileId", candidateProfileId);
+    assertThat(
+            namedJdbc.queryForList(
+                load("sql/dashboard/list-ranked-jobs.sql"), visibleJobParameters))
+        .hasSize(2);
+
+    jdbc.update(
+        "UPDATE search_profile SET keywords='Sales Executive' WHERE workspace_id=? AND active=true",
+        workspaceId);
+
+    assertThat(
+            namedJdbc.queryForList(
+                load("sql/dashboard/list-ranked-jobs.sql"), visibleJobParameters))
+        .isEmpty();
+    assertThat(namedJdbc.queryForList(load("sql/job-query/list-jobs.sql"), visibleJobParameters))
+        .isEmpty();
   }
 
   @Test
