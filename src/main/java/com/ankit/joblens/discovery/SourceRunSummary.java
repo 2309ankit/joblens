@@ -3,6 +3,8 @@ package com.ankit.joblens.discovery;
 public record SourceRunSummary(
     String searchProfileId,
     String source,
+    String countryCode,
+    String location,
     String status,
     int pagesAttempted,
     int pagesFetched,

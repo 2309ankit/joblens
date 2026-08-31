@@ -345,6 +345,34 @@ class WorkspaceOnboardingIntegrationTests {
                 String.class,
                 workspaceId))
         .containsExactly("ADZUNA", "JOOBLE");
+
+    long indiaResumeId =
+        configuredOnboarding.saveResume(
+            workspaceId, "india-resume.pdf", "application/pdf", 100, "f".repeat(64));
+    long indiaProfileId =
+        configuredOnboarding.createDraft(workspaceId, indiaResumeId, "India candidate");
+    configuredOnboarding.addSkills(indiaProfileId, List.of("Java"));
+    configuredOnboarding.savePreferences(
+        workspaceId,
+        indiaProfileId,
+        new SearchPreferences(
+            "Java Developer",
+            "banking",
+            "Bengaluru",
+            "Java",
+            "IN | Bengaluru",
+            2,
+            "PERMANENT",
+            "HYBRID"));
+    configuredOnboarding.confirm(
+        workspaceId, configuredOnboarding.latestProfile(workspaceId).orElseThrow());
+
+    assertThat(
+            jdbc.queryForList(
+                "SELECT source || '|' || source_key FROM search_profile WHERE workspace_id=? AND active=true ORDER BY source",
+                String.class,
+                workspaceId))
+        .containsExactly("ADZUNA|in");
   }
 
   @Test
@@ -416,6 +444,32 @@ class WorkspaceOnboardingIntegrationTests {
     assertThat(
             jdbc.queryForObject(
                 "SELECT count(*) FROM workspace_search_target target JOIN workspace_search_definition definition ON definition.id=target.search_definition_id WHERE definition.workspace_id=?",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(3);
+
+    SearchPreferences indiaOnly =
+        new SearchPreferences(
+            "Java Developer",
+            "banking",
+            "Bengaluru",
+            "Java Spring",
+            "IN | Bengaluru",
+            2,
+            "PERMANENT",
+            "HYBRID");
+    onboardingService.savePreferences(workspaceId, indiaOnly);
+    onboardingService.confirm(workspaceId);
+
+    assertThat(
+            jdbc.queryForList(
+                "SELECT source_key || '|' || location FROM search_profile WHERE workspace_id=? AND source='ADZUNA' AND active=true",
+                String.class,
+                workspaceId))
+        .containsExactly("in|Bengaluru");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM search_profile WHERE workspace_id=? AND source='ADZUNA' AND active=false",
                 Integer.class,
                 workspaceId))
         .isEqualTo(3);

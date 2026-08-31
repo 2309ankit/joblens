@@ -1,6 +1,5 @@
 package com.ankit.joblens.dashboard;
 
-import com.ankit.joblens.discovery.AdzunaListingUrlNormalizer;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -18,12 +17,7 @@ public class JobViewService {
 
   @Transactional
   public URI recordAndResolve(long jobId, long candidateProfileId, UUID workspaceId) {
-    JobViewRepository.OpenTarget target = repository.findOpenTarget(jobId, workspaceId);
-    String sourceUrl = target.sourceUrl();
-    if ("ADZUNA".equals(target.source())) {
-      sourceUrl = AdzunaListingUrlNormalizer.normalize(target.sourceKey(), sourceUrl);
-    }
-    URI uri = validate(sourceUrl);
+    URI uri = validate(repository.findOpenTarget(jobId, workspaceId));
     repository.record(jobId, candidateProfileId);
     return uri;
   }

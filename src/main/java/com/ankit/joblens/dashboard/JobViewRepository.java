@@ -16,14 +16,12 @@ public class JobViewRepository {
     this.jdbc = jdbc;
   }
 
-  public OpenTarget findOpenTarget(long jobId, UUID workspaceId) {
+  public String findOpenTarget(long jobId, UUID workspaceId) {
     return jdbc
         .query(
             load("sql/job-view/find-open-target.sql"),
             Map.of("jobId", jobId, "workspaceId", workspaceId),
-            (rs, row) ->
-                new OpenTarget(
-                    rs.getString("source_url"), rs.getString("source"), rs.getString("source_key")))
+            (rs, row) -> rs.getString("source_url"))
         .stream()
         .findFirst()
         .orElseThrow(() -> new JobViewNotFoundException(jobId));
@@ -39,6 +37,4 @@ public class JobViewRepository {
     return jdbc.queryForList(
         load("sql/job-view/list-views.sql"), Map.of("candidateProfileId", candidateProfileId));
   }
-
-  public record OpenTarget(String sourceUrl, String source, String sourceKey) {}
 }

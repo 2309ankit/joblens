@@ -241,14 +241,21 @@ references cleanup-safe when a workspace is deleted; V20 adds a restartable, ide
 import and uncatalogued-term review artifacts.
 
 M2.6 follow-up hardening keeps exact ESCO role labels in the reviewed profile while removing a
-leading ICT taxonomy qualifier from provider and outbound-portal queries. Adzuna listing URLs are
-canonicalized from each source profile's market code during ingestion and again when opened, so new
-and existing India results use `adzuna.in` without provider tracking parameters. Unit coverage fixes
-the exact transformations, and PostgreSQL Testcontainers verifies that `ICT account manager` remains
-the selected role while `account manager` is persisted into the runnable India search profile.
-Final verification on 2026-09-01: `./mvnw clean test` completed with 106 tests, 0 failures, 0
-errors, and 0 skipped. The running application reported health `UP`, and opening existing India job
-857 returned `302 Location: https://www.adzuna.in/details/3827529614`.
+leading ICT taxonomy qualifier from provider and outbound-portal queries. PostgreSQL Testcontainers
+verifies that `ICT account manager` remains the selected role while `account manager` is persisted
+into the runnable India search profile.
+
+Adzuna follow-up diagnosis found that country routing was correct but relevance-sorted India API
+results included expired advertisements dating back to 2022. Discovery now requests date order and a
+configurable 30-day maximum age, landed lists omit older Adzuna rows, and listing opens preserve the
+provider's exact documented `redirect_url`. The source-run UI and REST model expose country and
+location so concurrent rows are visibly **ADZUNA — India (IN)** and **ADZUNA — Singapore (SG)**.
+Changing confirmed markets deactivates the previous provider profiles and leaves only the newly
+selected country profiles active. Verification on 2026-09-01: the live India API returned 3,343
+date-filtered matches with current timestamps; the application rendered both Adzuna markets, omitted
+known expired India rows, restored the exact provider URL for a recent India job, and returned the
+country/location fields through REST. `./mvnw clean test` completed with 102 tests, 0 failures, 0
+errors, and 0 skipped.
 
 Documentation navigation is split by purpose: `SESSION_HANDOFF.md` is the concise resume point,
 `NEXT_MILESTONES.md` is the selection index for future work, `README.md` is the user/operator runbook,

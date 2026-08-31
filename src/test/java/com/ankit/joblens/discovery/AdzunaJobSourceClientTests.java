@@ -37,13 +37,15 @@ class AdzunaJobSourceClientTests {
         json(
             200,
             """
-                {"count":1,"results":[{"id":"A-1","redirect_url":"https://example/jobs/1",
+                {"count":1,"results":[{"id":"A-1","redirect_url":"https://www.adzuna.in/details/A-1?utm_medium=api&utm_source=test",
                 "title":"Java Engineer","custom":{"keep":true}}]}
                 """));
 
     JobPage page = client("id", "key", 3).search(profile(), new PageRequest(1, 20));
 
     assertThat(page.jobs()).hasSize(1);
+    assertThat(page.jobs().getFirst().sourceUrl())
+        .isEqualTo("https://www.adzuna.in/details/A-1?utm_medium=api&utm_source=test");
     assertThat(page.jobs().getFirst().rawJson()).contains("\"custom\":{\"keep\":true}");
     assertThat(page.jobs().getFirst().payloadHash()).hasSize(64);
     var request = server.takeRequest();
@@ -52,6 +54,8 @@ class AdzunaJobSourceClientTests {
     assertThat(request.getRequestUrl().queryParameter("app_key")).isEqualTo("key");
     assertThat(request.getRequestUrl().queryParameter("what")).isEqualTo("java developer");
     assertThat(request.getRequestUrl().queryParameter("where")).isEqualTo("Singapore");
+    assertThat(request.getRequestUrl().queryParameter("sort_by")).isEqualTo("date");
+    assertThat(request.getRequestUrl().queryParameter("max_days_old")).isEqualTo("30");
     assertThat(request.getHeader("Accept")).contains("application/json");
   }
 
@@ -107,6 +111,7 @@ class AdzunaJobSourceClientTests {
             Duration.ofSeconds(2),
             10,
             20,
+            30,
             attempts,
             Duration.ofMillis(1));
     return new AdzunaJobSourceClient(WebClient.builder(), new ObjectMapper(), properties);

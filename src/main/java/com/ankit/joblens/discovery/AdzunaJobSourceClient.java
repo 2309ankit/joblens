@@ -67,6 +67,8 @@ public class AdzunaJobSourceClient implements JobSourceClient {
                         .queryParam("app_key", properties.appKey())
                         .queryParam("results_per_page", request.pageSize())
                         .queryParam("what", profile.keywords())
+                        .queryParam("sort_by", "date")
+                        .queryParam("max_days_old", properties.maxDaysOld())
                         .queryParamIfPresent(
                             "where", java.util.Optional.ofNullable(profile.location()))
                         .queryParam("content-type", "application/json")
@@ -99,7 +101,7 @@ public class AdzunaJobSourceClient implements JobSourceClient {
       throw new JobSourceException(
           "Adzuna returned no response body for profile " + profile.profileId());
     }
-    return parse(body, request, profile.sourceKey());
+    return parse(body, request);
   }
 
   private Mono<String> handleResponse(HttpStatusCode statusCode, Mono<String> body) {
@@ -128,7 +130,7 @@ public class AdzunaJobSourceClient implements JobSourceClient {
         || throwable instanceof TimeoutException;
   }
 
-  private JobPage parse(String body, PageRequest request, String market) {
+  private JobPage parse(String body, PageRequest request) {
     try {
       JsonNode root = objectMapper.readTree(body);
       JsonNode results = root.get("results");
@@ -147,9 +149,7 @@ public class AdzunaJobSourceClient implements JobSourceClient {
         jobs.add(
             new RawSourceJob(
                 id.asString(),
-                redirectUrl == null || redirectUrl.isNull()
-                    ? null
-                    : AdzunaListingUrlNormalizer.normalize(market, redirectUrl.asString()),
+                redirectUrl == null || redirectUrl.isNull() ? null : redirectUrl.asString(),
                 rawJson,
                 sha256(rawJson)));
       }

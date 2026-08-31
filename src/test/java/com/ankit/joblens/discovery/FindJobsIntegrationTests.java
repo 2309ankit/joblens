@@ -153,6 +153,9 @@ class FindJobsIntegrationTests {
     assertThat(detail.sources())
         .extracting(SourceRunSummary::source, SourceRunSummary::status)
         .containsExactly(tuple("ADZUNA", "COMPLETED"), tuple("GREENHOUSE", "COMPLETED"));
+    assertThat(detail.sources().getFirst().countryCode()).isEqualTo("SG");
+    assertThat(detail.sources().getFirst().location()).isEqualTo("Singapore");
+    assertThat(detail.sources().get(1).countryCode()).isNull();
     assertThat(detail.sources())
         .allSatisfy(
             source -> {
@@ -188,7 +191,8 @@ class FindJobsIntegrationTests {
     MapSqlParameterSource visibleJobParameters =
         new MapSqlParameterSource()
             .addValue("workspaceId", workspaceId)
-            .addValue("candidateProfileId", candidateProfileId);
+            .addValue("candidateProfileId", candidateProfileId)
+            .addValue("maxDaysOld", 30);
     assertThat(
             namedJdbc.queryForList(
                 load("sql/dashboard/list-ranked-jobs.sql"), visibleJobParameters))

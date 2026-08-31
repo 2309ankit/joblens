@@ -2,6 +2,7 @@ package com.ankit.joblens.batchapi;
 
 import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
+import com.ankit.joblens.discovery.AdzunaProperties;
 import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,16 +28,19 @@ public class JobQueryController {
   private final DuplicateQueryRepository duplicateQueryRepository;
   private final WorkspaceContext workspaceContext;
   private final WorkspaceCandidateProfileService candidateProfiles;
+  private final AdzunaProperties adzunaProperties;
 
   public JobQueryController(
       NamedParameterJdbcTemplate jdbc,
       DuplicateQueryRepository duplicateQueryRepository,
       WorkspaceContext workspaceContext,
-      WorkspaceCandidateProfileService candidateProfiles) {
+      WorkspaceCandidateProfileService candidateProfiles,
+      AdzunaProperties adzunaProperties) {
     this.jdbc = jdbc;
     this.duplicateQueryRepository = duplicateQueryRepository;
     this.workspaceContext = workspaceContext;
     this.candidateProfiles = candidateProfiles;
+    this.adzunaProperties = adzunaProperties;
   }
 
   @GetMapping
@@ -57,7 +61,8 @@ public class JobQueryController {
         load("sql/job-query/list-jobs.sql"),
         new MapSqlParameterSource()
             .addValue("candidateProfileId", candidateProfileId == null ? 0L : candidateProfileId)
-            .addValue("workspaceId", workspaceId),
+            .addValue("workspaceId", workspaceId)
+            .addValue("maxDaysOld", adzunaProperties.maxDaysOld()),
         (rs, n) -> row(rs));
   }
 

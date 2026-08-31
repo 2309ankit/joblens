@@ -67,7 +67,7 @@ public class FindJobsController {
   @Operation(
       summary = "Inspect one Find jobs run",
       description =
-          "Returns a workspace-safe, immutable source breakdown: source status, pages, received/new/changed/unchanged records, normalized and scored counts, and a sanitized failure reason. PARTIAL means at least one source completed before another source failed; the Batch execution remains FAILED and restartable.")
+          "Returns a workspace-safe, immutable source-and-market breakdown: country, location, status, pages, received/new/changed/unchanged records, normalized and scored counts, and a sanitized failure reason. PARTIAL means at least one source completed before another source failed; the Batch execution remains FAILED and restartable.")
   public com.ankit.joblens.discovery.FindJobsRunDetail runDetail(
       @PathVariable long jobExecutionId, HttpServletRequest request, HttpServletResponse response) {
     UUID workspaceId = workspaceContext.resolve(request, response);

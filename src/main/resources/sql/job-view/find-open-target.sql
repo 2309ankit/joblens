@@ -1,7 +1,10 @@
-SELECT n.source_url, n.source, profile.source_key
+SELECT CASE
+           WHEN n.source = 'ADZUNA'
+           THEN COALESCE(raw.raw_payload_json->>'redirect_url', raw.source_url, n.source_url)
+           ELSE n.source_url
+       END AS source_url
 FROM normalized_job n
 JOIN raw_job_posting raw ON raw.id = n.raw_job_posting_id
-JOIN search_profile profile ON profile.profile_id = raw.search_profile_id
 WHERE n.id = :jobId
   AND EXISTS (
     SELECT 1

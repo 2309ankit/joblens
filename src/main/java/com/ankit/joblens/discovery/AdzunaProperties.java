@@ -11,13 +11,14 @@ public record AdzunaProperties(
     Duration timeout,
     int maxPages,
     int pageSize,
+    int maxDaysOld,
     int retryAttempts,
     Duration retryBackoff) {
 
   public AdzunaProperties {
-    if (maxPages < 1 || pageSize < 1 || retryAttempts < 1) {
+    if (maxPages < 1 || pageSize < 1 || maxDaysOld < 1 || retryAttempts < 1) {
       throw new IllegalArgumentException(
-          "Adzuna max-pages, page-size and retry-attempts must be positive");
+          "Adzuna max-pages, page-size, max-days-old and retry-attempts must be positive");
     }
     if (timeout == null || timeout.isNegative() || timeout.isZero()) {
       throw new IllegalArgumentException("Adzuna timeout must be positive");

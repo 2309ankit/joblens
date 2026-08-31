@@ -100,6 +100,8 @@ public class WorkspaceSearchRunRepository {
                 new SourceRunSummary(
                     resultSet.getString("search_profile_id"),
                     resultSet.getString("source"),
+                    resultSet.getString("country_code"),
+                    resultSet.getString("location"),
                     resultSet.getString("status"),
                     resultSet.getInt("pages_attempted"),
                     resultSet.getInt("pages_fetched"),

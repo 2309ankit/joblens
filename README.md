@@ -184,6 +184,7 @@ Set credentials in `.env`:
 ```env
 ADZUNA_APP_ID=your-app-id
 ADZUNA_APP_KEY=your-app-key
+ADZUNA_MAX_DAYS_OLD=30
 ```
 
 Get credentials from [developer.adzuna.com](https://developer.adzuna.com/), restart the app, then run one profile:
@@ -354,7 +355,7 @@ open http://localhost:8080/dashboard
 
 The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. The Thymeleaf dashboard is available at `/dashboard`.
 
-Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, **GREENHOUSE**, or **LEVER**. Clicking records the job as viewed for this workspace and redirects to the original listing. Adzuna links are rebuilt against the source profile's selected market host (for example, India uses `adzuna.in`) and omit tracking parameters; this also protects links for existing imported rows. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel creates three explainable queries for each selected market. LinkedIn is generated for every market; JobStreet appears for Singapore, SEEK Australia for `AU`, and SEEK New Zealand for `NZ`. Unselected regional links are not shown. These portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
+Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, **GREENHOUSE**, or **LEVER**. Clicking records the job as viewed for this workspace and redirects through the exact listing URL supplied by that provider. Adzuna discovery requests date-sorted postings no more than `ADZUNA_MAX_DAYS_OLD` days old (default 30), and older landed Adzuna rows are excluded from dashboard/API lists. The latest-run table names the source and market, such as **ADZUNA — India (IN)**, so parallel country runs are distinguishable. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel creates three explainable queries for each selected market. LinkedIn is generated for every market; JobStreet appears for Singapore, SEEK Australia for `AU`, and SEEK New Zealand for `NZ`. Unselected regional links are not shown. These portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
 
 Inspect automatically detected company boards for the current browser workspace:
 

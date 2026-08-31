@@ -2,6 +2,7 @@ package com.ankit.joblens.dashboard;
 
 import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
+import com.ankit.joblens.discovery.AdzunaProperties;
 import com.ankit.joblens.discovery.FindJobsService;
 import com.ankit.joblens.onboarding.OnboardingService;
 import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
@@ -23,6 +24,7 @@ public class DashboardController {
   private final OnboardingService onboarding;
   private final PortalSearchLinkFactory portalSearchLinks;
   private final FindJobsService findJobs;
+  private final AdzunaProperties adzunaProperties;
 
   public DashboardController(
       NamedParameterJdbcTemplate jdbc,
@@ -30,13 +32,15 @@ public class DashboardController {
       WorkspaceCandidateProfileService candidateProfiles,
       OnboardingService onboarding,
       PortalSearchLinkFactory portalSearchLinks,
-      FindJobsService findJobs) {
+      FindJobsService findJobs,
+      AdzunaProperties adzunaProperties) {
     this.jdbc = jdbc;
     this.workspaceContext = workspaceContext;
     this.candidateProfiles = candidateProfiles;
     this.onboarding = onboarding;
     this.portalSearchLinks = portalSearchLinks;
     this.findJobs = findJobs;
+    this.adzunaProperties = adzunaProperties;
   }
 
   @GetMapping({"/", "/dashboard"})
@@ -49,7 +53,13 @@ public class DashboardController {
       return "redirect:/setup";
     }
     Map<String, Object> parameters =
-        Map.of("candidateProfileId", candidateProfileId, "workspaceId", workspaceId);
+        Map.of(
+            "candidateProfileId",
+            candidateProfileId,
+            "workspaceId",
+            workspaceId,
+            "maxDaysOld",
+            adzunaProperties.maxDaysOld());
     model.addAttribute("businessDate", java.time.LocalDate.now());
     findJobs.latest(workspaceId).ifPresent(run -> model.addAttribute("latestSearchRun", run));
     onboarding

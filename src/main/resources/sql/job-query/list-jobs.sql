@@ -5,7 +5,10 @@ FROM normalized_job n
 LEFT JOIN job_score s
   ON s.normalized_job_id = n.id
  AND (:candidateProfileId = 0 OR s.candidate_profile_id = :candidateProfileId)
-WHERE (CAST(:workspaceId AS UUID) IS NULL OR EXISTS (
+WHERE (n.source <> 'ADZUNA'
+       OR n.posted_at IS NULL
+       OR n.posted_at >= CURRENT_TIMESTAMP - make_interval(days => :maxDaysOld))
+  AND (CAST(:workspaceId AS UUID) IS NULL OR EXISTS (
     SELECT 1
     FROM workspace_job_sighting sighting
     JOIN raw_job_posting raw ON raw.id = sighting.raw_job_posting_id

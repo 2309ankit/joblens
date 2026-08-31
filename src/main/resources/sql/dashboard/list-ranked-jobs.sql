@@ -11,7 +11,10 @@ LEFT JOIN job_view v
 LEFT JOIN job_application application
   ON application.normalized_job_id = n.id
  AND application.candidate_profile_id = :candidateProfileId
-WHERE EXISTS (
+WHERE (n.source <> 'ADZUNA'
+       OR n.posted_at IS NULL
+       OR n.posted_at >= CURRENT_TIMESTAMP - make_interval(days => :maxDaysOld))
+  AND EXISTS (
     SELECT 1
     FROM workspace_job_sighting sighting
     JOIN raw_job_posting raw ON raw.id = sighting.raw_job_posting_id

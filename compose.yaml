@@ -25,6 +25,7 @@ services:
       JOBLENS_DB_PASSWORD: ${JOBLENS_DB_PASSWORD:?Set JOBLENS_DB_PASSWORD in the environment or an ignored .env file}
       ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
       ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      ADZUNA_MAX_DAYS_OLD: ${ADZUNA_MAX_DAYS_OLD:-30}
       JOOBLE_API_KEY: ${JOOBLE_API_KEY:-}
       JOOBLE_COUNTRY_CODE: ${JOOBLE_COUNTRY_CODE:-sg}
     ports:
