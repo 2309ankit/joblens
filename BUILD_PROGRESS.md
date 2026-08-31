@@ -91,6 +91,7 @@ The generated project currently contains:
 | 29 | Public Lever posting source works               | COMPLETE    |
 | 30 | Normalized multi-market preferences work        | COMPLETE    |
 | 31 | Resume validation and simplified setup work     | COMPLETE    |
+| 32 | Inclusive profile intelligence works            | COMPLETE    |
 
 ## Verified Evidence
 
@@ -233,7 +234,10 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-The anonymous manual-use workflow is complete. Flyway V11's existing profile-version and skill tables now support UI skill correction without another schema migration. Flyway V8's existing lifecycle tables now back Thymeleaf application and follow-up controls.
+M2.6 Inclusive Profile Intelligence is complete. The repository is stopped at the approval boundary
+before M2.7. Flyway V18 extends the existing profile-version model with categorized taxonomy,
+workspace-private additions, and versioned deterministic suggestion evidence; V19 keeps private-skill
+references cleanup-safe when a workspace is deleted.
 
 Documentation navigation is split by purpose: `SESSION_HANDOFF.md` is the concise resume point,
 `NEXT_MILESTONES.md` is the selection index for future work, `README.md` is the user/operator runbook,
@@ -243,10 +247,64 @@ and this file remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-No implementation milestone is active. The multi-market backend bug is fixed before frontend
-migration. Ranking calibration remains the next indexed product milestone; React presentation-layer
-migration, original-resume object storage, schedules/notifications, and login/cross-device recovery
-remain separate choices.
+No implementation milestone is active. M2.7 Explainable ATS Readiness Advisor is selectable only
+after explicit user approval. M2.8, React migration, ranking calibration, original-resume object
+storage, schedules/notifications, and login/cross-device recovery remain separate and unstarted.
+
+## Inclusive Profile Intelligence Evidence
+
+Flyway V18 adds categories and workspace ownership to the existing skill taxonomy, expands the global
+seed across frontend, data, design, business, finance, marketing, sales, HR, operations, education,
+healthcare, and engineering, and adds normalized roles/aliases. Partial unique indexes allow a shared
+global term and independent workspace-private additions without exposing one workspace's custom terms
+to another. Version-owned skill and role suggestion tables store bounded resume-line evidence,
+matched terms, deterministic confidence, evidence source, and stable priority.
+
+Resume acceptance remains structure-based and no longer rejects a valid resume because the catalogue
+found zero skills. Matching loads the applicable PostgreSQL taxonomy and aliases as one set and then
+uses case-insensitive token boundaries in memory. Skill evidence records the actual matched term and
+line. Role suggestions distinguish `RESUME_HEADLINE` (0.950), `RECENT_EXPERIENCE` (0.850), and
+`RESUME_BODY` (0.600); these values order evidence and are explicitly not probabilities or factual
+employment claims. Suggestions upsert by profile version and taxonomy identity, so replay is
+idempotent. Forking an active profile copies the original evidence into the new draft.
+
+The setup page replaces the full checkbox grid and comma-separated role field with searchable,
+creatable chip editors. Detected skills remain removable selected chips; title suggestions require an
+explicit add action. Custom skills and roles are normalized, deduplicated, and owned by the current
+workspace. Global Batch skill extraction excludes private terms; scoring performs an explainable
+candidate-specific boundary match so an activated custom skill can still contribute without leaking
+into another workspace's derived data.
+
+`ProviderCountryCatalog` is shared by validation, UI, and REST. It exposes human country names while
+storing ISO alpha-2 codes and lists the integrated supporting sources. The catalogue uses the explicit
+Adzuna market set plus the configured Jooble regional market; unsupported countries fail before an
+unrunnable source profile can be activated. City/region remains free provider-facing text.
+
+REST/Swagger inspection is available through:
+
+* `GET /api/candidate-profile/intelligence`
+* `GET /api/candidate-profile/skills/catalog?query=...`
+* `GET /api/candidate-profile/roles/catalog?query=...`
+* `GET /api/candidate-profile/countries`
+
+Focused tests cover frontend aliases and a recent-experience title, a nursing resume headline, a
+valid DOCX culinary resume with zero known matches, evidence/confidence persistence, replay
+idempotency, private custom term deduplication and isolation, country-name/provider capabilities,
+unsupported-country rejection, REST fields, Thymeleaf chip/dropdown rendering, and live generated
+OpenAPI paths. PostgreSQL 17 Testcontainers applied all 19 migrations from an empty schema. V19 was
+added as a forward migration after V18 had been applied locally; no Flyway history repair or migration
+rewrite was used.
+
+Regression verification on 2026-08-31:
+
+```text
+./mvnw clean test
+BUILD SUCCESS
+Tests run: 95, Failures: 0, Errors: 0, Skipped: 0
+```
+
+The clean build used PostgreSQL 17 Testcontainers and applied all migrations through V19 from an
+empty schema. Diff checks and the conventional commit are recorded at handoff.
 
 ## Profile Review and Lifecycle UI Evidence
 

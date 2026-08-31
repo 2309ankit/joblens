@@ -31,7 +31,9 @@ public class JobScoreCalculator {
         j.id());
     var matched =
         c.skills().values().stream()
-            .filter(x -> names.contains(x.name().toLowerCase(Locale.ROOT)))
+            .filter(
+                x ->
+                    names.contains(x.name().toLowerCase(Locale.ROOT)) || containsSkill(j, x.name()))
             .toList();
     int technical =
         (int)
@@ -154,5 +156,17 @@ public class JobScoreCalculator {
 
   private int weight(CandidateProfileConfig c, String key, int d) {
     return Integer.parseInt(c.preferences().getOrDefault(key, Integer.toString(d)));
+  }
+
+  private static boolean containsSkill(NormalizedJobView job, String skill) {
+    String text =
+        (job.title() == null ? "" : job.title())
+            + "\n"
+            + (job.descriptionText() == null ? "" : job.descriptionText());
+    return java.util.regex.Pattern.compile(
+            "(?<![A-Za-z0-9+#])" + java.util.regex.Pattern.quote(skill) + "(?![A-Za-z0-9+#])",
+            java.util.regex.Pattern.CASE_INSENSITIVE)
+        .matcher(text)
+        .find();
   }
 }

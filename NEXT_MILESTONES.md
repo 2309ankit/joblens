@@ -25,7 +25,7 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 | 1 | Source health and run observability — COMPLETE | Makes missing credentials, quota failures, source counts, and partial results clear in the UI | None for mocked tests |
 | 2 | Lever public ATS source — COMPLETE | Adds legitimate employer-direct listings through a verified public API | None; direct official board URL required |
 | 2.5 | Normalized multi-market preferences — COMPLETE | Fixes country/location fan-out before any frontend migration | None |
-| 2.6 | Inclusive Profile Intelligence | Remove the backend/IT bias and provide assisted roles, skills, and countries | Curated starter taxonomy and user review |
+| 2.6 | Inclusive Profile Intelligence — COMPLETE | Removed the backend/IT bias and added assisted roles, skills, and countries | None |
 | 2.7 | Explainable ATS Readiness Advisor | Give non-blocking, evidence-based resume improvement guidance | M2.6 complete and user approval |
 | 2.8 | Typed SQL Resource Registry | Remove fragile SQL-path strings while retaining Spring JDBC | M2.7 complete and user approval |
 | 3 | Ranking calibration workflow | Improve relevance using reviewed decisions instead of guessed weights | User-reviewed job examples |
@@ -146,6 +146,8 @@ instead of showing hardcoded countries. This fixes the backend model before any 
 
 ## M2.6 — Inclusive Profile Intelligence
 
+Status: complete on 2026-08-31. Await explicit user approval before M2.7.
+
 Goal: remove the Java/backend bias from resume onboarding while keeping extraction deterministic,
 explainable, normalized, and user-controlled.
 
@@ -171,6 +173,17 @@ Confirmed design direction:
 Acceptance must include Flyway where the normalized taxonomy/role model requires it, frontend and
 non-IT extraction examples, title-suggestion evidence, dropdown/addition UI behavior, REST/Swagger
 inspection, PostgreSQL Testcontainers, idempotency, documentation, and `./mvnw clean test`.
+
+Implemented slice: Flyway V18 categorizes and broadens the skill seed, adds normalized role and alias
+catalogues, workspace-private user additions, and versioned skill/title suggestion evidence. V19
+adds forward-only cascading cleanup for candidate/profile references to private skills.
+Resume matching loads the relevant database set once and performs deterministic token-boundary
+matching in memory. Structurally valid resumes no longer require a known skill. Title suggestions are
+ranked by transparent evidence source and remain unselected until user review. Setup uses searchable,
+creatable skill/role chips and country-name dropdowns backed by an explicit provider capability
+catalogue. REST/OpenAPI exposes suggestions, searchable catalogues, and supported countries. Fresh
+PostgreSQL 17 Testcontainers, template rendering, workspace isolation, idempotency, and the complete
+95-test suite pass.
 
 Out of scope: opaque AI inference, claiming a detected title with certainty, ATS-readiness scoring,
 SQL data-access refactoring, React migration, or starting M2.7 without explicit user approval.

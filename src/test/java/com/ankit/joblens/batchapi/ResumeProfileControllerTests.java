@@ -1,15 +1,21 @@
 package com.ankit.joblens.batchapi;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ankit.joblens.onboarding.IntegratedCountry;
 import com.ankit.joblens.onboarding.OnboardingProfile;
 import com.ankit.joblens.onboarding.OnboardingService;
+import com.ankit.joblens.onboarding.ProfileIntelligence;
+import com.ankit.joblens.onboarding.RoleOption;
+import com.ankit.joblens.onboarding.SkillOption;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,10 +66,32 @@ class ResumeProfileControllerTests {
     mvc.perform(
             put("/api/candidate-profile")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"skills\":[\"Imaginary Skill\"]}"))
+                .content("{\"skills\":[\"Invalid control value\"]}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error").value("INVALID_PROFILE_REQUEST"))
-        .andExpect(jsonPath("$.message").value("Choose skills from the supported catalog"));
+        .andExpect(
+            jsonPath("$.message").value("Each skill must be plain text up to 100 characters"));
+  }
+
+  @Test
+  void exposesSearchableTaxonomySuggestionsAndCountryCapabilities() throws Exception {
+    mvc.perform(get("/api/candidate-profile/skills/catalog").param("query", "react"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").value("React"))
+        .andExpect(jsonPath("$[0].category").value("FRONTEND"));
+    mvc.perform(get("/api/candidate-profile/roles/catalog").param("query", "product"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").value("Product Manager"));
+    mvc.perform(get("/api/candidate-profile/countries"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].code").value("SG"))
+        .andExpect(jsonPath("$[0].name").value("Singapore"))
+        .andExpect(jsonPath("$[0].sources[0]").value("ADZUNA"));
+    mvc.perform(get("/api/candidate-profile/intelligence"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.roleSuggestions[0].name").value("Product Manager"))
+        .andExpect(jsonPath("$.roleSuggestions[0].evidenceSource").value("RESUME_HEADLINE"));
+    assertThat(service.lastWorkspaceId).isEqualTo(workspaceId);
   }
 
   private static final class StubOnboardingService extends OnboardingService {
@@ -71,14 +99,14 @@ class ResumeProfileControllerTests {
     private boolean rejectUpdate;
 
     private StubOnboardingService() {
-      super(null);
+      super(null, null, null, null);
     }
 
     @Override
     public OnboardingProfile updateSkills(UUID workspaceId, List<String> skills) {
       lastWorkspaceId = workspaceId;
       if (rejectUpdate) {
-        throw new IllegalArgumentException("Choose skills from the supported catalog");
+        throw new IllegalArgumentException("Each skill must be plain text up to 100 characters");
       }
       return new OnboardingProfile(
           12,
@@ -89,6 +117,39 @@ class ResumeProfileControllerTests {
           List.of("banking"),
           "Singapore",
           skills);
+    }
+
+    @Override
+    public List<SkillOption> skillOptions(UUID workspaceId, String query) {
+      lastWorkspaceId = workspaceId;
+      return List.of(new SkillOption("React", "FRONTEND", false));
+    }
+
+    @Override
+    public List<RoleOption> roleOptions(UUID workspaceId, String query) {
+      lastWorkspaceId = workspaceId;
+      return List.of(new RoleOption("Product Manager", "PRODUCT", false));
+    }
+
+    @Override
+    public List<IntegratedCountry> countries() {
+      return List.of(
+          new IntegratedCountry(
+              "SG", "Singapore", List.of("ADZUNA"), "Integrated search available through ADZUNA."));
+    }
+
+    @Override
+    public ProfileIntelligence intelligence(UUID workspaceId) {
+      lastWorkspaceId = workspaceId;
+      return new ProfileIntelligence(
+          List.of(),
+          List.of(
+              new ProfileIntelligence.RoleSuggestion(
+                  "Product Manager",
+                  "PRODUCT",
+                  "RESUME_HEADLINE",
+                  "Senior Product Manager",
+                  new BigDecimal("0.950"))));
     }
   }
 }

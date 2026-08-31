@@ -31,8 +31,16 @@ public class OnboardingController {
   public String setup(HttpServletRequest request, HttpServletResponse response, Model model) {
     UUID workspaceId = workspaceContext.resolve(request, response);
     model.addAttribute("workspaceId", workspaceId);
-    model.addAttribute("profile", onboardingService.latest(workspaceId).orElse(null));
-    model.addAttribute("skillCatalog", onboardingService.skillCatalog());
+    OnboardingProfile profile = onboardingService.latest(workspaceId).orElse(null);
+    model.addAttribute("profile", profile);
+    model.addAttribute("skillCatalog", onboardingService.skillOptions(workspaceId, ""));
+    model.addAttribute("roleCatalog", onboardingService.roleOptions(workspaceId, ""));
+    model.addAttribute("countries", onboardingService.countries());
+    model.addAttribute(
+        "profileIntelligence",
+        profile == null
+            ? new ProfileIntelligence(List.of(), List.of())
+            : onboardingService.intelligence(workspaceId));
     if (!model.containsAttribute("preferences")) {
       model.addAttribute(
           "preferences",
@@ -41,10 +49,10 @@ public class OnboardingController {
               .orElseGet(
                   () ->
                       new SearchPreferences(
-                          "Senior Java Developer, Senior Backend Engineer",
-                          "banking, payments",
-                          "Singapore",
-                          "Java Spring Boot",
+                          "",
+                          "",
+                          "",
+                          "",
                           "SG | Singapore",
                           3,
                           "PERMANENT",
@@ -58,7 +66,7 @@ public class OnboardingController {
   @PostMapping("/setup/complete")
   public String complete(
       @RequestParam(name = "skills", required = false) List<String> skills,
-      @RequestParam String targetRoles,
+      @RequestParam(name = "targetRoles", required = false) List<String> targetRoles,
       @RequestParam String targetDomains,
       @RequestParam String primaryLocation,
       @RequestParam String keywords,
@@ -81,7 +89,7 @@ public class OnboardingController {
               .toList();
       SearchPreferences preferences =
           new SearchPreferences(
-              targetRoles,
+              targetRoles == null ? "" : String.join(", ", targetRoles),
               targetDomains,
               primaryLocation,
               keywords,
@@ -125,7 +133,10 @@ public class OnboardingController {
     try {
       OnboardingProfile profile = onboardingService.upload(workspaceId, file);
       redirectAttributes.addFlashAttribute(
-          "message", "Resume validated. Found " + profile.skills().size() + " skills.");
+          "message",
+          "Resume validated. Found "
+              + profile.skills().size()
+              + " skill suggestions; review all suggestions before activation.");
     } catch (Exception exception) {
       redirectAttributes.addFlashAttribute("error", exception.getMessage());
     }

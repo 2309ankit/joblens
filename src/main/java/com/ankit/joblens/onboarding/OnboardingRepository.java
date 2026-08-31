@@ -22,10 +22,15 @@ import org.springframework.stereotype.Repository;
 public class OnboardingRepository {
   private final NamedParameterJdbcTemplate jdbc;
   private final JoobleProperties joobleProperties;
+  private final ProfileIntelligenceRepository profileIntelligenceRepository;
 
-  public OnboardingRepository(NamedParameterJdbcTemplate jdbc, JoobleProperties joobleProperties) {
+  public OnboardingRepository(
+      NamedParameterJdbcTemplate jdbc,
+      JoobleProperties joobleProperties,
+      ProfileIntelligenceRepository profileIntelligenceRepository) {
     this.jdbc = jdbc;
     this.joobleProperties = joobleProperties;
+    this.profileIntelligenceRepository = profileIntelligenceRepository;
   }
 
   public long saveResume(
@@ -65,22 +70,29 @@ public class OnboardingRepository {
     jdbc.update(
         load("sql/onboarding/copy-draft-skills.sql"),
         Map.of("sourceProfileVersionId", activeProfile.id(), "draftProfileVersionId", draftId));
+    jdbc.update(
+        load("sql/onboarding/copy-skill-suggestions.sql"),
+        Map.of("sourceProfileVersionId", activeProfile.id(), "draftProfileVersionId", draftId));
+    jdbc.update(
+        load("sql/onboarding/copy-role-suggestions.sql"),
+        Map.of("sourceProfileVersionId", activeProfile.id(), "draftProfileVersionId", draftId));
     return latestProfile(workspaceId).orElseThrow();
   }
 
-  public List<String> skillCatalog() {
-    return jdbc.query(
-        load("sql/profile/catalog.sql"), Map.of(), (resultSet, row) -> resultSet.getString(1));
-  }
-
   public void replaceDraftSkills(UUID workspaceId, long profileVersionId, List<String> skills) {
+    List<ProfileIntelligenceRepository.NamedValue> resolved =
+        profileIntelligenceRepository.resolveSkills(workspaceId, skills);
     var parameters =
         new MapSqlParameterSource()
             .addValue("workspaceId", workspaceId)
             .addValue("profileVersionId", profileVersionId)
-            .addValue("skills", skills);
+            .addValue(
+                "skillIds",
+                resolved.stream()
+                    .map(ProfileIntelligenceRepository.NamedValue::id)
+                    .toArray(Long[]::new));
     jdbc.update(load("sql/onboarding/delete-draft-skills.sql"), parameters);
-    jdbc.update(load("sql/onboarding/insert-draft-skills.sql"), parameters);
+    jdbc.update(load("sql/onboarding/replace-draft-skills-by-id.sql"), parameters);
   }
 
   public Optional<OnboardingProfile> latestProfile(UUID workspaceId) {
@@ -121,12 +133,15 @@ public class OnboardingRepository {
 
   public void savePreferences(
       UUID workspaceId, long profileVersionId, SearchPreferences preferences) {
+    List<String> targetRoles =
+        profileIntelligenceRepository.resolveOrCreateRoles(
+            workspaceId, csv(preferences.targetRoles()));
     jdbc.update(
         load("sql/onboarding/update-profile-preferences.sql"),
         new MapSqlParameterSource()
             .addValue("workspaceId", workspaceId)
             .addValue("profileVersionId", profileVersionId)
-            .addValue("targetRoles", csv(preferences.targetRoles()).toArray(String[]::new))
+            .addValue("targetRoles", targetRoles.toArray(String[]::new))
             .addValue("targetDomains", csv(preferences.targetDomains()).toArray(String[]::new))
             .addValue("primaryLocation", preferences.primaryLocation()));
     Map<String, String> values = new LinkedHashMap<>();

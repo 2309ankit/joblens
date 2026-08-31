@@ -14,8 +14,9 @@
     button,.button{display:inline-block;margin-top:1rem;padding:.7rem 1rem;border:0;border-radius:8px;background:var(--brand);color:#fff;font:inherit;font-weight:650;cursor:pointer;text-decoration:none}
     button.secondary{background:#e9eefb;color:#253552;margin:.3rem 0}button.remove{background:transparent;color:#9b2937;margin:0;padding:.6rem}
     .notice{padding:.8rem 1rem;border-radius:8px}.ok{background:#eaf8ef;color:#176b36}.error{background:#fff0f1;color:#9d2434}.muted,.help{color:var(--muted)}.help{font-size:.9rem;margin:.25rem 0}
-    .profile-card{padding:1rem;background:var(--soft);border-radius:9px}.skills{line-height:1.8}.skill-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.4rem}
-    .skill-grid label{margin:0;padding:.45rem;background:#f6f7fb;border-radius:6px;font-weight:500}.skill-grid input{width:auto;margin-right:.35rem}
+    .profile-card{padding:1rem;background:var(--soft);border-radius:9px}.skills{line-height:1.8}.picker{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:end}.picker button{margin:0}
+    .chips{display:flex;flex-wrap:wrap;gap:.45rem;margin:.65rem 0}.chip{display:inline-flex;gap:.35rem;align-items:center;background:#e9eefb;border-radius:999px;padding:.35rem .65rem}.chip button{background:transparent;color:#40506b;margin:0;padding:0}
+    .suggestions{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.6rem;margin:.75rem 0}.suggestion{border:1px solid var(--line);border-radius:8px;padding:.7rem}.suggestion button{margin:.4rem 0 0;padding:.4rem .65rem}.evidence{font-size:.82rem;color:var(--muted);margin:.25rem 0}
     .target-row{display:grid;grid-template-columns:140px 1fr auto;gap:.5rem;align-items:end;margin:.5rem 0}.target-row label{margin:0;font-size:.85rem}
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}details{margin-top:1.25rem;padding:1rem;background:#f8f9fc;border-radius:8px}summary{cursor:pointer;font-weight:650}
     @media(max-width:650px){.header,.form-grid,.target-row{display:block}.target-row button{margin-top:.25rem}}
@@ -42,7 +43,7 @@
     <div class="profile-card" th:if="${profile}">
       <strong th:text="${profile.status == 'ACTIVE' ? 'Active profile' : 'Resume ready for review'}">Resume ready</strong>
       <p th:text="${profile.summary}"></p>
-      <p class="skills"><strong>Detected skills:</strong> <span th:text="${#strings.listJoin(profile.skills, ', ')}"></span></p>
+      <p class="skills"><strong>Selected draft skills:</strong> <span th:text="${profile.skills.empty ? 'None yet' : #strings.listJoin(profile.skills, ', ')}"></span></p>
     </div>
   </section>
 
@@ -52,27 +53,44 @@
     <p class="muted">Review the detected skills and job choices once. One button saves and activates everything.</p>
     <form id="profile-form" method="post" action="/setup/complete" th:object="${preferences}">
       <h3>Your skills</h3>
-      <div class="skill-grid">
-        <label th:each="skill : ${skillCatalog}">
-          <input type="checkbox" name="skills" th:value="${skill}" th:checked="${#lists.contains(profile.skills, skill)}">
-          <span th:text="${skill}">Java</span>
-        </label>
+      <p class="help">Detected skills are suggestions with résumé evidence. Remove any mistake, search the catalogue, or type a skill to add it privately to this workspace.</p>
+      <div class="suggestions" th:if="${!profileIntelligence.skillSuggestions.empty}">
+        <div class="suggestion" th:each="suggestion : ${profileIntelligence.skillSuggestions}">
+          <strong th:text="${suggestion.name}">JavaScript</strong>
+          <span class="help" th:text="${suggestion.category}">FRONTEND</span>
+          <p class="evidence" th:text="${'Matched “' + suggestion.matchedTerm + '” in: ' + suggestion.evidence}">Evidence</p>
+          <button class="secondary" type="button" th:attr="data-add-skill=${suggestion.name}">Add suggestion</button>
+        </div>
       </div>
+      <div id="selected-skills" class="chips">
+        <span class="chip" th:each="skill : ${profile.skills}"><span th:text="${skill}">Java</span><input type="hidden" name="skills" th:value="${skill}"><button type="button" aria-label="Remove skill">×</button></span>
+      </div>
+      <div class="picker"><div><label for="skill-search">Search or add a skill</label><input id="skill-search" list="skill-options" placeholder="For example: React or Financial Modelling"></div><button id="add-skill" class="secondary" type="button">Add skill</button></div>
+      <datalist id="skill-options"><option th:each="skill : ${skillCatalog}" th:value="${skill.name}" th:text="${skill.category}"></option></datalist>
 
       <h3>Jobs you want</h3>
-      <div class="form-grid">
-        <div><label for="targetRoles">Target roles</label><input id="targetRoles" th:field="*{targetRoles}" required><p class="help">Example: Senior Java Developer, Backend Engineer</p></div>
-        <div><label for="targetDomains">Preferred sectors</label><input id="targetDomains" th:field="*{targetDomains}" required><p class="help">Example: banking, payments</p></div>
+      <p class="help">Title suggestions come from a résumé headline or recent experience. They are not accepted until you add them.</p>
+      <div class="suggestions" th:if="${!profileIntelligence.roleSuggestions.empty}">
+        <div class="suggestion" th:each="suggestion : ${profileIntelligence.roleSuggestions}">
+          <strong th:text="${suggestion.name}">Product Manager</strong>
+          <span class="help" th:text="${suggestion.evidenceSource}">RECENT_EXPERIENCE</span>
+          <p class="evidence" th:text="${suggestion.evidence}">Evidence</p>
+          <button class="secondary" type="button" th:attr="data-add-role=${suggestion.name}">Add role</button>
+        </div>
       </div>
-      <label for="primaryLocation">Where you live now</label>
-      <input id="primaryLocation" th:field="*{primaryLocation}" required>
-      <p class="help">One current city for your profile. This is not another country filter.</p>
+      <div id="selected-roles" class="chips"><span class="chip" th:each="role : ${profile.targetRoles}"><span th:text="${role}">Product Manager</span><input type="hidden" name="targetRoles" th:value="${role}"><button type="button" aria-label="Remove role">×</button></span></div>
+      <div class="picker"><div><label for="role-search">Search or add a target role</label><input id="role-search" list="role-options" placeholder="For example: Product Manager"></div><button id="add-role" class="secondary" type="button">Add role</button></div>
+      <datalist id="role-options"><option th:each="role : ${roleCatalog}" th:value="${role.name}" th:text="${role.category}"></option></datalist>
+      <div class="form-grid">
+        <div><label for="targetDomains">Preferred sectors</label><input id="targetDomains" th:field="*{targetDomains}" required><p class="help">Example: healthcare, retail, education</p></div>
+        <div><label for="primaryLocation">Where you live now</label><input id="primaryLocation" th:field="*{primaryLocation}" required><p class="help">Your current city, not another country filter.</p></div>
+      </div>
 
       <h3>Where you want to search</h3>
-      <p class="help">Add one row for each desired job location. Country is entered once per location.</p>
+      <p class="help">Choose a country supported by an integrated source. JobLens stores its ISO alpha-2 code internally; city or region remains provider-facing text.</p>
       <div id="search-targets">
         <div class="target-row" th:each="target : ${searchTargets}">
-          <label>Country code<input name="countryCodes" th:value="${target.countryCode}" maxlength="2" pattern="[A-Za-z]{2}" placeholder="SG" required></label>
+          <label>Country<select name="countryCodes" required><option th:each="country : ${countries}" th:value="${country.code}" th:selected="${country.code == target.countryCode}" th:text="${country.name + ' (' + country.code + ') — ' + #strings.listJoin(country.sources, ', ')}">Singapore (SG)</option></select></label>
           <label>City or region<input name="locations" th:value="${target.location}" placeholder="Singapore" required></label>
           <button class="remove" type="button" aria-label="Remove search location">Remove</button>
         </div>
@@ -97,6 +115,37 @@
   <a class="button" href="/dashboard">Go to dashboard</a>
 </main>
 <script>
+  function addChip(container, fieldName, value) {
+    const clean = value.trim().replace(/\s+/g, ' ');
+    if (!clean || [...container.querySelectorAll('input')].some(input => input.value.toLowerCase() === clean.toLowerCase())) return;
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    const label = document.createElement('span');
+    label.textContent = clean;
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden'; hidden.name = fieldName; hidden.value = clean;
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove ${clean}`);
+    chip.append(label, hidden, remove); container.appendChild(chip);
+  }
+  function configurePicker(containerId, inputId, buttonId, fieldName, suggestionAttribute) {
+    const container = document.getElementById(containerId);
+    const input = document.getElementById(inputId);
+    const button = document.getElementById(buttonId);
+    if (!container || !input || !button) return;
+    button.addEventListener('click', () => { addChip(container, fieldName, input.value); input.value = ''; });
+    input.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); button.click(); } });
+    container.addEventListener('click', event => { if (event.target.tagName === 'BUTTON') event.target.closest('.chip').remove(); });
+    document.querySelectorAll(`[${suggestionAttribute}]`).forEach(suggestion => suggestion.addEventListener('click', () => addChip(container, fieldName, suggestion.getAttribute(suggestionAttribute))));
+  }
+  configurePicker('selected-skills', 'skill-search', 'add-skill', 'skills', 'data-add-skill');
+  configurePicker('selected-roles', 'role-search', 'add-role', 'targetRoles', 'data-add-role');
+  const profileForm = document.getElementById('profile-form');
+  if (profileForm) profileForm.addEventListener('submit', event => {
+    if (!document.querySelector('#selected-skills input') || !document.querySelector('#selected-roles input')) {
+      event.preventDefault(); alert('Add at least one skill and one target role before activation.');
+    }
+  });
   const targets = document.getElementById('search-targets');
   const addTarget = document.getElementById('add-target');
   if (targets && addTarget) {
@@ -104,6 +153,7 @@
       if (targets.children.length >= 10) return;
       const row = targets.firstElementChild.cloneNode(true);
       row.querySelectorAll('input').forEach(input => input.value = '');
+      row.querySelectorAll('select').forEach(select => select.selectedIndex = 0);
       targets.appendChild(row);
     });
     targets.addEventListener('click', event => {

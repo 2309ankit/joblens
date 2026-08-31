@@ -1,9 +1,13 @@
 package com.ankit.joblens.batchapi;
 
+import com.ankit.joblens.onboarding.IntegratedCountry;
 import com.ankit.joblens.onboarding.OnboardingProfile;
 import com.ankit.joblens.onboarding.OnboardingService;
+import com.ankit.joblens.onboarding.ProfileIntelligence;
+import com.ankit.joblens.onboarding.RoleOption;
 import com.ankit.joblens.onboarding.SearchPreferences;
 import com.ankit.joblens.onboarding.SearchTarget;
+import com.ankit.joblens.onboarding.SkillOption;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -53,10 +58,45 @@ public class ResumeProfileController {
 
   @GetMapping("/skills/catalog")
   @Operation(
-      summary = "List supported skills",
-      description = "Returns the canonical skill names accepted by the resume skill editor.")
-  public List<String> skillCatalog() {
-    return service.skillCatalog();
+      summary = "Search the skill catalogue",
+      description =
+          "Returns categorized starter skills and workspace-private additions. The optional query performs a case-insensitive name search.")
+  public List<SkillOption> skillCatalog(
+      @RequestParam(defaultValue = "") String query,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    return service.skillOptions(workspaceContext.resolve(request, response), query);
+  }
+
+  @GetMapping("/roles/catalog")
+  @Operation(
+      summary = "Search the role catalogue",
+      description =
+          "Returns categorized starter roles and workspace-private additions for the creatable role editor.")
+  public List<RoleOption> roleCatalog(
+      @RequestParam(defaultValue = "") String query,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    return service.roleOptions(workspaceContext.resolve(request, response), query);
+  }
+
+  @GetMapping("/countries")
+  @Operation(
+      summary = "List integrated search countries",
+      description =
+          "Returns country names with internal ISO alpha-2 codes, supporting providers, and a capability explanation. Unsupported countries cannot be activated.")
+  public List<IntegratedCountry> countries() {
+    return service.countries();
+  }
+
+  @GetMapping("/intelligence")
+  @Operation(
+      summary = "Inspect profile suggestions",
+      description =
+          "Returns versioned deterministic skill and title suggestions with matched evidence, source, category, and confidence. Suggestions remain user-reviewable and are not claims of fact.")
+  public ProfileIntelligence intelligence(
+      HttpServletRequest request, HttpServletResponse response) {
+    return service.intelligence(workspaceContext.resolve(request, response));
   }
 
   @GetMapping("/preferences")
@@ -85,7 +125,7 @@ public class ResumeProfileController {
   @Operation(
       summary = "Save reviewed skills",
       description =
-          "Replaces the latest draft's skills with canonical catalog values. Editing an active profile first creates a new draft; scoring changes only after confirmation on /setup.")
+          "Replaces the latest draft's skills with catalogue values or creates workspace-private additions. Editing an active profile first creates a new draft; scoring changes only after confirmation on /setup.")
   public OnboardingProfile update(
       @Valid @RequestBody SkillsRequest skillsRequest,
       HttpServletRequest request,
@@ -98,7 +138,7 @@ public class ResumeProfileController {
   @Operation(
       summary = "Read a resume",
       description =
-          "Validates a PDF, DOC, or DOCX up to 5 MB, checks for resume structure such as contact details and work-history sections, extracts catalog skills, and creates a versioned profile draft for this browser workspace. Job descriptions and interview requirement documents are rejected. Original file bytes are not retained.")
+          "Validates a PDF, DOC, or DOCX up to 5 MB, checks resume structure, and creates a versioned draft with deterministic skill and title suggestions. A structurally valid resume is accepted even when no catalogue skill matches. Suggestions include evidence and require user review. Original file bytes are not retained.")
   public OnboardingProfile upload(
       @RequestPart("file") MultipartFile file,
       HttpServletRequest request,

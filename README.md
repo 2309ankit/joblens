@@ -1,6 +1,6 @@
 # JobLens
 
-JobLens is a batch-first modular monolith for personal job-market intelligence. Each anonymous browser workspace can upload and validate a resume, control job preferences in the UI, discover public Adzuna postings and optionally Jooble postings, safely enrich from automatically detected Greenhouse and Lever boards, rank only its discovered jobs, and track applications.
+JobLens is a batch-first modular monolith for personal job-market intelligence. Each anonymous browser workspace can upload and validate a resume, review explainable skill and title suggestions, control job preferences in the UI, discover public Adzuna postings and optionally Jooble postings, safely enrich from automatically detected Greenhouse and Lever boards, rank only its discovered jobs, and track applications.
 
 New session: start with [SESSION_HANDOFF.md](SESSION_HANDOFF.md). To choose the next piece of work,
 use [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Detailed historical evidence remains in
@@ -44,7 +44,7 @@ intelligence   normalization, skills, duplicate detection, candidate profile, an
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets.
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets; V18 adds categorized inclusive skill/role taxonomy, workspace-private additions, and versioned suggestion evidence; V19 makes custom-skill reference cleanup follow workspace deletion.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -82,18 +82,34 @@ Environment variables override these values. Never commit real credentials; `.en
 ## First-time use
 
 1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.
-2. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text. JobLens requires resume evidence such as contact details plus recognizable Experience, Education, or Skills sections; a software interview requirement or job description containing skill words is rejected. JobLens currently stores resume metadata and hash, not the original file bytes.
-3. In the single **Review and activate** form, correct the detected skills and enter target roles, preferred sectors, and your one current city. Add desired job locations as structured country/location rows; use **Add another location** only when you genuinely want another market. Provider keywords, page count, employment type, and work arrangement are under **Advanced search options**.
-4. Click **Save and activate profile** once. This versions the reviewed skills and preferences together and activates the runnable source definitions. Each desired market becomes an independent provider profile with its own pagination and restart checkpoint. JobLens searches Adzuna for every market and Jooble only for the regional country configured by `JOOBLE_COUNTRY_CODE`. Direct official Greenhouse or Lever URLs are validated and searched without ATS credentials.
-5. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
+2. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text. Resume structure—not membership in a software skill list—determines acceptance. Job descriptions and interview requirement documents are rejected, while a structurally valid non-IT resume remains reviewable even when nothing matches the starter taxonomy. JobLens stores metadata, hash, and bounded suggestion evidence, not the original file bytes or extracted resume text.
+3. In **Review and activate**, inspect detected skill chips and normalized title suggestions. Each suggestion shows the matched resume line and whether a title came from the headline, recent experience, or elsewhere. Search the categorized catalogues, remove mistakes, or type a private workspace addition. Suggestions are never silently accepted as facts.
+4. Choose target roles, preferred sectors, and your current city. Select country names from the integrated-market dropdown; ISO alpha-2 codes remain internal. Each option identifies its supporting source. City/region remains provider-facing text. Provider keywords, page count, employment type, and work arrangement are under **Advanced search options**.
+5. Click **Save and activate profile** once. This versions the reviewed skills and preferences together and activates the runnable source definitions. Each desired market becomes an independent provider profile with its own pagination and restart checkpoint. JobLens searches Adzuna for every supported market and Jooble only for the regional country configured by `JOOBLE_COUNTRY_CODE`. Direct official Greenhouse or Lever URLs are validated and searched without ATS credentials.
+6. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
    The **Latest source run** panel then shows each source's status, attempted/fetched pages, received and
    new/changed/unchanged records, raw/normalized/sighted/scored totals, and any safe failure reason.
    If a later source fails, earlier results remain available and the panel reports `PARTIAL` with a
    **Restart failed run** button.
-6. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
-7. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
+7. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
+8. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
 
-Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, normalized search preferences at `GET /api/candidate-profile/preferences`, the skill catalog, and reviewed-skill replacement. **Find jobs** runs and inspects the complete search pipeline. **Discovered source boards** lists Greenhouse and Lever boards found for this browser workspace and their `DISCOVERED`, `VALIDATED`, or `FAILED` status. **Applications** and **Follow-ups** document the same ownership-safe operations exposed in the Thymeleaf pages. Swagger sends the browser workspace cookie with each request.
+Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, normalized search preferences, searchable skill and role catalogues, integrated country capabilities, explainable profile suggestions, and reviewed-skill replacement. Relevant inspection endpoints are `GET /api/candidate-profile/intelligence`, `/skills/catalog?query=...`, `/roles/catalog?query=...`, and `/countries`. **Find jobs** runs and inspects the complete search pipeline. Swagger sends the browser workspace cookie with each request.
+
+Profile matching loads the applicable PostgreSQL catalogue and aliases once, then uses deterministic
+case-insensitive token-boundary matching in memory. Flyway seeds a cross-discipline starter taxonomy;
+user-created skills and roles are visible only inside their workspace. Custom skills are compared
+directly with job text for that candidate, so they can contribute to the existing explainable
+technical score without becoming global extraction terms. Title confidence is a transparent ordering
+heuristic (headline 0.950, recent experience 0.850, other resume body 0.600), not a probability or an
+employment claim.
+
+The integrated country catalogue is an explicit snapshot of markets supported by JobLens's Adzuna
+adapter, plus the configured Jooble regional market when credentials are present. The provider API
+shape uses Adzuna's documented `jobs/{country}/search/{page}` route; see the official
+[Adzuna API overview](https://developer.adzuna.com/overview) and
+[search documentation](https://developer.adzuna.com/docs/search). Unsupported ISO codes are rejected
+before profile activation rather than producing a knowingly unrunnable source profile.
 
 ## What each batch does
 

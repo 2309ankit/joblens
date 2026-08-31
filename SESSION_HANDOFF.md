@@ -9,14 +9,14 @@ future work is indexed in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
-Implementation baseline: normalized multi-market preferences plus resume-validation/setup UX fixes
+Implementation baseline: M2.6 Inclusive Profile Intelligence
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V17
-Latest full test: 88 tests, 0 failures, 0 errors, 0 skipped
-Latest Docker check: health UP, Flyway 17, both setup states and resume OpenAPI verified
+Latest Flyway migration: V19
+Latest full test: 95 tests, 0 failures, 0 errors, 0 skipped
+Latest focused check: fresh PostgreSQL 17, assisted setup render, and profile-intelligence OpenAPI verified
 ```
 
 Before making changes:
@@ -35,7 +35,8 @@ Read [AGENTS.md](AGENTS.md), then select exactly one milestone from
 ```text
 /setup
   → upload PDF/DOC/DOCX and reject job/interview documents without resume structure
-  → review skills, current city, and structured desired-market rows in one form
+  → review evidence-backed skills and titles, searchable private additions, current city,
+    and country-name/desired-location rows in one form
   → save and activate the reviewed profile in one transaction
 
 /dashboard
@@ -117,7 +118,7 @@ search profile.
 
 ## 5. Data and processing decisions
 
-- Flyway V1-V17 owns application and Spring Batch metadata schemas.
+- Flyway V1-V19 owns application and Spring Batch metadata schemas.
 - Search countries/locations are normalized as independent `workspace_search_target` rows. Confirming
   preferences creates one provider profile and checkpoint per supported source/market combination.
 - Spring JDBC is used; JPA and Lombok are intentionally absent.
@@ -126,7 +127,9 @@ search profile.
   and SHA-256 identity are retained.
 - Exact duplicate evidence is source/external ID or normalized-content hash.
 - Fuzzy matches are explainable review suggestions, not probabilities or automatic merges.
-- Scoring is deterministic, preference-driven, and accompanied by category reasons.
+- Scoring is deterministic, preference-driven, and accompanied by category reasons. Workspace-private
+  custom skills are matched directly against job text for their candidate without entering the global
+  extraction catalogue.
 - Unknown end clients are not guessed. Any future estimate must expose evidence and uncertainty.
 
 ## 6. Main inspection points
@@ -152,6 +155,10 @@ GET  /api/jobs/{id}
 GET  /api/duplicates
 GET  /api/duplicates/similarities
 GET  /api/source-boards
+GET  /api/candidate-profile/intelligence
+GET  /api/candidate-profile/skills/catalog?query=react
+GET  /api/candidate-profile/roles/catalog?query=product
+GET  /api/candidate-profile/countries
 GET  /api/job-views
 GET  /api/applications
 GET  /api/follow-ups
@@ -171,7 +178,7 @@ src/main/java/com/ankit/joblens/
   dashboard/      Thymeleaf controllers and view tracking
 
 src/main/resources/
-  db/migration/   Flyway V1-V17
+  db/migration/   Flyway V1-V19
   sql/            externalized SQL grouped by feature
   templates/      setup, dashboard, applications
 ```
@@ -204,23 +211,23 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Fuzzy thresholds and scoring weights need reviewed real-world calibration.
 - Original resume storage, schedules, and external notifications are not implemented.
 - Market insights are shared market-level projections rather than private workspace projections.
-- The seeded skill catalogue is strongly Java/backend-oriented. A structurally valid non-IT resume
-  can still be rejected when it contains no catalogued skill, frontend skills are incomplete, and
-  target roles are not extracted from resume experience.
-- Setup exposes ISO country-code input instead of a country-name selector, and target roles are plain
-  comma-separated text rather than detected, searchable, creatable selections.
+- The inclusive taxonomy is a curated starter set, not an occupational ontology. Users can add
+  workspace-private skills and roles; expanding or governing the shared seed remains deliberate work.
+- Title confidence orders deterministic evidence sources and is not a probability or claim that a
+  suggested title is factually correct.
 - Java repositories explicitly reference SQL resource paths. SQL is correctly externalized, but
   those string paths are runtime-checked and should gain a typed, startup-validated registry.
 
 ## 10. Handoff rule
 
 M0 Jooble live acceptance, M0.5 Portal Search Hub, M0.6 Smart Portal Query Planner, M1 source
-health/run observability, M2 Lever, and M2.5 normalized multi-market preferences are complete. M3
-ranking calibration remains indexed but is no longer next. The user selected this exact order:
+health/run observability, M2 Lever, M2.5 normalized multi-market preferences, and M2.6 Inclusive
+Profile Intelligence are complete. M2.7 remains blocked on explicit user approval. The selected order
+is:
 
 ```text
-M2.6 Inclusive Profile Intelligence
-  → STOP, demonstrate it, and ask the user for approval
+M2.6 Inclusive Profile Intelligence — COMPLETE
+  → STOP, demonstrate it, and ask the user for approval — CURRENT BOUNDARY
 M2.7 Explainable ATS Readiness Advisor
   → STOP, demonstrate it, and ask the user for approval
 M2.8 Typed SQL Resource Registry
@@ -231,6 +238,4 @@ Do not combine these modules and do not silently advance from one to another. At
 finish tests, evidence, documentation, and a conventional commit, then explicitly ask the user before
 starting the next module. React migration remains a later, separate presentation-layer decision.
 
-The next session should begin with M2.6 only. Before coding, inspect the existing V5 skill seed,
-`OnboardingService`, profile/version tables, setup form, skill extraction/scoring, and source country
-capabilities. Agree on M2.6 acceptance details with the user if any material choice remains.
+Do not begin M2.7 until the user explicitly approves it after reviewing M2.6 evidence.

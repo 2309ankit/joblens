@@ -1,25 +1,37 @@
 package com.ankit.joblens.onboarding;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ankit.joblens.discovery.JoobleProperties;
+import com.ankit.joblens.workspace.WorkspaceContext;
 import com.ankit.joblens.workspace.WorkspaceRepository;
+import jakarta.servlet.http.Cookie;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest
+@AutoConfigureMockMvc
 @Testcontainers
 class WorkspaceOnboardingIntegrationTests {
   @Container
@@ -39,7 +51,10 @@ class WorkspaceOnboardingIntegrationTests {
   @Autowired private WorkspaceRepository workspaces;
   @Autowired private OnboardingRepository onboarding;
   @Autowired private OnboardingService onboardingService;
+  @Autowired private ProfileIntelligenceRepository profileIntelligence;
+  @Autowired private ProfileIntelligenceExtractor intelligenceExtractor;
   @Autowired private JdbcTemplate jdbc;
+  @Autowired private MockMvc mvc;
 
   @Test
   void keepsAnonymousWorkspacesIndependentAndActivatesConfirmedProfiles() {
@@ -126,17 +141,184 @@ class WorkspaceOnboardingIntegrationTests {
     assertThat(candidateSkills(firstCandidate)).containsExactly("Java");
     assertThat(candidateSkills(secondCandidate)).containsExactly("AWS");
 
-    assertThatThrownBy(() -> onboardingService.updateSkills(first, List.of("Imaginary Skill")))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("Choose skills from the supported catalog");
+    OnboardingProfile customDraft =
+        onboardingService.updateSkills(first, List.of("Financial Modelling"));
+    assertThat(customDraft.skills()).containsExactly("Financial Modelling");
     assertThat(onboardingService.latest(first).orElseThrow().skills())
-        .containsExactly("Kafka", "Spring Boot");
+        .containsExactly("Financial Modelling");
+    assertThat(profileIntelligence.skillOptions(second, "Financial Modelling")).isEmpty();
 
     long confirmedCandidate = onboardingService.confirm(first);
 
     assertThat(confirmedCandidate).isEqualTo(firstCandidate);
-    assertThat(candidateSkills(firstCandidate)).containsExactly("Kafka", "Spring Boot");
+    assertThat(candidateSkills(firstCandidate)).containsExactly("Financial Modelling");
     assertThat(candidateSkills(secondCandidate)).containsExactly("AWS");
+  }
+
+  @Test
+  void persistsExplainableSuggestionsAndKeepsCustomTaxonomyIdempotentAndPrivate() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    UUID otherWorkspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    workspaces.create(otherWorkspaceId);
+    long resumeId =
+        onboarding.saveResume(workspaceId, "resume.pdf", "application/pdf", 100, "d".repeat(64));
+    long profileId = onboarding.createDraft(workspaceId, resumeId, "Inclusive candidate");
+    var extraction =
+        intelligenceExtractor.extract(
+            """
+            Maria Santos
+            Registered Nurse
+            maria@example.com
+            Professional Summary
+            Patient care and nursing practice.
+            Experience
+            Registered Nurse — Community Hospital
+            Education
+            Bachelor of Nursing
+            """,
+            profileIntelligence.skillDefinitions(workspaceId),
+            profileIntelligence.roleDefinitions(workspaceId));
+    var frontendExtraction =
+        intelligenceExtractor.extract(
+            """
+            Priya Shah
+            priya@example.com
+            Professional Summary
+            Frontend specialist using React.js and TypeScript.
+            Experience
+            Senior Front End Developer — Example Retail
+            Education
+            Bachelor of Design
+            """,
+            profileIntelligence.skillDefinitions(workspaceId),
+            profileIntelligence.roleDefinitions(workspaceId));
+    assertThat(frontendExtraction.skills())
+        .extracting(ProfileIntelligenceExtractor.DetectedSkill::name)
+        .contains("React", "TypeScript");
+    assertThat(frontendExtraction.roles())
+        .extracting(ProfileIntelligenceExtractor.DetectedRole::name)
+        .contains("Frontend Engineer");
+
+    profileIntelligence.saveSuggestions(profileId, extraction);
+    profileIntelligence.saveSuggestions(profileId, extraction);
+    onboarding.addSkills(
+        profileId,
+        extraction.skills().stream()
+            .map(ProfileIntelligenceExtractor.DetectedSkill::name)
+            .toList());
+
+    ProfileIntelligence intelligence = profileIntelligence.intelligence(workspaceId, profileId);
+    assertThat(intelligence.skillSuggestions())
+        .filteredOn(suggestion -> suggestion.name().equals("Nursing"))
+        .singleElement()
+        .satisfies(suggestion -> assertThat(suggestion.evidence()).contains("Registered Nurse"));
+    assertThat(intelligence.roleSuggestions())
+        .filteredOn(suggestion -> suggestion.name().equals("Registered Nurse"))
+        .singleElement()
+        .satisfies(
+            suggestion -> {
+              assertThat(suggestion.evidenceSource()).isEqualTo("RESUME_HEADLINE");
+              assertThat(suggestion.confidence()).isEqualByComparingTo("0.950");
+            });
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM workspace_profile_role_suggestion WHERE profile_version_id=?",
+                Integer.class,
+                profileId))
+        .isEqualTo(1);
+    mvc.perform(
+            get("/setup").cookie(new Cookie(WorkspaceContext.COOKIE_NAME, workspaceId.toString())))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("Search or add a skill")))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("Registered Nurse")))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("Singapore (SG)")));
+    mvc.perform(get("/v3/api-docs"))
+        .andExpect(status().isOk())
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.containsString("/api/candidate-profile/intelligence")))
+        .andExpect(
+            content()
+                .string(org.hamcrest.Matchers.containsString("/api/candidate-profile/countries")));
+
+    onboardingService.completeSetup(
+        workspaceId,
+        List.of("Nursing", "Clinical Documentation"),
+        new SearchPreferences(
+            "Registered Nurse, Clinical Care Lead",
+            "healthcare",
+            "Singapore",
+            "registered nurse",
+            "SG | Singapore",
+            2,
+            "PERMANENT",
+            "ONSITE"));
+    onboardingService.updateSkills(workspaceId, List.of("Nursing", "Clinical Documentation"));
+
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM skill WHERE created_by_workspace_id=? AND canonical_name='Clinical Documentation'",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM role_catalog WHERE created_by_workspace_id=? AND canonical_name='Clinical Care Lead'",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(1);
+    assertThat(profileIntelligence.skillOptions(otherWorkspaceId, "Clinical Documentation"))
+        .isEmpty();
+    assertThat(profileIntelligence.roleOptions(otherWorkspaceId, "Clinical Care Lead")).isEmpty();
+
+    jdbc.update("DELETE FROM workspace WHERE id=?", workspaceId);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM skill WHERE created_by_workspace_id=?",
+                Integer.class,
+                workspaceId))
+        .isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM role_catalog WHERE created_by_workspace_id=?",
+                Integer.class,
+                workspaceId))
+        .isZero();
+  }
+
+  @Test
+  void acceptsAStructurallyValidResumeWhenNoSeededSkillOrRoleMatches() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    byte[] docx =
+        docx(
+            """
+            Jordan Lee
+            jordan@example.com
+            Professional Summary
+            Culinary professional serving community events and private functions.
+            Experience
+            Head Chef — Neighbourhood Kitchen, 2021 - Present
+            Planned menus and supervised daily food preparation.
+            Education
+            Diploma in Culinary Arts
+            """);
+
+    OnboardingProfile profile =
+        onboardingService.upload(
+            workspaceId,
+            new MockMultipartFile(
+                "file",
+                "jordan-resume.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                docx));
+
+    assertThat(profile.status()).isEqualTo("DRAFT");
+    assertThat(profile.skills()).isEmpty();
+    assertThat(onboardingService.intelligence(workspaceId).skillSuggestions()).isEmpty();
+    assertThat(onboardingService.intelligence(workspaceId).roleSuggestions()).isEmpty();
   }
 
   @Test
@@ -152,7 +334,8 @@ class WorkspaceOnboardingIntegrationTests {
                 Duration.ofSeconds(10),
                 20,
                 1,
-                Duration.ZERO));
+                Duration.ZERO),
+            profileIntelligence);
 
     createAndConfirm(configuredOnboarding, workspaceId, "Java Developer", "banking", "Java");
 
@@ -308,5 +491,53 @@ class WorkspaceOnboardingIntegrationTests {
         new SearchPreferences(
             role, domain, "Singapore", skill, "SG | Singapore", 2, "PERMANENT", "HYBRID"));
     return repository.confirm(workspaceId, repository.latestProfile(workspaceId).orElseThrow());
+  }
+
+  private static byte[] docx(String text) throws Exception {
+    var output = new ByteArrayOutputStream();
+    try (var zip = new ZipOutputStream(output)) {
+      writeZipEntry(
+          zip,
+          "[Content_Types].xml",
+          """
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+            <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+            <Default Extension="xml" ContentType="application/xml"/>
+            <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+          </Types>
+          """);
+      writeZipEntry(
+          zip,
+          "_rels/.rels",
+          """
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+            <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+          </Relationships>
+          """);
+      String paragraphs =
+          text.lines()
+              .map(
+                  line ->
+                      "<w:p><w:r><w:t>"
+                          + line.replace("&", "&amp;").replace("<", "&lt;")
+                          + "</w:t></w:r></w:p>")
+              .collect(java.util.stream.Collectors.joining());
+      writeZipEntry(
+          zip,
+          "word/document.xml",
+          "<?xml version=\"1.0\" encoding=\"UTF-8\"?><w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body>"
+              + paragraphs
+              + "</w:body></w:document>");
+    }
+    return output.toByteArray();
+  }
+
+  private static void writeZipEntry(ZipOutputStream zip, String name, String value)
+      throws Exception {
+    zip.putNextEntry(new ZipEntry(name));
+    zip.write(value.getBytes(StandardCharsets.UTF_8));
+    zip.closeEntry();
   }
 }

@@ -3,13 +3,11 @@ package com.ankit.joblens.onboarding;
 import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.tika.Tika;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,10 +23,21 @@ public class OnboardingService {
           "application/x-tika-ooxml");
 
   private final OnboardingRepository repository;
+  private final ProfileIntelligenceRepository intelligenceRepository;
+  private final ProfileIntelligenceExtractor intelligenceExtractor;
+  private final ProviderCountryCatalog countryCatalog;
   private final Tika tika = new Tika();
 
-  public OnboardingService(OnboardingRepository repository) {
+  @Autowired
+  public OnboardingService(
+      OnboardingRepository repository,
+      ProfileIntelligenceRepository intelligenceRepository,
+      ProfileIntelligenceExtractor intelligenceExtractor,
+      ProviderCountryCatalog countryCatalog) {
     this.repository = repository;
+    this.intelligenceRepository = intelligenceRepository;
+    this.intelligenceExtractor = intelligenceExtractor;
+    this.countryCatalog = countryCatalog;
   }
 
   @Transactional
@@ -43,14 +52,11 @@ public class OnboardingService {
       throw new IllegalArgumentException("Resume has too little readable text");
     }
     ResumeTextValidator.validate(text);
-    String lower = text.toLowerCase(Locale.ROOT);
-    var skills =
-        repository.skillCatalog().stream()
-            .filter(skill -> lower.contains(skill.toLowerCase(Locale.ROOT)))
-            .toList();
-    if (skills.isEmpty()) {
-      throw new IllegalArgumentException("No known skills were found; review the resume format");
-    }
+    ProfileIntelligenceExtractor.Extraction extraction =
+        intelligenceExtractor.extract(
+            text,
+            intelligenceRepository.skillDefinitions(workspaceId),
+            intelligenceRepository.roleDefinitions(workspaceId));
     long resumeId =
         repository.saveResume(
             workspaceId,
@@ -61,7 +67,12 @@ public class OnboardingService {
     String summary =
         text.lines().map(String::trim).filter(line -> !line.isBlank()).findFirst().orElse("Resume");
     long profileVersionId = repository.createDraft(workspaceId, resumeId, summary);
-    repository.addSkills(profileVersionId, skills);
+    repository.addSkills(
+        profileVersionId,
+        extraction.skills().stream()
+            .map(ProfileIntelligenceExtractor.DetectedSkill::name)
+            .toList());
+    intelligenceRepository.saveSuggestions(profileVersionId, extraction);
     return repository.latestProfile(workspaceId).orElseThrow();
   }
 
@@ -73,8 +84,24 @@ public class OnboardingService {
     return repository.preferences(workspaceId);
   }
 
-  public List<String> skillCatalog() {
-    return repository.skillCatalog();
+  public List<SkillOption> skillOptions(UUID workspaceId, String query) {
+    return intelligenceRepository.skillOptions(workspaceId, query);
+  }
+
+  public List<RoleOption> roleOptions(UUID workspaceId, String query) {
+    return intelligenceRepository.roleOptions(workspaceId, query);
+  }
+
+  public List<IntegratedCountry> countries() {
+    return countryCatalog.countries();
+  }
+
+  public ProfileIntelligence intelligence(UUID workspaceId) {
+    OnboardingProfile profile =
+        repository
+            .latestProfile(workspaceId)
+            .orElseThrow(() -> new IllegalStateException("Upload a valid resume first"));
+    return intelligenceRepository.intelligence(workspaceId, profile.id());
   }
 
   @Transactional
@@ -83,7 +110,8 @@ public class OnboardingService {
         repository
             .latestProfile(workspaceId)
             .orElseThrow(() -> new IllegalStateException("Upload a valid resume first"));
-    List<String> skills = canonicalSkills(requestedSkills);
+    List<String> skills =
+        intelligenceRepository.resolveOrCreateSkills(workspaceId, requestedSkills);
     if (skills.isEmpty()) {
       throw new IllegalArgumentException("Select at least one skill");
     }
@@ -115,7 +143,8 @@ public class OnboardingService {
   public long completeSetup(
       UUID workspaceId, List<String> requestedSkills, SearchPreferences preferences) {
     validatePreferences(preferences);
-    List<String> skills = canonicalSkills(requestedSkills);
+    List<String> skills =
+        intelligenceRepository.resolveOrCreateSkills(workspaceId, requestedSkills);
     if (skills.isEmpty()) {
       throw new IllegalArgumentException("Select at least one skill");
     }
@@ -167,35 +196,7 @@ public class OnboardingService {
     return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
   }
 
-  private List<String> canonicalSkills(List<String> requestedSkills) {
-    if (requestedSkills == null) {
-      return List.of();
-    }
-    Map<String, String> catalog = new LinkedHashMap<>();
-    repository.skillCatalog().forEach(skill -> catalog.put(skill.toLowerCase(Locale.ROOT), skill));
-    List<String> normalized =
-        requestedSkills.stream()
-            .filter(java.util.Objects::nonNull)
-            .map(String::trim)
-            .filter(skill -> !skill.isBlank())
-            .map(skill -> catalog.get(skill.toLowerCase(Locale.ROOT)))
-            .filter(java.util.Objects::nonNull)
-            .distinct()
-            .toList();
-    long unknownCount =
-        requestedSkills.stream()
-            .filter(java.util.Objects::nonNull)
-            .map(String::trim)
-            .filter(skill -> !skill.isBlank())
-            .filter(skill -> !catalog.containsKey(skill.toLowerCase(Locale.ROOT)))
-            .count();
-    if (unknownCount > 0) {
-      throw new IllegalArgumentException("Choose skills from the supported catalog");
-    }
-    return normalized;
-  }
-
-  private static void validatePreferences(SearchPreferences preferences) {
+  private void validatePreferences(SearchPreferences preferences) {
     if (preferences == null
         || preferences.targetRoles().isBlank()
         || preferences.targetDomains().isBlank()
@@ -208,6 +209,6 @@ public class OnboardingService {
     if (preferences.maxPages() < 1 || preferences.maxPages() > 20) {
       throw new IllegalArgumentException("Maximum pages must be between 1 and 20");
     }
-    preferences.targets();
+    preferences.targets().forEach(target -> countryCatalog.requireSupported(target.countryCode()));
   }
 }

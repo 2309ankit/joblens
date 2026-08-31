@@ -17,13 +17,13 @@ public class SkillCatalogService {
   public Map<String, SkillDefinition> load() {
     Map<String, SkillDefinition> result = new LinkedHashMap<>();
     jdbc.query(
-        "SELECT id, canonical_name FROM skill",
+        "SELECT id, canonical_name FROM skill WHERE created_by_workspace_id IS NULL",
         rs -> {
           var skill = new SkillDefinition(rs.getLong("id"), rs.getString("canonical_name"));
           result.put(key(skill.name()), skill);
         });
     jdbc.query(
-        "SELECT a.alias_name, s.id, s.canonical_name FROM skill_alias a JOIN skill s ON s.id=a.skill_id",
+        "SELECT a.alias_name, s.id, s.canonical_name FROM skill_alias a JOIN skill s ON s.id=a.skill_id WHERE s.created_by_workspace_id IS NULL",
         rs -> {
           var skill = new SkillDefinition(rs.getLong("id"), rs.getString("canonical_name"));
           result.put(key(rs.getString("alias_name")), skill);
