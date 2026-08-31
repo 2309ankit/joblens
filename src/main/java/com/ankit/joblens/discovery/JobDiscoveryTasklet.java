@@ -25,18 +25,21 @@ public class JobDiscoveryTasklet implements Tasklet {
   private final AdzunaProperties properties;
   private final String requestedProfileId;
   private final UUID workspaceId;
+  private final FailureReasonSanitizer failureReasons;
 
   public JobDiscoveryTasklet(
       DiscoveryPersistenceService persistence,
       List<JobSourceClient> clients,
       AdzunaProperties properties,
       String requestedProfileId,
-      String workspaceId) {
+      String workspaceId,
+      FailureReasonSanitizer failureReasons) {
     this.persistence = persistence;
     this.clients = clients;
     this.properties = properties;
     this.requestedProfileId = requestedProfileId;
     this.workspaceId = workspaceId == null ? null : UUID.fromString(workspaceId);
+    this.failureReasons = failureReasons;
   }
 
   @Override
@@ -124,7 +127,7 @@ public class JobDiscoveryTasklet implements Tasklet {
           profile.profileId(),
           nextPage,
           jobExecutionId,
-          failure.getMessage());
+          failureReasons.sanitize(failure));
       throw failure;
     }
   }

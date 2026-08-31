@@ -87,6 +87,7 @@ The generated project currently contains:
 | 25 | Workspace ownership and isolation work           | COMPLETE    |
 | 26 | Workspace resume skill review works              | COMPLETE    |
 | 27 | Lifecycle and follow-up Thymeleaf controls work  | COMPLETE    |
+| 28 | Source health and run observability works       | COMPLETE    |
 
 ## Verified Evidence
 
@@ -239,7 +240,9 @@ and this file remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-No implementation milestone is active. Optional product choices are original-resume object storage, schedules/notifications, verified additional public source APIs, optional login/cross-device recovery, and data-backed scoring calibration.
+No implementation milestone is active. The next indexed option is M2, one verified public ATS source
+adapter at a time. Ranking calibration, original-resume object storage, schedules/notifications, and
+login/cross-device recovery remain separate product choices.
 
 ## Profile Review and Lifecycle UI Evidence
 
@@ -334,6 +337,33 @@ LinkedIn encoding, provider grouping, and regional SEEK URLs. Final verification
 Singapore workspace dashboard rendered 12 **Open search** actions, four occurrences of each of the
 three intent labels, and the expected visible primary LinkedIn query: `"Senior Java Developer" AND
 ("banking" OR "payments")`.
+
+## Source Health and Run Observability Evidence
+
+Flyway V15 adds new/changed/unchanged counters to `source_fetch_run` and an immutable
+`workspace_search_source_run` snapshot owned by each workspace run. The snapshot is necessary because
+a later idempotent raw upsert legitimately moves a landing row to its newest fetch run; historical run
+evidence must not change with it. All reusable SQL remains externalized and is executed through
+`NamedParameterJdbcTemplate`.
+
+`GET /api/batch/find-jobs/runs/{jobExecutionId}` exposes source profile, status, attempted and fetched
+pages, received/new/changed/unchanged counts, raw/normalized/sighted/scored totals, and bounded redacted
+failure text. The dashboard renders the same latest-run summary and a restart action. A mixed result is
+reported as JobLens outcome `PARTIAL`, while Spring Batch truthfully remains `FAILED`; completed chunks
+and source checkpoints stay committed. `POST /api/batch/find-jobs/runs/{jobExecutionId}/restart`
+requires workspace ownership, rejects non-failed executions, and resumes the same JobInstance.
+
+Focused MockWebServer and PostgreSQL Testcontainers verification covered successful and empty sources,
+new/changed/unchanged accounting, transient exhaustion, partial failure, immutable inspection,
+workspace isolation, and restart of only the unfinished Greenhouse source without another Adzuna
+request. Existing Adzuna client tests retain missing-credential and bounded transient-retry coverage.
+The sanitizer test proves named secrets and Jooble key path segments are redacted.
+
+Final verification on 2026-08-31: `./mvnw clean test` completed with 74 tests, 0 failures, 0 errors,
+and 0 skipped. Flyway applied all 15 migrations to fresh PostgreSQL 17 Testcontainers databases;
+`spotless:apply` and `git diff --check` completed without errors.
+The packaged Compose image was rebuilt and recreated; actuator health returned `UP`, PostgreSQL
+reported Flyway `15:true`, and live `/v3/api-docs` exposed the owned run-detail and restart operations.
 
 Final verification on 2026-08-30:
 

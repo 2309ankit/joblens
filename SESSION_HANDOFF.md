@@ -9,14 +9,14 @@ future work is indexed in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
-Implementation baseline: f69e547 feat(discovery): add optional jooble source
+Implementation baseline: M1 source health and run observability (this handoff commit)
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V14
-Latest full test: 71 tests, 0 failures, 0 errors, 0 skipped
-Latest Docker check: actuator health UP, Flyway version 14
+Latest Flyway migration: V15
+Latest full test: 74 tests, 0 failures, 0 errors, 0 skipped
+Latest Docker check: actuator health UP, Flyway version 15, M1 OpenAPI operations present
 ```
 
 Before making changes:
@@ -117,7 +117,7 @@ search profile.
 
 ## 5. Data and processing decisions
 
-- Flyway V1-V14 owns application and Spring Batch metadata schemas.
+- Flyway V1-V15 owns application and Spring Batch metadata schemas.
 - Spring JDBC is used; JPA and Lombok are intentionally absent.
 - Complex or reused SQL lives under `src/main/resources/sql/` and is loaded with named parameters.
 - Original resume bytes are not stored. Only validated metadata, extracted text-derived profile data,
@@ -143,6 +143,8 @@ Useful APIs:
 ```text
 POST /find-jobs
 GET  /api/batch/find-jobs/runs
+GET  /api/batch/find-jobs/runs/{jobExecutionId}
+POST /api/batch/find-jobs/runs/{jobExecutionId}/restart
 GET  /api/jobs
 GET  /api/jobs/{id}
 GET  /api/duplicates
@@ -167,7 +169,7 @@ src/main/java/com/ankit/joblens/
   dashboard/      Thymeleaf controllers and view tracking
 
 src/main/resources/
-  db/migration/   Flyway V1-V14
+  db/migration/   Flyway V1-V15
   sql/            externalized SQL grouped by feature
   templates/      setup, dashboard, applications
 ```
@@ -199,7 +201,8 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 
 ## 10. Handoff rule
 
-M0 Jooble live acceptance, M0.5 Portal Search Hub, and M0.6 Smart Portal Query Planner are complete.
-M1 source health and run observability is the recommended next coding milestone.
+M0 Jooble live acceptance, M0.5 Portal Search Hub, M0.6 Smart Portal Query Planner, and M1 source
+health/run observability are complete. M2 public ATS source expansion is the next indexed option, but
+requires a provider contract/design gate before implementation.
 Choose one entry from [NEXT_MILESTONES.md](NEXT_MILESTONES.md), define its observable acceptance
 criteria, implement only that slice, finish with `./mvnw clean test`, update evidence, and commit it.

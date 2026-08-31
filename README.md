@@ -43,7 +43,7 @@ intelligence   normalization, skills, duplicate detection, candidate profile, an
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source to the source constraints.
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -85,6 +85,10 @@ Environment variables override these values. Never commit real credentials; `.en
 4. Enter target roles, domains, location, keywords, and page limit. JobLens searches Adzuna and, when `JOOBLE_API_KEY` is configured, Jooble. If one exposes an official Greenhouse-hosted job URL, JobLens extracts the board identifier, validates it internally using the documented public [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html), and searches it—no provider token or Greenhouse credential is requested from you.
 5. Confirm the draft. Confirmation versions the profile and activates candidate skills, preferences, and runnable source definitions. If you add `JOOBLE_API_KEY` later, save and confirm preferences once more to activate its source profile.
 6. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
+   The **Latest source run** panel then shows each source's status, attempted/fetched pages, received and
+   new/changed/unchanged records, raw/normalized/sighted/scored totals, and any safe failure reason.
+   If a later source fails, earlier results remain available and the panel reports `PARTIAL` with a
+   **Restart failed run** button.
 7. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
 8. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
 
@@ -95,6 +99,26 @@ Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** doc
 `findJobsJob` is the normal user flow: discovery from Adzuna and configured Jooble (including safe Greenhouse board enrichment when an official URL is exposed), normalization, skills, exact/fuzzy duplicate analysis, and workspace candidate scoring in six ordered steps. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
 Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
+
+Find-jobs source health is also available in Swagger or with curl. The detail endpoint accepts only a
+run owned by the current browser workspace cookie:
+
+```bash
+curl -c joblens-cookie.txt -b joblens-cookie.txt \
+  http://localhost:8080/api/batch/find-jobs/runs
+
+curl -c joblens-cookie.txt -b joblens-cookie.txt \
+  http://localhost:8080/api/batch/find-jobs/runs/{jobExecutionId}
+
+curl -X POST -c joblens-cookie.txt -b joblens-cookie.txt \
+  http://localhost:8080/api/batch/find-jobs/runs/{jobExecutionId}/restart
+```
+
+`PARTIAL` is a JobLens inspection outcome, not a fake successful Batch status. It means at least one
+source completed or returned an honest empty result before another source failed. The Batch execution
+stays `FAILED`, its committed source results remain visible, and restart resumes the unfinished source
+checkpoint before continuing normalization and scoring. Stored and displayed failures are bounded and
+redacted; credentials and provider response bodies are not retained in run errors.
 
 ## Operator CSV import
 

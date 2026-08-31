@@ -3,6 +3,7 @@ package com.ankit.joblens.discovery;
 import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
 import com.ankit.joblens.searchprofile.SearchProfile;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -17,14 +18,17 @@ public class DiscoveryPersistenceService {
   private final NamedParameterJdbcTemplate jdbc;
   private final GreenhouseBoardDetector greenhouseBoardDetector;
   private final SourceBoardRepository sourceBoards;
+  private final FailureReasonSanitizer failureReasons;
 
   public DiscoveryPersistenceService(
       NamedParameterJdbcTemplate jdbc,
       GreenhouseBoardDetector greenhouseBoardDetector,
-      SourceBoardRepository sourceBoards) {
+      SourceBoardRepository sourceBoards,
+      FailureReasonSanitizer failureReasons) {
     this.jdbc = jdbc;
     this.greenhouseBoardDetector = greenhouseBoardDetector;
     this.sourceBoards = sourceBoards;
+    this.failureReasons = failureReasons;
   }
 
   public SearchProfile findNextActiveProfile(
@@ -110,7 +114,32 @@ public class DiscoveryPersistenceService {
               + page.page());
     }
 
+    int newCount = 0;
+    int changedCount = 0;
+    int unchangedCount = 0;
     if (!page.jobs().isEmpty()) {
+      Map<String, String> existingHashes = new HashMap<>();
+      jdbc.query(
+              load("sql/discovery/find-existing-page-jobs.sql"),
+              new MapSqlParameterSource()
+                  .addValue("source", profile.source())
+                  .addValue(
+                      "externalJobIds",
+                      page.jobs().stream().map(RawSourceJob::externalJobId).toList()),
+              (resultSet, rowNumber) ->
+                  Map.entry(
+                      resultSet.getString("external_job_id"), resultSet.getString("payload_hash")))
+          .forEach(entry -> existingHashes.put(entry.getKey(), entry.getValue()));
+      for (RawSourceJob job : page.jobs()) {
+        String existingHash = existingHashes.get(job.externalJobId());
+        if (existingHash == null) {
+          newCount++;
+        } else if (existingHash.equals(job.payloadHash())) {
+          unchangedCount++;
+        } else {
+          changedCount++;
+        }
+      }
       var batch =
           page.jobs().stream()
               .map(
@@ -147,15 +176,14 @@ public class DiscoveryPersistenceService {
 
     jdbc.update(
         load("sql/discovery/update-fetch-run-page.sql"),
-        Map.of(
-            "recordCount",
-            page.jobs().size(),
-            "nextPage",
-            page.page() + 1,
-            "jobExecutionId",
-            jobExecutionId,
-            "fetchRunId",
-            fetchRunId));
+        new MapSqlParameterSource()
+            .addValue("recordCount", page.jobs().size())
+            .addValue("newCount", newCount)
+            .addValue("changedCount", changedCount)
+            .addValue("unchangedCount", unchangedCount)
+            .addValue("nextPage", page.page() + 1)
+            .addValue("jobExecutionId", jobExecutionId)
+            .addValue("fetchRunId", fetchRunId));
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -169,13 +197,7 @@ public class DiscoveryPersistenceService {
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void failFetchRun(
       long fetchRunId, SearchProfile profile, long jobExecutionId, Throwable failure) {
-    String reason =
-        failure.getClass().getSimpleName()
-            + ": "
-            + (failure.getMessage() == null ? "No failure message" : failure.getMessage());
-    if (reason.length() > 2000) {
-      reason = reason.substring(0, 2000);
-    }
+    String reason = failureReasons.sanitize(failure);
     jdbc.update(
         load("sql/discovery/fail-fetch-run.sql"),
         Map.of("reason", reason, "jobExecutionId", jobExecutionId, "fetchRunId", fetchRunId));

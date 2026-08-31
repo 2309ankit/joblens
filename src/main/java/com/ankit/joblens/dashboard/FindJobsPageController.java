@@ -49,4 +49,21 @@ public class FindJobsPageController {
     }
     return "redirect:/dashboard";
   }
+
+  @PostMapping("/find-jobs/runs/{jobExecutionId}/restart")
+  public String restart(
+      @org.springframework.web.bind.annotation.PathVariable long jobExecutionId,
+      HttpServletRequest request,
+      HttpServletResponse response,
+      RedirectAttributes redirectAttributes) {
+    UUID workspaceId = workspaceContext.resolve(request, response);
+    try {
+      var execution = service.restart(workspaceId, jobExecutionId);
+      redirectAttributes.addFlashAttribute(
+          "message", "Find jobs restart finished with " + execution.getStatus() + ".");
+    } catch (JobExecutionException | RuntimeException exception) {
+      redirectAttributes.addFlashAttribute("error", exception.getMessage());
+    }
+    return "redirect:/dashboard";
+  }
 }

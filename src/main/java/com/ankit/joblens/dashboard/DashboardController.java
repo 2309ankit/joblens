@@ -2,6 +2,7 @@ package com.ankit.joblens.dashboard;
 
 import static com.ankit.joblens.jdbc.ClasspathSql.load;
 
+import com.ankit.joblens.discovery.FindJobsService;
 import com.ankit.joblens.onboarding.OnboardingService;
 import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
 import com.ankit.joblens.workspace.WorkspaceContext;
@@ -21,18 +22,21 @@ public class DashboardController {
   private final WorkspaceCandidateProfileService candidateProfiles;
   private final OnboardingService onboarding;
   private final PortalSearchLinkFactory portalSearchLinks;
+  private final FindJobsService findJobs;
 
   public DashboardController(
       NamedParameterJdbcTemplate jdbc,
       WorkspaceContext workspaceContext,
       WorkspaceCandidateProfileService candidateProfiles,
       OnboardingService onboarding,
-      PortalSearchLinkFactory portalSearchLinks) {
+      PortalSearchLinkFactory portalSearchLinks,
+      FindJobsService findJobs) {
     this.jdbc = jdbc;
     this.workspaceContext = workspaceContext;
     this.candidateProfiles = candidateProfiles;
     this.onboarding = onboarding;
     this.portalSearchLinks = portalSearchLinks;
+    this.findJobs = findJobs;
   }
 
   @GetMapping({"/", "/dashboard"})
@@ -47,6 +51,7 @@ public class DashboardController {
     Map<String, Object> parameters =
         Map.of("candidateProfileId", candidateProfileId, "workspaceId", workspaceId);
     model.addAttribute("businessDate", java.time.LocalDate.now());
+    findJobs.latest(workspaceId).ifPresent(run -> model.addAttribute("latestSearchRun", run));
     onboarding
         .preferences(workspaceId)
         .ifPresent(

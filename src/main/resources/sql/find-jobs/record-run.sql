@@ -9,3 +9,4 @@ ON CONFLICT (job_execution_id)
 DO UPDATE SET status = EXCLUDED.status,
               completed_at = EXCLUDED.completed_at,
               failure_reason = EXCLUDED.failure_reason
+RETURNING id

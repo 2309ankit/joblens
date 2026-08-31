@@ -2,6 +2,7 @@ package com.ankit.joblens.discovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.ankit.joblens.onboarding.OnboardingRepository;
 import com.ankit.joblens.onboarding.SearchPreferences;
@@ -69,6 +70,7 @@ class FindJobsIntegrationTests {
     registry.add("joblens.adzuna.max-pages", () -> "2");
     registry.add("joblens.adzuna.retry-backoff", () -> "1ms");
     registry.add("joblens.greenhouse.base-url", () -> GREENHOUSE.url("/").toString());
+    registry.add("joblens.greenhouse.retry-attempts", () -> "1");
     registry.add("joblens.greenhouse.retry-backoff", () -> "1ms");
   }
 
@@ -135,11 +137,107 @@ class FindJobsIntegrationTests {
     assertThat(findJobs.runs(workspaceId))
         .singleElement()
         .satisfies(run -> assertThat(run).containsEntry("status", "COMPLETED"));
+    FindJobsRunDetail detail = findJobs.detail(workspaceId, execution.getId()).orElseThrow();
+    assertThat(detail.run().outcome()).isEqualTo("COMPLETED");
+    assertThat(detail.sources())
+        .extracting(SourceRunSummary::source, SourceRunSummary::status)
+        .containsExactly(tuple("ADZUNA", "COMPLETED"), tuple("GREENHOUSE", "COMPLETED"));
+    assertThat(detail.sources())
+        .allSatisfy(
+            source -> {
+              assertThat(source.recordsReceived()).isEqualTo(1);
+              assertThat(source.newRecords()).isEqualTo(1);
+              assertThat(source.normalizedRecords()).isEqualTo(1);
+              assertThat(source.scoredRecords()).isEqualTo(1);
+            });
+    UUID otherWorkspace = UUID.randomUUID();
+    workspaces.create(otherWorkspace);
+    assertThat(findJobs.detail(otherWorkspace, execution.getId())).isEmpty();
 
     assertThatThrownBy(
             () -> findJobs.run(workspaceId, candidateProfileId, LocalDate.of(2060, 1, 1)))
         .isInstanceOf(JobInstanceAlreadyCompleteException.class);
     assertThat(countSightings(workspaceId)).isEqualTo(2);
+
+    ADZUNA.enqueue(
+        response(
+            "ONE-1",
+            "https://job-boards.greenhouse.io/examplebank/jobs/987",
+            "Principal Java Engineer"));
+    GREENHOUSE.enqueue(greenhouseResponse());
+    JobExecution changedExecution =
+        findJobs.run(workspaceId, candidateProfileId, LocalDate.of(2060, 1, 5));
+    FindJobsRunDetail changed =
+        findJobs.detail(workspaceId, changedExecution.getId()).orElseThrow();
+    assertThat(changed.sources().get(0).changedRecords()).isEqualTo(1);
+    assertThat(changed.sources().get(0).newRecords()).isZero();
+    assertThat(changed.sources().get(1).unchangedRecords()).isEqualTo(1);
+    assertThat(countSightings(workspaceId)).isEqualTo(2);
+  }
+
+  @Test
+  void reportsPartialSourceFailureAndRestartsOnlyTheUnfinishedSource() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    long candidateProfileId = confirm(workspaceId, "3");
+    ADZUNA.enqueue(response("PARTIAL-1", "https://job-boards.greenhouse.io/retrybank/jobs/987"));
+    GREENHOUSE.enqueue(
+        new MockResponse()
+            .setResponseCode(503)
+            .setBody("api_key=must-not-be-persisted provider unavailable"));
+
+    int adzunaRequestsBefore = ADZUNA.getRequestCount();
+    JobExecution failed = findJobs.run(workspaceId, candidateProfileId, LocalDate.of(2060, 1, 3));
+
+    assertThat(failed.getStatus()).isEqualTo(BatchStatus.FAILED);
+    FindJobsRunDetail partial = findJobs.detail(workspaceId, failed.getId()).orElseThrow();
+    assertThat(partial.run().outcome()).isEqualTo("PARTIAL");
+    assertThat(partial.sources())
+        .extracting(SourceRunSummary::source, SourceRunSummary::status)
+        .containsExactly(tuple("ADZUNA", "COMPLETED"), tuple("GREENHOUSE", "FAILED"));
+    assertThat(partial.sources().get(1).failureReason())
+        .contains("Transient Greenhouse HTTP status 503")
+        .doesNotContain("must-not-be-persisted");
+    assertThat(partial.sources().get(1).pagesAttempted()).isEqualTo(1);
+    assertThat(partial.sources().get(1).pagesFetched()).isZero();
+    assertThat(countSightings(workspaceId)).isEqualTo(1);
+
+    GREENHOUSE.enqueue(greenhouseResponse("retrybank"));
+    JobExecution restarted = findJobs.restart(workspaceId, failed.getId());
+
+    assertThat(restarted.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(restarted.getJobInstanceId()).isEqualTo(failed.getJobInstanceId());
+    assertThat(ADZUNA.getRequestCount()).isEqualTo(adzunaRequestsBefore + 1);
+    FindJobsRunDetail completed = findJobs.detail(workspaceId, restarted.getId()).orElseThrow();
+    assertThat(completed.run().outcome()).isEqualTo("COMPLETED");
+    assertThat(completed.sources())
+        .extracting(SourceRunSummary::status)
+        .containsExactly("COMPLETED", "COMPLETED");
+    assertThat(countSightings(workspaceId)).isEqualTo(2);
+  }
+
+  @Test
+  void reportsACompletedSourceWithNoResultsAsEmpty() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    long candidateProfileId = confirm(workspaceId, "4");
+    ADZUNA.enqueue(
+        new MockResponse()
+            .setHeader("Content-Type", "application/json")
+            .setBody("{\"count\":0,\"results\":[]}"));
+
+    JobExecution execution =
+        findJobs.run(workspaceId, candidateProfileId, LocalDate.of(2060, 1, 4));
+
+    FindJobsRunDetail detail = findJobs.detail(workspaceId, execution.getId()).orElseThrow();
+    assertThat(detail.run().outcome()).isEqualTo("COMPLETED");
+    assertThat(detail.sources())
+        .singleElement()
+        .satisfies(
+            source -> {
+              assertThat(source.status()).isEqualTo("EMPTY");
+              assertThat(source.pagesFetched()).isEqualTo(1);
+              assertThat(source.recordsReceived()).isZero();
+              assertThat(source.rawRecords()).isZero();
+            });
   }
 
   @Test
@@ -210,12 +308,16 @@ class FindJobsIntegrationTests {
   }
 
   private static MockResponse response(String id, String sourceUrl) {
+    return response(id, sourceUrl, "Senior Java Engineer");
+  }
+
+  private static MockResponse response(String id, String sourceUrl, String title) {
     return new MockResponse()
         .setHeader("Content-Type", "application/json")
         .setBody(
             """
             {"count":1,"results":[{
-              "id":"%s","title":"Senior Java Engineer",
+              "id":"%s","title":"%s",
               "company":{"display_name":"Example Bank"},
               "location":{"display_name":"Singapore"},
               "description":"<p>Java Spring Boot Kafka payments</p>",
@@ -223,10 +325,14 @@ class FindJobsIntegrationTests {
               "redirect_url":"%s"
             }]}
             """
-                .formatted(id, sourceUrl));
+                .formatted(id, title, sourceUrl));
   }
 
   private static MockResponse greenhouseResponse() {
+    return greenhouseResponse("examplebank");
+  }
+
+  private static MockResponse greenhouseResponse(String board) {
     return new MockResponse()
         .setHeader("Content-Type", "application/json")
         .setBody(
@@ -236,8 +342,9 @@ class FindJobsIntegrationTests {
               "location":{"name":"Singapore"},
               "content":"<p>Java Spring Boot payments platform</p>",
               "updated_at":"2026-08-30T00:00:00Z",
-              "absolute_url":"https://job-boards.greenhouse.io/examplebank/jobs/987"
+              "absolute_url":"https://job-boards.greenhouse.io/%s/jobs/987"
             }]}
-            """);
+            """
+                .formatted(board));
   }
 }

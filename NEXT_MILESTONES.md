@@ -20,7 +20,7 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 | 0 | Jooble live acceptance — COMPLETE | Proved the source against real Singapore responses | Regional API key configured |
 | 0.5 | Portal Search Hub — COMPLETE | Open preference-filled official portal searches without scraping | None |
 | 0.6 | Smart Portal Query Planner — COMPLETE | Combine roles, sectors, and resume technologies into focused searches | None |
-| 1 | Source health and run observability | Make missing credentials, quota failures, source counts, and partial results clear in the UI | None for mocked tests |
+| 1 | Source health and run observability — COMPLETE | Makes missing credentials, quota failures, source counts, and partial results clear in the UI | None for mocked tests |
 | 2 | Public ATS source expansion | Increase legitimate coverage through verified public company-board APIs | Provider contract and board discovery strategy |
 | 3 | Ranking calibration workflow | Improve relevance using reviewed decisions instead of guessed weights | User-reviewed job examples |
 | 4 | Original resume storage | Retain the uploaded source document through a storage abstraction | Storage choice and retention policy |
@@ -67,7 +67,7 @@ three intentions across four regional portals produce twelve links without impor
 
 ## M1 — Source health and run observability
 
-Recommended next coding milestone.
+Status: complete on 2026-08-31.
 
 Goal: show what each source did during a Find-jobs run so users understand whether results are empty,
 partial, unavailable, or successful.
@@ -86,6 +86,12 @@ Proposed acceptance criteria:
   transient exhaustion, partial failure, restart, and workspace isolation.
 
 Out of scope: adding another provider, scheduling, notifications, or changing scoring.
+
+Implemented policy: a provider failure keeps the Spring Batch execution `FAILED` and restartable. The
+workspace run view reports `PARTIAL` only when another source already completed or returned an honest
+empty result. Immutable per-execution source snapshots preserve attempted/fetched pages,
+received/new/changed/unchanged records, derived counts, and sanitized failures even when later runs
+update the landing rows.
 
 ## M2 — Public ATS source expansion
 

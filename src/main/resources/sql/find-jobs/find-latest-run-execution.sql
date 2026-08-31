@@ -1,0 +1,5 @@
+SELECT job_execution_id
+FROM workspace_search_run
+WHERE workspace_id = :workspaceId
+ORDER BY id DESC
+LIMIT 1
