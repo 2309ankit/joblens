@@ -15,8 +15,8 @@ Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V17
-Latest full test: 84 tests, 0 failures, 0 errors, 0 skipped
-Latest Docker check: health UP, Flyway 17, target backfill and preference OpenAPI verified
+Latest full test: 88 tests, 0 failures, 0 errors, 0 skipped
+Latest Docker check: health UP, Flyway 17, both setup states and resume OpenAPI verified
 ```
 
 Before making changes:
@@ -37,9 +37,6 @@ Read [AGENTS.md](AGENTS.md), then select exactly one milestone from
   → upload PDF/DOC/DOCX and reject job/interview documents without resume structure
   → review skills, current city, and structured desired-market rows in one form
   → save and activate the reviewed profile in one transaction
-  → review extracted skills
-  → save job preferences
-  → confirm versioned candidate profile
 
 /dashboard
   → Find and rank jobs
@@ -207,12 +204,33 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Fuzzy thresholds and scoring weights need reviewed real-world calibration.
 - Original resume storage, schedules, and external notifications are not implemented.
 - Market insights are shared market-level projections rather than private workspace projections.
+- The seeded skill catalogue is strongly Java/backend-oriented. A structurally valid non-IT resume
+  can still be rejected when it contains no catalogued skill, frontend skills are incomplete, and
+  target roles are not extracted from resume experience.
+- Setup exposes ISO country-code input instead of a country-name selector, and target roles are plain
+  comma-separated text rather than detected, searchable, creatable selections.
+- Java repositories explicitly reference SQL resource paths. SQL is correctly externalized, but
+  those string paths are runtime-checked and should gain a typed, startup-validated registry.
 
 ## 10. Handoff rule
 
 M0 Jooble live acceptance, M0.5 Portal Search Hub, M0.6 Smart Portal Query Planner, M1 source
 health/run observability, M2 Lever, and M2.5 normalized multi-market preferences are complete. M3
-ranking calibration is the next recommended product option. React migration remains a separate
-presentation-layer decision now that the backend preference model is correct.
-Choose one entry from [NEXT_MILESTONES.md](NEXT_MILESTONES.md), define its observable acceptance
-criteria, implement only that slice, finish with `./mvnw clean test`, update evidence, and commit it.
+ranking calibration remains indexed but is no longer next. The user selected this exact order:
+
+```text
+M2.6 Inclusive Profile Intelligence
+  → STOP, demonstrate it, and ask the user for approval
+M2.7 Explainable ATS Readiness Advisor
+  → STOP, demonstrate it, and ask the user for approval
+M2.8 Typed SQL Resource Registry
+  → STOP and review what comes next with the user
+```
+
+Do not combine these modules and do not silently advance from one to another. At each boundary,
+finish tests, evidence, documentation, and a conventional commit, then explicitly ask the user before
+starting the next module. React migration remains a later, separate presentation-layer decision.
+
+The next session should begin with M2.6 only. Before coding, inspect the existing V5 skill seed,
+`OnboardingService`, profile/version tables, setup form, skill extraction/scoring, and source country
+capabilities. Agree on M2.6 acceptance details with the user if any material choice remains.

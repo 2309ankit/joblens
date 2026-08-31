@@ -12,6 +12,8 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 5. Require restartability, idempotency, PostgreSQL Testcontainers, REST/UI inspection, and documented
    evidence when the milestone contains Batch work.
 6. Do not bundle login, storage, scheduling, source expansion, and scoring into one change.
+7. Stop after every selected module, show its evidence, and obtain explicit user approval before
+   beginning the next module.
 
 ## Recommended order
 
@@ -23,6 +25,9 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 | 1 | Source health and run observability — COMPLETE | Makes missing credentials, quota failures, source counts, and partial results clear in the UI | None for mocked tests |
 | 2 | Lever public ATS source — COMPLETE | Adds legitimate employer-direct listings through a verified public API | None; direct official board URL required |
 | 2.5 | Normalized multi-market preferences — COMPLETE | Fixes country/location fan-out before any frontend migration | None |
+| 2.6 | Inclusive Profile Intelligence | Remove the backend/IT bias and provide assisted roles, skills, and countries | Curated starter taxonomy and user review |
+| 2.7 | Explainable ATS Readiness Advisor | Give non-blocking, evidence-based resume improvement guidance | M2.6 complete and user approval |
+| 2.8 | Typed SQL Resource Registry | Remove fragile SQL-path strings while retaining Spring JDBC | M2.7 complete and user approval |
 | 3 | Ranking calibration workflow | Improve relevance using reviewed decisions instead of guessed weights | User-reviewed job examples |
 | 4 | Original resume storage | Retain the uploaded source document through a storage abstraction | Storage choice and retention policy |
 | 5 | Scheduling and notifications | Automate proven manual jobs and follow-ups | Delivery channel and frequency choices |
@@ -139,6 +144,91 @@ profiles, pagination, source-run evidence, and restarts remain independent. Scor
 confirmed market with a specific explanation, and outbound portal links follow selected markets
 instead of showing hardcoded countries. This fixes the backend model before any React work.
 
+## M2.6 — Inclusive Profile Intelligence
+
+Goal: remove the Java/backend bias from resume onboarding while keeping extraction deterministic,
+explainable, normalized, and user-controlled.
+
+Confirmed design direction:
+
+- Resume structure determines whether a document is readable as a resume; absence of a known skill
+  must not reject a structurally valid non-IT resume.
+- Expand the normalized skill taxonomy beyond backend engineering, including a strong frontend set,
+  aliases, and categories that can evolve without one enormous hardcoded list.
+- Extract job-title suggestions from resume headings and recent experience with evidence/confidence.
+  Suggestions are never silently treated as facts.
+- Replace the full skill checkbox grid with searchable detected-skill chips plus catalogue search and
+  an explicit path for user additions.
+- Replace comma-separated target roles with a searchable, multi-select, creatable role control.
+  Detected titles appear first; the user can correct, remove, or add roles.
+- Replace manual ISO country-code entry with a country-name dropdown. The application stores the ISO
+  alpha-2 code internally and keeps city/region as provider-facing free text.
+- Country choices must follow an explicit provider-capability catalogue; do not offer a country as an
+  integrated search market when no configured source supports it without explaining the limitation.
+- Preserve versioned draft-before-activation behavior, workspace isolation, normalized market rows,
+  deterministic scoring, and the existing combined activation transaction.
+
+Acceptance must include Flyway where the normalized taxonomy/role model requires it, frontend and
+non-IT extraction examples, title-suggestion evidence, dropdown/addition UI behavior, REST/Swagger
+inspection, PostgreSQL Testcontainers, idempotency, documentation, and `./mvnw clean test`.
+
+Out of scope: opaque AI inference, claiming a detected title with certainty, ATS-readiness scoring,
+SQL data-access refactoring, React migration, or starting M2.7 without explicit user approval.
+
+## M2.7 — Explainable ATS Readiness Advisor
+
+Goal: turn resume validation into non-blocking, actionable machine-readability guidance instead of
+rejecting unusual but readable resumes.
+
+Confirmed design direction:
+
+- Hard rejection is limited to unsupported/corrupt files, size/security failures, and no readable
+  content.
+- A suspicious job/interview document or unusual resume becomes `REVIEW_REQUIRED`; preserve the
+  upload, show the evidence, and require acknowledgement before activation.
+- Produce versioned findings for contact details, standard section headings, job titles, employment
+  dates, education, parsing quality, excessive length, and format/layout risks that can be measured
+  reliably for the uploaded file type.
+- Findings have stable codes, severity, plain-language remediation, and limited evidence. The score
+  measures machine readability, not candidate quality or employability.
+- Do not claim to reproduce a proprietary ATS algorithm. Before implementation, research current
+  public guidance from authoritative ATS vendors and document which observable rules JobLens uses.
+- Keyword alignment requires an explicit target role or job description and must remain separate
+  from generic resume readability.
+
+Acceptance must include persisted assessment/version data, UI and REST/Swagger inspection,
+deterministic unit tests, representative PDF/DOCX fixtures, workspace isolation, documentation, and
+`./mvnw clean test`.
+
+Out of scope: automatic resume rewriting, hidden employer prediction, proprietary ATS claims, LLM
+dependency, M2.8 work, or starting M2.8 without explicit user approval.
+
+## M2.8 — Typed SQL Resource Registry
+
+Goal: retain explicit PostgreSQL SQL and `NamedParameterJdbcTemplate` while removing fragile,
+repeated resource-path strings from repositories.
+
+Confirmed design direction:
+
+- Do not introduce JPA merely to hide SQL; current Batch and PostgreSQL-specific access remains a
+  good fit for Spring JDBC.
+- Introduce module-owned typed query identifiers or registries. Repository methods reference typed
+  constants rather than arbitrary `"sql/..."` strings.
+- Load and validate every registered SQL resource during application startup so missing/duplicate
+  mappings fail fast rather than on the first request or Batch execution.
+- Preserve named parameters, external SQL files, query readability, transaction boundaries, Batch
+  writers, and existing behavior.
+- Evaluate jOOQ only as a documented future alternative if schema/query growth later justifies code
+  generation. Do not add MyBatis, jOOQ, or a custom ORM during this bounded refactor without a new
+  explicit decision.
+
+Acceptance must include startup failure tests for missing resources, module registry tests,
+repository/integration regression coverage, no inline complex SQL regression, documentation, and
+`./mvnw clean test`.
+
+Out of scope: changing persistence behavior, schema redesign unrelated to query registration, JPA,
+React migration, ranking calibration, or moving to another module without explicit user approval.
+
 ## M3 — Ranking calibration workflow
 
 Goal: make ranking more useful from reviewed examples while keeping it deterministic and explainable.
@@ -207,6 +297,10 @@ Use this request format:
 
 ```text
 Read AGENTS.md, SESSION_HANDOFF.md, README.md, BUILD_PROGRESS.md, and NEXT_MILESTONES.md.
-Preserve the current worktree. Implement only milestone M1 (or another selected milestone), including
-its tests and evidence. Finish with ./mvnw clean test and do not start later milestones.
+Preserve the current worktree. Start only M2.6 Inclusive Profile Intelligence. Before coding, inspect
+the current skill seed, resume parser, profile schema, setup UI, scoring, and provider country support.
+Implement M2.6 with Flyway where needed, deterministic extraction, user-reviewable UI, REST/Swagger,
+PostgreSQL Testcontainers, idempotency, and documentation. Finish with ./mvnw clean test and a
+conventional commit. Then stop, show evidence, and ask me before starting M2.7. Do not start M2.7,
+M2.8, React migration, ranking calibration, or unrelated work.
 ```
