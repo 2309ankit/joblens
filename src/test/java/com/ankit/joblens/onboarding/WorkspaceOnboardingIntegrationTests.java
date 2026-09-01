@@ -388,7 +388,7 @@ class WorkspaceOnboardingIntegrationTests {
     SearchPreferences preferences =
         new SearchPreferences(
             "Software Engineer",
-            "technology",
+            "",
             "Singapore",
             "Java",
             "SG | Singapore",
@@ -403,6 +403,12 @@ class WorkspaceOnboardingIntegrationTests {
     long candidateId =
         onboardingService.completeSetup(workspaceId, List.of("Java"), preferences, true);
     assertThat(candidateId).isPositive();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT cardinality(target_domains) FROM candidate_profile WHERE id=?",
+                Integer.class,
+                candidateId))
+        .isZero();
     assertThat(onboardingService.readiness(workspaceId).acknowledgedAt()).isNotNull();
   }
 

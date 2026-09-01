@@ -15,7 +15,7 @@ Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V21
-Latest full test: 104 tests, 0 failures, 0 errors, 0 skipped
+Latest full test: 105 tests, 0 failures, 0 errors, 0 skipped
 Latest focused check: fresh PostgreSQL 17 through V21; 10 onboarding integration tests pass
 ```
 
@@ -217,6 +217,10 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
   workspace-private skills and roles; expanding or governing the shared seed remains deliberate work.
 - Title confidence orders deterministic evidence sources and is not a probability or claim that a
   suggested title is factually correct.
+- Resume skill review groups catalogue matches by their existing category and evidence order, reveals
+  long groups incrementally, rejects short lowercase taxonomy fragments, and keeps preferred sectors
+  optional. Search countries are selected by name; unsupported legacy codes must be reviewed rather
+  than silently mapped to another country.
 - Java repositories explicitly reference SQL resource paths. SQL is correctly externalized, but
   those string paths are runtime-checked and should gain a typed, startup-validated registry.
 

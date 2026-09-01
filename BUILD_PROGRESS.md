@@ -248,6 +248,14 @@ leading ICT taxonomy qualifier from provider and outbound-portal queries. Postgr
 verifies that `ICT account manager` remains the selected role while `account manager` is persisted
 into the runnable India search profile.
 
+Resume-review follow-up hardening rejects short lowercase taxonomy fragments such as `ski` and
+`sing`, prevents rejected catalogue matches from reappearing as uncatalogued suggestions, and strips
+trailing sentence punctuation from review terms. Catalogue suggestions reuse their existing category
+and confidence evidence for deterministic grouping and ordering; each category reveals six entries
+at a time. Preferred sectors are optional end to end. Country selection remains name-based, defaults
+new location rows to the country name, and visibly blocks unsupported legacy codes instead of silently
+selecting a different country.
+
 Adzuna follow-up diagnosis found that country routing was correct but relevance-sorted India API
 results included expired advertisements dating back to 2022. Discovery now requests date order and a
 configurable 30-day maximum age, landed lists omit older Adzuna rows, and listing opens preserve the
@@ -296,7 +304,9 @@ explicit role or job description.
 Focused deterministic tests pass. PostgreSQL 17 Testcontainers applied all 21 migrations from an
 empty schema; all 10 `WorkspaceOnboardingIntegrationTests` passed, including real generated PDF and
 DOCX fixtures, persistence, acknowledgement enforcement, and workspace isolation. Final regression:
-`./mvnw clean test` completed with 104 tests, 0 failures, 0 errors, and 0 skipped.
+`./mvnw clean test` completed with 105 tests, 0 failures, 0 errors, and 0 skipped. The Docker image was
+rebuilt and recreated after a stale V17 image was observed against the V21 database; startup now
+validates all 21 migrations and the in-container actuator response reports `UP`.
 
 ## Inclusive Profile Intelligence Evidence
 
@@ -312,7 +322,9 @@ found zero skills. Matching loads the active PostgreSQL taxonomy and aliases onc
 document with a deterministic phrase automaton, selecting longest token-boundary matches. Skill
 evidence records the actual matched term and line. Explicit competency terms that are not catalogued
 are retained as reviewable suggestions; unsafe one-character terms (for example a naked `R`) are
-rejected with evidence. Role suggestions distinguish `RESUME_HEADLINE` (0.950), `RECENT_EXPERIENCE` (0.900), and
+rejected with evidence. Short lowercase taxonomy fragments up to four characters are also rejected
+and cannot re-enter as uncatalogued candidates. Role suggestions distinguish `RESUME_HEADLINE`
+(0.950), `RECENT_EXPERIENCE` (0.900), and
 `RESUME_BODY` (0.600); these values order evidence and are explicitly not probabilities or factual
 employment claims. Suggestions upsert by profile version and taxonomy identity, so replay is
 idempotent. Forking an active profile copies the original evidence into the new draft.

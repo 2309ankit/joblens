@@ -99,9 +99,9 @@ class ProfileIntelligenceExtractorTests {
             PROFESSIONAL SUMMARY
             Customer Success & Account Management Professional with enterprise growth experience.
             CORE COMPETENCIES
-            Growth & Lead Generation: Outbound Prospecting, Cold Outreach & Email Sequencing, Account Mining, Lead Qualification (BANT/MEDDPICC) Account Management & Farming: Relationship Management, Upselling, Cross-selling, Retention Strategy
+            Growth & Lead Generation: Outbound Prospecting, Cold Outreach & Email Sequencing, Account Mining, Lead Qualification (BANT/MEDDPICC) Account Management & Farming: Relationship Management, Upselling, Cross-selling, Retention Strategy.
             TOOLS & ECOSYSTEMS
-            LinkedIn Navigator, ZoomInfo, Salesforce, Zoho CRM, MS Office Suite
+            LinkedIn Navigator, ZoomInfo, Salesforce, Zoho CRM, MS Office Suite, ski, sing
             PROFESSIONAL EXPERIENCE
             Calsoft Senior Sales Executive | September 2025 – Present
             Tata Elxsi Account Executive | November 2022 – September 2025
@@ -115,7 +115,11 @@ class ProfileIntelligenceExtractorTests {
                     2, "Account Management", "SALES", List.of("Account Management")),
                 new ProfileIntelligenceExtractor.SkillDefinition(
                     3, "Sales", "SALES", List.of("Sales")),
-                new ProfileIntelligenceExtractor.SkillDefinition(4, "R", "DATA", List.of("R"))),
+                new ProfileIntelligenceExtractor.SkillDefinition(4, "R", "DATA", List.of("R")),
+                new ProfileIntelligenceExtractor.SkillDefinition(
+                    7, "ski", "ESCO_SKILL", List.of("ski")),
+                new ProfileIntelligenceExtractor.SkillDefinition(
+                    8, "sing", "ESCO_SKILL", List.of("sing"))),
             List.of(
                 new ProfileIntelligenceExtractor.RoleDefinition(
                     5, "Sales Executive", "SALES", List.of("Sales Executive")),
@@ -130,13 +134,17 @@ class ProfileIntelligenceExtractorTests {
         .containsExactly("Account Executive", "Sales Executive");
     assertThat(result.terms())
         .extracting(ProfileIntelligenceExtractor.TermSuggestion::normalizedTerm)
-        .contains("Outbound Prospecting", "Cold Outreach", "BANT", "MEDDPICC", "Salesforce");
+        .contains(
+            "Outbound Prospecting",
+            "Cold Outreach",
+            "BANT",
+            "MEDDPICC",
+            "Salesforce",
+            "Retention Strategy")
+        .doesNotContain("Retention Strategy.");
     assertThat(result.terms())
-        .anySatisfy(
-            term -> {
-              assertThat(term.normalizedTerm()).isEqualTo("R");
-              assertThat(term.reviewState()).isEqualTo("REJECTED");
-            });
+        .filteredOn(term -> List.of("R", "ski", "sing").contains(term.normalizedTerm()))
+        .allSatisfy(term -> assertThat(term.reviewState()).isEqualTo("REJECTED"));
   }
 
   private static org.assertj.core.groups.Tuple tuple(Object... values) {

@@ -220,7 +220,7 @@ public class OnboardingService {
         repository
             .latestProfile(workspaceId)
             .orElseThrow(() -> new IllegalStateException("Upload a valid resume first"));
-    if (profile.targetRoles().isEmpty() || profile.targetDomains().isEmpty()) {
+    if (profile.targetRoles().isEmpty()) {
       throw new IllegalStateException("Save job preferences before confirming the profile");
     }
     return repository.confirm(workspaceId, profile);
@@ -250,7 +250,6 @@ public class OnboardingService {
   private void validatePreferences(SearchPreferences preferences) {
     if (preferences == null
         || preferences.targetRoles().isBlank()
-        || preferences.targetDomains().isBlank()
         || preferences.primaryLocation().isBlank()
         || preferences.keywords().isBlank()
         || preferences.employmentPreference().isBlank()

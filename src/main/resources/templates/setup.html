@@ -16,7 +16,7 @@
     .notice{padding:.8rem 1rem;border-radius:8px}.ok{background:#eaf8ef;color:#176b36}.error{background:#fff0f1;color:#9d2434}.muted,.help{color:var(--muted)}.help{font-size:.9rem;margin:.25rem 0}
     .profile-card{padding:1rem;background:var(--soft);border-radius:9px}.skills{line-height:1.8}.picker{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:end}.picker button{margin:0}
     .chips{display:flex;flex-wrap:wrap;gap:.45rem;margin:.65rem 0}.chip{display:inline-flex;gap:.35rem;align-items:center;background:#e9eefb;border-radius:999px;padding:.35rem .65rem}.chip button{background:transparent;color:#40506b;margin:0;padding:0}
-    .suggestions{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.6rem;margin:.75rem 0}.suggestion{border:1px solid var(--line);border-radius:8px;padding:.7rem}.suggestion button{margin:.4rem 0 0;padding:.4rem .65rem}.evidence{font-size:.82rem;color:var(--muted);margin:.25rem 0}
+    .suggestions{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.6rem;margin:.75rem 0}.suggestion{border:1px solid var(--line);border-radius:8px;padding:.7rem}.suggestion button{margin:.4rem 0 0;padding:.4rem .65rem}.suggestion[hidden]{display:none}.skill-group{margin:1rem 0}.skill-group h4{margin:.25rem 0;text-transform:capitalize}.show-more{margin:.25rem 0 1rem}.evidence{font-size:.82rem;color:var(--muted);margin:.25rem 0}
     .readiness{border-left:5px solid #2b6d43}.readiness.review{border-left-color:#b05a00}.score{font-size:1.8rem;font-weight:750}.finding{padding:.65rem 0;border-top:1px solid var(--line)}.severity{font-size:.75rem;font-weight:750;letter-spacing:.06em}.severity-REVIEW{color:#9d2434}.severity-WARNING{color:#975300}.severity-PASS{color:#176b36}.acknowledgement{display:flex;gap:.6rem;align-items:flex-start;padding:.8rem;background:#fff7e8;border-radius:8px}.acknowledgement input{width:auto;margin-top:.3rem}
     .target-row{display:grid;grid-template-columns:140px 1fr auto;gap:.5rem;align-items:end;margin:.5rem 0}.target-row label{margin:0;font-size:.85rem}
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}details{margin-top:1.25rem;padding:1rem;background:#f8f9fc;border-radius:8px}summary{cursor:pointer;font-weight:650}
@@ -68,20 +68,28 @@
     <form id="profile-form" method="post" action="/setup/complete" th:object="${preferences}">
       <h3>Your skills</h3>
       <p class="help">Detected skills are suggestions with résumé evidence. Remove any mistake, search the catalogue, or type a skill to add it privately to this workspace.</p>
-      <div class="suggestions" th:if="${!profileIntelligence.skillSuggestions.empty}">
-        <div class="suggestion" th:each="suggestion : ${profileIntelligence.skillSuggestions}">
-          <strong th:text="${suggestion.name}">JavaScript</strong>
-          <span class="help" th:text="${suggestion.category}">FRONTEND</span>
-          <p class="evidence" th:text="${'Matched “' + suggestion.matchedTerm + '” in: ' + suggestion.evidence}">Evidence</p>
-          <button class="secondary" type="button" th:attr="data-add-skill=${suggestion.name}">Add suggestion</button>
+      <div th:if="${!profileIntelligence.skillSuggestions.empty}">
+        <div class="skill-group" th:each="group : ${profileIntelligence.skillGroups}">
+          <h4 th:text="${#strings.replace(group.category, '_', ' ')}">Sales</h4>
+          <div class="suggestions" data-progressive-list>
+            <div class="suggestion" th:each="suggestion : ${group.suggestions}">
+              <strong th:text="${suggestion.name}">JavaScript</strong>
+              <span class="help" th:text="${suggestion.evidenceSection + ' · ' + #numbers.formatDecimal(suggestion.confidence * 100, 1, 0) + '% evidence'}">SKILLS · 99% evidence</span>
+              <p class="evidence" th:text="${'Matched “' + suggestion.matchedTerm + '” in: ' + suggestion.evidence}">Evidence</p>
+              <button class="secondary" type="button" th:attr="data-add-skill=${suggestion.name}">Add suggestion</button>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="suggestions" th:if="${!profileIntelligence.termSuggestions.empty}">
-        <div class="suggestion" th:each="suggestion : ${profileIntelligence.termSuggestions}" th:if="${suggestion.kind == 'SKILL' and suggestion.reviewState == 'SUGGESTED'}">
-          <strong th:text="${suggestion.term}">Account Farming</strong>
-          <span class="help">Uncatalogued résumé competency</span>
-          <p class="evidence" th:text="${suggestion.evidence}">Evidence</p>
-          <button class="secondary" type="button" th:attr="data-add-skill=${suggestion.term}">Review as skill</button>
+      <div class="skill-group" th:if="${!profileIntelligence.termSuggestions.empty}">
+        <h4>Uncatalogued — needs review</h4>
+        <div class="suggestions" data-progressive-list>
+          <div class="suggestion" th:each="suggestion : ${profileIntelligence.termSuggestions}" th:if="${suggestion.kind == 'SKILL' and suggestion.reviewState == 'SUGGESTED'}">
+            <strong th:text="${suggestion.term}">Account Farming</strong>
+            <span class="help" th:text="${suggestion.evidenceSection + ' · ' + #numbers.formatDecimal(suggestion.evidenceStrength * 100, 1, 0) + '% evidence'}">Uncatalogued résumé competency</span>
+            <p class="evidence" th:text="${suggestion.evidence}">Evidence</p>
+            <button class="secondary" type="button" th:attr="data-add-skill=${suggestion.term}">Review as skill</button>
+          </div>
         </div>
       </div>
       <details th:if="${!profileIntelligence.termSuggestions.empty}">
@@ -108,7 +116,7 @@
       <div class="picker"><div><label for="role-search">Search or add a target role</label><input id="role-search" list="role-options" placeholder="For example: Product Manager"></div><button id="add-role" class="secondary" type="button">Add role</button></div>
       <datalist id="role-options"><option th:each="role : ${roleCatalog}" th:value="${role.name}" th:text="${role.category}"></option></datalist>
       <div class="form-grid">
-        <div><label for="targetDomains">Preferred sectors</label><input id="targetDomains" th:field="*{targetDomains}" required><p class="help">Example: healthcare, retail, education</p></div>
+        <div><label for="targetDomains">Preferred sectors <span class="help">(optional)</span></label><input id="targetDomains" th:field="*{targetDomains}"><p class="help">Example: healthcare, retail, education. Leave blank to search across sectors.</p></div>
         <div><label for="primaryLocation">Where you live now</label><input id="primaryLocation" th:field="*{primaryLocation}" required><p class="help">Your current city, not another country filter.</p></div>
       </div>
 
@@ -116,7 +124,7 @@
       <p class="help">Choose a country supported by an integrated source. JobLens stores its ISO alpha-2 code internally; city or region remains provider-facing text.</p>
       <div id="search-targets">
         <div class="target-row" th:each="target : ${searchTargets}">
-          <label>Country<select name="countryCodes" required><option th:each="country : ${countries}" th:value="${country.code}" th:selected="${country.code == target.countryCode}" th:text="${country.name + ' (' + country.code + ') — ' + #strings.listJoin(country.sources, ', ')}">Singapore (SG)</option></select></label>
+          <label>Country<select name="countryCodes" required><option th:if="${!#lists.contains(integratedCountryCodes, target.countryCode)}" value="" selected disabled th:text="${'Choose a country — saved code ' + target.countryCode + ' is unsupported'}">Choose a country</option><option th:each="country : ${countries}" th:value="${country.code}" th:attr="data-country-name=${country.name}" th:selected="${country.code == target.countryCode}" th:text="${country.name + ' (' + country.code + ') — ' + #strings.listJoin(country.sources, ', ')}">Singapore (SG)</option></select></label>
           <label>City or region<input name="locations" th:value="${target.location}" placeholder="Singapore" required></label>
           <button class="remove" type="button" aria-label="Remove search location">Remove</button>
         </div>
@@ -170,6 +178,21 @@
   }
   configurePicker('selected-skills', 'skill-search', 'add-skill', 'skills', 'data-add-skill');
   configurePicker('selected-roles', 'role-search', 'add-role', 'targetRoles', 'data-add-role');
+  document.querySelectorAll('[data-progressive-list]').forEach(list => {
+    const suggestions = [...list.querySelectorAll('.suggestion')];
+    const pageSize = 6;
+    if (suggestions.length <= pageSize) return;
+    let visible = pageSize;
+    const control = document.createElement('button');
+    control.type = 'button'; control.className = 'secondary show-more';
+    const render = () => {
+      suggestions.forEach((suggestion, index) => suggestion.hidden = index >= visible);
+      const remaining = suggestions.length - visible;
+      control.textContent = remaining > 0 ? `Show ${Math.min(pageSize, remaining)} more (${remaining} remaining)` : 'Show fewer';
+    };
+    control.addEventListener('click', () => { visible = visible < suggestions.length ? Math.min(visible + pageSize, suggestions.length) : pageSize; render(); });
+    list.insertAdjacentElement('afterend', control); render();
+  });
   const profileForm = document.getElementById('profile-form');
   if (profileForm) profileForm.addEventListener('submit', event => {
     if (!document.querySelector('#selected-skills input') || !document.querySelector('#selected-roles input')) {
@@ -179,11 +202,26 @@
   const targets = document.getElementById('search-targets');
   const addTarget = document.getElementById('add-target');
   if (targets && addTarget) {
+    const populateLocation = row => {
+      const country = row.querySelector('select[name="countryCodes"]');
+      const location = row.querySelector('input[name="locations"]');
+      const previousCountry = country.dataset.previousCountry || '';
+      const selectedCountry = country.selectedOptions[0]?.dataset.countryName || '';
+      if (!location.value.trim() || location.value.trim() === previousCountry) location.value = selectedCountry;
+      country.dataset.previousCountry = selectedCountry;
+    };
+    targets.querySelectorAll('.target-row').forEach(row => {
+      const country = row.querySelector('select[name="countryCodes"]');
+      country.dataset.previousCountry = country.selectedOptions[0]?.dataset.countryName || '';
+      country.addEventListener('change', () => populateLocation(row));
+    });
     addTarget.addEventListener('click', () => {
       if (targets.children.length >= 10) return;
       const row = targets.firstElementChild.cloneNode(true);
       row.querySelectorAll('input').forEach(input => input.value = '');
-      row.querySelectorAll('select').forEach(select => select.selectedIndex = 0);
+      row.querySelectorAll('select').forEach(select => select.selectedIndex = [...select.options].findIndex(option => !option.disabled));
+      row.querySelector('select[name="countryCodes"]').addEventListener('change', () => populateLocation(row));
+      populateLocation(row);
       targets.appendChild(row);
     });
     targets.addEventListener('click', event => {

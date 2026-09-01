@@ -1,6 +1,7 @@
 package com.ankit.joblens.onboarding;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 public record ProfileIntelligence(
@@ -12,6 +13,20 @@ public record ProfileIntelligence(
       List<SkillSuggestion> skillSuggestions, List<RoleSuggestion> roleSuggestions) {
     this(skillSuggestions, roleSuggestions, List.of());
   }
+
+  public List<SkillGroup> skillGroups() {
+    var grouped = new LinkedHashMap<String, java.util.ArrayList<SkillSuggestion>>();
+    skillSuggestions.forEach(
+        suggestion ->
+            grouped
+                .computeIfAbsent(suggestion.category(), ignored -> new java.util.ArrayList<>())
+                .add(suggestion));
+    return grouped.entrySet().stream()
+        .map(entry -> new SkillGroup(entry.getKey(), List.copyOf(entry.getValue())))
+        .toList();
+  }
+
+  public record SkillGroup(String category, List<SkillSuggestion> suggestions) {}
 
   public record SkillSuggestion(
       String name,

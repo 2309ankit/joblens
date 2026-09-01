@@ -35,7 +35,10 @@ public class OnboardingController {
     model.addAttribute("profile", profile);
     model.addAttribute("skillCatalog", onboardingService.skillOptions(workspaceId, ""));
     model.addAttribute("roleCatalog", onboardingService.roleOptions(workspaceId, ""));
-    model.addAttribute("countries", onboardingService.countries());
+    List<IntegratedCountry> countries = onboardingService.countries();
+    model.addAttribute("countries", countries);
+    model.addAttribute(
+        "integratedCountryCodes", countries.stream().map(IntegratedCountry::code).toList());
     model.addAttribute(
         "profileIntelligence",
         profile == null

@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ProfileIntelligenceExtractor {
-  public static final String EXTRACTOR_VERSION = "esco-deterministic-v2";
+  public static final String EXTRACTOR_VERSION = "esco-deterministic-v3";
 
   private static final Pattern EXPLICIT_GROUP_LABEL =
       Pattern.compile("\\b([A-Z][A-Za-z/&-]*(?: [A-Z&][A-Za-z/&-]*){1,5}):");
@@ -109,7 +109,7 @@ public class ProfileIntelligenceExtractor {
     }
 
     var allTerms = new ArrayList<TermSuggestion>();
-    allTerms.addAll(explicitCandidates(document, detectedSkills, rankedRoles));
+    allTerms.addAll(explicitCandidates(document, detectedSkills, rankedRoles, rejected));
     allTerms.addAll(rejected);
     return new Extraction(
         List.copyOf(detectedSkills), List.copyOf(rankedRoles), List.copyOf(rankTerms(allTerms)));
@@ -148,6 +148,9 @@ public class ProfileIntelligenceExtractor {
     if (term.length() == 2) {
       return section.explicitlyListsSkills()
           && hit.surface().equals(hit.surface().toUpperCase(Locale.ROOT));
+    }
+    if (term.length() <= 4 && hit.surface().equals(hit.surface().toLowerCase(Locale.ROOT))) {
+      return false;
     }
     return true;
   }
@@ -212,7 +215,10 @@ public class ProfileIntelligenceExtractor {
   }
 
   private static List<TermSuggestion> explicitCandidates(
-      ResumeDocument document, List<DetectedSkill> skills, List<DetectedRole> roles) {
+      ResumeDocument document,
+      List<DetectedSkill> skills,
+      List<DetectedRole> roles,
+      List<TermSuggestion> rejected) {
     Set<String> known = new LinkedHashSet<>();
     skills.forEach(
         skill -> {
@@ -220,6 +226,7 @@ public class ProfileIntelligenceExtractor {
           known.add(key(skill.matchedTerm()));
         });
     roles.forEach(role -> known.add(key(role.name())));
+    rejected.forEach(term -> known.add(key(term.normalizedTerm())));
     var candidates = new LinkedHashMap<String, TermSuggestion>();
     for (ResumeDocument.Segment segment : document.segments()) {
       if (!segment.section().explicitlyListsSkills()) {
@@ -253,6 +260,7 @@ public class ProfileIntelligenceExtractor {
     String candidate =
         rawCandidate
             .replaceAll("^[^\\p{L}\\p{N}+#]+|[^\\p{L}\\p{N}+#.)-]+$", "")
+            .replaceAll("[.!?,;:]+$", "")
             .replaceAll("\\s+", " ")
             .trim();
     String normalized = key(candidate);
