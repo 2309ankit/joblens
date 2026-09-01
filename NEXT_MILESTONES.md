@@ -26,7 +26,8 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 | 2 | Lever public ATS source — COMPLETE | Adds legitimate employer-direct listings through a verified public API | None; direct official board URL required |
 | 2.5 | Normalized multi-market preferences — COMPLETE | Fixes country/location fan-out before any frontend migration | None |
 | 2.6 | Inclusive Profile Intelligence — COMPLETE | Removed the backend/IT bias and added assisted roles, skills, and countries | None |
-| 2.7 | Explainable ATS Readiness Advisor | Give non-blocking, evidence-based resume improvement guidance | M2.6 complete and user approval |
+| 2.7 | Explainable ATS Readiness Advisor — COMPLETE | Give non-blocking, evidence-based resume improvement guidance | None |
+| D0 | System Design Baseline — COMPLETE | Make requirements, operating parameters, API/Batch boundaries, and scale triggers explicit | None |
 | 2.8 | Typed SQL Resource Registry | Remove fragile SQL-path strings while retaining Spring JDBC | M2.7 complete and user approval |
 | 3 | Ranking calibration workflow | Improve relevance using reviewed decisions instead of guessed weights | User-reviewed job examples |
 | 4 | Original resume storage | Retain the uploaded source document through a storage abstraction | Storage choice and retention policy |
@@ -146,7 +147,7 @@ instead of showing hardcoded countries. This fixes the backend model before any 
 
 ## M2.6 — Inclusive Profile Intelligence
 
-Status: complete on 2026-08-31. Await explicit user approval before M2.7.
+Status: complete on 2026-08-31. M2.7 was subsequently approved and completed on 2026-09-01.
 
 Goal: remove the Java/backend bias from resume onboarding while keeping extraction deterministic,
 explainable, normalized, and user-controlled.
@@ -193,6 +194,8 @@ SQL data-access refactoring, React migration, or starting M2.7 without explicit 
 
 ## M2.7 — Explainable ATS Readiness Advisor
 
+Status: complete on 2026-09-01. M2.8 still requires explicit user approval.
+
 Goal: turn resume validation into non-blocking, actionable machine-readability guidance instead of
 rejecting unusual but readable resumes.
 
@@ -218,6 +221,26 @@ deterministic unit tests, representative PDF/DOCX fixtures, workspace isolation,
 
 Out of scope: automatic resume rewriting, hidden employer prediction, proprietary ATS claims, LLM
 dependency, M2.8 work, or starting M2.8 without explicit user approval.
+
+Implemented slice: readable PDF/DOC/DOCX uploads receive a persisted, versioned `readability-v1`
+assessment. Stable findings cover contact details, headings, title lines, employment dates,
+education, extraction quality, length, document uncertainty, and DOCX risks that can be measured
+from package markup. Suspicious or unusual readable documents become `REVIEW_REQUIRED` rather than
+being discarded; activation requires an idempotent, workspace-owned acknowledgement. The score is
+explicitly machine readability, not candidate quality, job fit, or a proprietary ATS result.
+`ATS_READINESS.md` records current official Greenhouse, Workable, and SAP guidance and the exact
+JobLens deductions. UI, REST/OpenAPI, generated PDF/DOCX fixtures, deterministic unit tests,
+PostgreSQL persistence, and workspace isolation are covered.
+
+## D0 — System Design Baseline
+
+Status: complete on 2026-09-01.
+
+`SYSTEM_DESIGN.md` defines the primary requirements, non-goals, current operating envelope,
+quantified design targets, core entities, ownership model, API-versus-Batch decision table,
+high-level data flow, consistency/failure model, capacity formulas, scale-up triggers, risks, and
+milestone mapping. Targets that have not been load tested are labelled rather than presented as
+verified production claims.
 
 ## M2.8 — Typed SQL Resource Registry
 
@@ -312,11 +335,8 @@ the current personal browser workflow.
 Use this request format:
 
 ```text
-Read AGENTS.md, SESSION_HANDOFF.md, README.md, BUILD_PROGRESS.md, and NEXT_MILESTONES.md.
-Preserve the current worktree. Start only M2.6 Inclusive Profile Intelligence. Before coding, inspect
-the current skill seed, resume parser, profile schema, setup UI, scoring, and provider country support.
-Implement M2.6 with Flyway where needed, deterministic extraction, user-reviewable UI, REST/Swagger,
-PostgreSQL Testcontainers, idempotency, and documentation. Finish with ./mvnw clean test and a
-conventional commit. Then stop, show evidence, and ask me before starting M2.7. Do not start M2.7,
-M2.8, React migration, ranking calibration, or unrelated work.
+Read AGENTS.md, SESSION_HANDOFF.md, SYSTEM_DESIGN.md, README.md, BUILD_PROGRESS.md, and
+NEXT_MILESTONES.md. Preserve the current worktree. Review the completed M2.7/D0 evidence and obtain
+explicit user approval before starting exactly one remaining milestone. Do not start M2.8, React
+migration, ranking calibration, or unrelated work without that approval.
 ```

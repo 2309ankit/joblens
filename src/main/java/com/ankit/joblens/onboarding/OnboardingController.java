@@ -41,6 +41,15 @@ public class OnboardingController {
         profile == null
             ? new ProfileIntelligence(List.of(), List.of())
             : onboardingService.intelligence(workspaceId));
+    ResumeReadinessAssessment readiness = null;
+    if (profile != null) {
+      try {
+        readiness = onboardingService.readiness(workspaceId);
+      } catch (IllegalStateException legacyProfileWithoutAssessment) {
+        // Profiles created before the advisor milestone have no retained resume text to reassess.
+      }
+    }
+    model.addAttribute("readiness", readiness);
     if (!model.containsAttribute("preferences")) {
       model.addAttribute(
           "preferences",
@@ -75,6 +84,8 @@ public class OnboardingController {
       @RequestParam int maxPages,
       @RequestParam String employmentPreference,
       @RequestParam String workPreference,
+      @RequestParam(name = "acknowledgeReadiness", defaultValue = "false")
+          boolean acknowledgeReadiness,
       HttpServletRequest request,
       HttpServletResponse response,
       RedirectAttributes redirectAttributes) {
@@ -97,7 +108,8 @@ public class OnboardingController {
               maxPages,
               employmentPreference,
               workPreference);
-      long candidateProfileId = onboardingService.completeSetup(workspaceId, skills, preferences);
+      long candidateProfileId =
+          onboardingService.completeSetup(workspaceId, skills, preferences, acknowledgeReadiness);
       redirectAttributes.addFlashAttribute(
           "message", "Profile activated. Candidate profile " + candidateProfileId + " is ready.");
     } catch (RuntimeException exception) {
@@ -134,9 +146,9 @@ public class OnboardingController {
       OnboardingProfile profile = onboardingService.upload(workspaceId, file);
       redirectAttributes.addFlashAttribute(
           "message",
-          "Resume validated. Found "
+          "Resume read. Found "
               + profile.skills().size()
-              + " skill suggestions; review all suggestions before activation.");
+              + " skill suggestions and a machine-readability assessment; review them before activation.");
     } catch (Exception exception) {
       redirectAttributes.addFlashAttribute("error", exception.getMessage());
     }

@@ -23,14 +23,17 @@ public class OnboardingRepository {
   private final NamedParameterJdbcTemplate jdbc;
   private final JoobleProperties joobleProperties;
   private final ProfileIntelligenceRepository profileIntelligenceRepository;
+  private final ResumeReadinessRepository readinessRepository;
 
   public OnboardingRepository(
       NamedParameterJdbcTemplate jdbc,
       JoobleProperties joobleProperties,
-      ProfileIntelligenceRepository profileIntelligenceRepository) {
+      ProfileIntelligenceRepository profileIntelligenceRepository,
+      ResumeReadinessRepository readinessRepository) {
     this.jdbc = jdbc;
     this.joobleProperties = joobleProperties;
     this.profileIntelligenceRepository = profileIntelligenceRepository;
+    this.readinessRepository = readinessRepository;
   }
 
   public long saveResume(
@@ -79,6 +82,7 @@ public class OnboardingRepository {
     jdbc.update(
         load("sql/onboarding/copy-term-suggestions.sql"),
         Map.of("sourceProfileVersionId", activeProfile.id(), "draftProfileVersionId", draftId));
+    readinessRepository.copy(activeProfile.id(), draftId);
     return latestProfile(workspaceId).orElseThrow();
   }
 
@@ -235,6 +239,7 @@ public class OnboardingRepository {
   }
 
   public long confirm(UUID workspaceId, OnboardingProfile profile) {
+    readinessRepository.requireActivationAllowed(workspaceId, profile.id());
     long candidateId =
         findCandidate(workspaceId)
             .orElseGet(

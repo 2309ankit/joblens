@@ -2,6 +2,7 @@ package com.ankit.joblens.batchapi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -10,12 +11,14 @@ import com.ankit.joblens.onboarding.IntegratedCountry;
 import com.ankit.joblens.onboarding.OnboardingProfile;
 import com.ankit.joblens.onboarding.OnboardingService;
 import com.ankit.joblens.onboarding.ProfileIntelligence;
+import com.ankit.joblens.onboarding.ResumeReadinessAssessment;
 import com.ankit.joblens.onboarding.RoleOption;
 import com.ankit.joblens.onboarding.SkillOption;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,6 +94,14 @@ class ResumeProfileControllerTests {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.roleSuggestions[0].name").value("Product Manager"))
         .andExpect(jsonPath("$.roleSuggestions[0].evidenceSource").value("RESUME_HEADLINE"));
+    mvc.perform(get("/api/candidate-profile/readiness"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.assessmentVersion").value("readability-v1"))
+        .andExpect(jsonPath("$.score").value(70))
+        .andExpect(jsonPath("$.findings[0].code").value("DOCUMENT_TYPE_UNCERTAIN"));
+    mvc.perform(post("/api/candidate-profile/readiness/acknowledgement"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.acknowledgedAt").value("2026-09-01T12:00:00Z"));
     assertThat(service.lastWorkspaceId).isEqualTo(workspaceId);
   }
 
@@ -150,6 +161,40 @@ class ResumeProfileControllerTests {
                   "RESUME_HEADLINE",
                   "Senior Product Manager",
                   new BigDecimal("0.950"))));
+    }
+
+    @Override
+    public ResumeReadinessAssessment readiness(UUID workspaceId) {
+      lastWorkspaceId = workspaceId;
+      return assessment(null);
+    }
+
+    @Override
+    public ResumeReadinessAssessment acknowledgeReadiness(UUID workspaceId) {
+      lastWorkspaceId = workspaceId;
+      return assessment(OffsetDateTime.parse("2026-09-01T12:00:00Z"));
+    }
+
+    private static ResumeReadinessAssessment assessment(OffsetDateTime acknowledgedAt) {
+      return new ResumeReadinessAssessment(
+          12,
+          "readability-v1",
+          "REVIEW_REQUIRED",
+          70,
+          "application/pdf",
+          200,
+          30,
+          acknowledgedAt,
+          OffsetDateTime.parse("2026-09-01T11:00:00Z"),
+          List.of(
+              new ResumeReadinessAssessment.Finding(
+                  "DOCUMENT_TYPE_UNCERTAIN",
+                  "DOCUMENT_TYPE",
+                  "REVIEW",
+                  "Review the document type.",
+                  "Confirm this is your resume.",
+                  "Requirement signals: 3",
+                  30)));
     }
   }
 }

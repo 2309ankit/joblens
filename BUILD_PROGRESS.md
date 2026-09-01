@@ -234,8 +234,11 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-M2.6 Inclusive Profile Intelligence is complete. The repository is stopped at the approval boundary
-before M2.7. Flyway V18 extends the existing profile-version model with categorized taxonomy,
+M2.7 Explainable ATS Readiness Advisor and the requested D0 System Design Baseline are complete in
+the working tree. The repository is stopped before M2.8. Flyway V21 adds profile-version-owned
+readability assessments, stable findings, acknowledgement state, and workspace-safe inspection.
+`SYSTEM_DESIGN.md` records explicit requirements, operating assumptions, the API/Batch boundary,
+failure model, and measurable scale triggers. Flyway V18 extends the existing profile-version model with categorized taxonomy,
 workspace-private additions, and versioned deterministic suggestion evidence; V19 keeps private-skill
 references cleanup-safe when a workspace is deleted; V20 adds a restartable, idempotent ESCO release
 import and uncatalogued-term review artifacts.
@@ -265,9 +268,35 @@ and this file remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-No implementation milestone is active. M2.7 Explainable ATS Readiness Advisor is selectable only
-after explicit user approval. M2.8, React migration, ranking calibration, original-resume object
+No implementation milestone is active after M2.7 and D0. M2.8 Typed SQL Resource Registry is
+selectable only after explicit user approval. React migration, ranking calibration, original-resume object
 storage, schedules/notifications, and login/cross-device recovery remain separate and unstarted.
+
+## Explainable ATS Readiness Advisor Evidence
+
+`readability-v1` assesses only observable machine readability: contact details, standard headings,
+plain job-title lines, employment dates, education, extraction quality, excessive length, suspicious
+document signals, and DOCX tables/text boxes/headers/footers/drawings when package markup makes those
+risks measurable. Findings persist with stable codes, severity, bounded evidence, remediation, and
+score deduction. The 0-100 result is not candidate quality, employability, keyword fit, or a
+proprietary ATS prediction.
+
+Unsupported, corrupt, oversized, or unreadable files still fail. Other readable content is preserved
+as a draft. `REVIEW_REQUIRED` activation is blocked until the current workspace acknowledges the
+assessment; acknowledgement is idempotent and copied with a profile draft that retains the same
+resume. `GET /api/candidate-profile/readiness` and
+`POST /api/candidate-profile/readiness/acknowledgement` expose the current owned version, and setup
+renders the findings and conditional acknowledgement control.
+
+Research and the exact rule boundary are in `ATS_READINESS.md`. Official Greenhouse guidance grounds
+measurable formatting risks, while Workable and SAP documentation grounds the structured fields that
+resume parsers attempt to populate. Keyword alignment remains out of scope because it needs an
+explicit role or job description.
+
+Focused deterministic tests pass. PostgreSQL 17 Testcontainers applied all 21 migrations from an
+empty schema; all 10 `WorkspaceOnboardingIntegrationTests` passed, including real generated PDF and
+DOCX fixtures, persistence, acknowledgement enforcement, and workspace isolation. Final regression:
+`./mvnw clean test` completed with 104 tests, 0 failures, 0 errors, and 0 skipped.
 
 ## Inclusive Profile Intelligence Evidence
 

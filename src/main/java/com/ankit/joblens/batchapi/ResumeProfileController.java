@@ -4,6 +4,7 @@ import com.ankit.joblens.onboarding.IntegratedCountry;
 import com.ankit.joblens.onboarding.OnboardingProfile;
 import com.ankit.joblens.onboarding.OnboardingService;
 import com.ankit.joblens.onboarding.ProfileIntelligence;
+import com.ankit.joblens.onboarding.ResumeReadinessAssessment;
 import com.ankit.joblens.onboarding.RoleOption;
 import com.ankit.joblens.onboarding.SearchPreferences;
 import com.ankit.joblens.onboarding.SearchTarget;
@@ -99,6 +100,26 @@ public class ResumeProfileController {
     return service.intelligence(workspaceContext.resolve(request, response));
   }
 
+  @GetMapping("/readiness")
+  @Operation(
+      summary = "Inspect resume machine-readability guidance",
+      description =
+          "Returns a versioned, deterministic assessment with stable findings, bounded evidence, remediation, and a score that measures parser readability rather than candidate quality or employability.")
+  public ResumeReadinessAssessment readiness(
+      HttpServletRequest request, HttpServletResponse response) {
+    return service.readiness(workspaceContext.resolve(request, response));
+  }
+
+  @PostMapping("/readiness/acknowledgement")
+  @Operation(
+      summary = "Acknowledge review-required readability findings",
+      description =
+          "Acknowledges the current draft's review warning without claiming the document is ATS-compatible. Required only when measurable evidence makes the document type or parsing quality uncertain.")
+  public ResumeReadinessAssessment acknowledgeReadiness(
+      HttpServletRequest request, HttpServletResponse response) {
+    return service.acknowledgeReadiness(workspaceContext.resolve(request, response));
+  }
+
   @GetMapping("/preferences")
   @Operation(
       summary = "Get current search preferences",
@@ -138,7 +159,7 @@ public class ResumeProfileController {
   @Operation(
       summary = "Read a resume",
       description =
-          "Validates a PDF, DOC, or DOCX up to 5 MB, checks resume structure, and creates a versioned draft with deterministic skill and title suggestions. A structurally valid resume is accepted even when no catalogue skill matches. Suggestions include evidence and require user review. Original file bytes are not retained.")
+          "Reads a PDF, DOC, or DOCX up to 5 MB and creates a versioned draft with deterministic skill, title, and machine-readability findings. Unusual or suspicious readable documents are preserved for acknowledgement instead of rejected. Original file bytes are not retained.")
   public OnboardingProfile upload(
       @RequestPart("file") MultipartFile file,
       HttpServletRequest request,

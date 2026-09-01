@@ -17,6 +17,7 @@
     .profile-card{padding:1rem;background:var(--soft);border-radius:9px}.skills{line-height:1.8}.picker{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:end}.picker button{margin:0}
     .chips{display:flex;flex-wrap:wrap;gap:.45rem;margin:.65rem 0}.chip{display:inline-flex;gap:.35rem;align-items:center;background:#e9eefb;border-radius:999px;padding:.35rem .65rem}.chip button{background:transparent;color:#40506b;margin:0;padding:0}
     .suggestions{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.6rem;margin:.75rem 0}.suggestion{border:1px solid var(--line);border-radius:8px;padding:.7rem}.suggestion button{margin:.4rem 0 0;padding:.4rem .65rem}.evidence{font-size:.82rem;color:var(--muted);margin:.25rem 0}
+    .readiness{border-left:5px solid #2b6d43}.readiness.review{border-left-color:#b05a00}.score{font-size:1.8rem;font-weight:750}.finding{padding:.65rem 0;border-top:1px solid var(--line)}.severity{font-size:.75rem;font-weight:750;letter-spacing:.06em}.severity-REVIEW{color:#9d2434}.severity-WARNING{color:#975300}.severity-PASS{color:#176b36}.acknowledgement{display:flex;gap:.6rem;align-items:flex-start;padding:.8rem;background:#fff7e8;border-radius:8px}.acknowledgement input{width:auto;margin-top:.3rem}
     .target-row{display:grid;grid-template-columns:140px 1fr auto;gap:.5rem;align-items:end;margin:.5rem 0}.target-row label{margin:0;font-size:.85rem}
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}details{margin-top:1.25rem;padding:1rem;background:#f8f9fc;border-radius:8px}summary{cursor:pointer;font-weight:650}
     @media(max-width:650px){.header,.form-grid,.target-row{display:block}.target-row button{margin-top:.25rem}}
@@ -44,6 +45,19 @@
       <strong th:text="${profile.status == 'ACTIVE' ? 'Active profile' : 'Resume ready for review'}">Resume ready</strong>
       <p th:text="${profile.summary}"></p>
       <p class="skills"><strong>Selected draft skills:</strong> <span th:text="${profile.skills.empty ? 'None yet' : #strings.listJoin(profile.skills, ', ')}"></span></p>
+    </div>
+    <div class="profile-card readiness" th:if="${readiness}" th:classappend="${readiness.status == 'REVIEW_REQUIRED'} ? ' review'">
+      <h3>Resume machine readability</h3>
+      <p><span class="score" th:text="${readiness.score + '/100'}">85/100</span>
+        <span th:text="${readiness.status == 'REVIEW_REQUIRED' ? 'Review required' : 'Ready for review'}">Ready</span></p>
+      <p class="help">This measures observable parser readability—not your experience, employability, or compatibility with a proprietary ATS.</p>
+      <div class="finding" th:each="finding : ${readiness.findings}">
+        <span class="severity" th:classappend="${'severity-' + finding.severity}" th:text="${finding.severity}">PASS</span>
+        <span class="help" th:text="${finding.code}">FINDING_CODE</span>
+        <strong th:text="${finding.message}">Finding</strong>
+        <p class="evidence" th:if="${finding.evidence}" th:text="${finding.evidence}">Evidence</p>
+        <p class="help" th:if="${finding.severity != 'PASS'}" th:text="${finding.remediation}">Remediation</p>
+      </div>
     </div>
   </section>
 
@@ -120,6 +134,10 @@
         <label for="workPreference">Work arrangement</label>
         <select id="workPreference" th:field="*{workPreference}"><option value="REMOTE,HYBRID,ONSITE">Any arrangement</option><option value="REMOTE">Remote</option><option value="HYBRID">Hybrid</option><option value="ONSITE">On-site</option></select>
       </details>
+      <label class="acknowledgement" th:if="${readiness != null and readiness.acknowledgementRequired()}">
+        <input type="checkbox" name="acknowledgeReadiness" value="true" required>
+        <span>I reviewed the machine-readability evidence and confirm this is the resume I want to activate.</span>
+      </label>
       <button type="submit">Save and activate profile</button>
     </form>
   </section>

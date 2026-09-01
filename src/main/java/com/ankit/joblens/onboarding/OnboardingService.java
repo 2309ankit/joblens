@@ -26,6 +26,8 @@ public class OnboardingService {
   private final ProfileIntelligenceRepository intelligenceRepository;
   private final ProfileIntelligenceExtractor intelligenceExtractor;
   private final ProviderCountryCatalog countryCatalog;
+  private final ResumeReadinessAdvisor readinessAdvisor;
+  private final ResumeReadinessRepository readinessRepository;
   private final Tika tika = new Tika();
 
   @Autowired
@@ -33,11 +35,23 @@ public class OnboardingService {
       OnboardingRepository repository,
       ProfileIntelligenceRepository intelligenceRepository,
       ProfileIntelligenceExtractor intelligenceExtractor,
-      ProviderCountryCatalog countryCatalog) {
+      ProviderCountryCatalog countryCatalog,
+      ResumeReadinessAdvisor readinessAdvisor,
+      ResumeReadinessRepository readinessRepository) {
     this.repository = repository;
     this.intelligenceRepository = intelligenceRepository;
     this.intelligenceExtractor = intelligenceExtractor;
     this.countryCatalog = countryCatalog;
+    this.readinessAdvisor = readinessAdvisor;
+    this.readinessRepository = readinessRepository;
+  }
+
+  protected OnboardingService(
+      OnboardingRepository repository,
+      ProfileIntelligenceRepository intelligenceRepository,
+      ProfileIntelligenceExtractor intelligenceExtractor,
+      ProviderCountryCatalog countryCatalog) {
+    this(repository, intelligenceRepository, intelligenceExtractor, countryCatalog, null, null);
   }
 
   @Transactional
@@ -51,7 +65,6 @@ public class OnboardingService {
     if (text.length() < 80) {
       throw new IllegalArgumentException("Resume has too little readable text");
     }
-    ResumeTextValidator.validate(text);
     ProfileIntelligenceExtractor.Extraction extraction =
         intelligenceExtractor.extract(
             text,
@@ -74,6 +87,8 @@ public class OnboardingService {
             .map(ProfileIntelligenceExtractor.DetectedSkill::name)
             .toList());
     intelligenceRepository.saveSuggestions(profileVersionId, extraction);
+    readinessRepository.save(
+        profileVersionId, detectedType, readinessAdvisor.assess(text, detectedType, content));
     return repository.latestProfile(workspaceId).orElseThrow();
   }
 
@@ -103,6 +118,26 @@ public class OnboardingService {
             .latestProfile(workspaceId)
             .orElseThrow(() -> new IllegalStateException("Upload a valid resume first"));
     return intelligenceRepository.intelligence(workspaceId, profile.id());
+  }
+
+  public ResumeReadinessAssessment readiness(UUID workspaceId) {
+    OnboardingProfile profile =
+        repository
+            .latestProfile(workspaceId)
+            .orElseThrow(() -> new IllegalStateException("Upload a readable resume first"));
+    return readinessRepository.find(workspaceId, profile.id());
+  }
+
+  @Transactional
+  public ResumeReadinessAssessment acknowledgeReadiness(UUID workspaceId) {
+    OnboardingProfile profile =
+        repository
+            .latestProfile(workspaceId)
+            .orElseThrow(() -> new IllegalStateException("Upload a readable resume first"));
+    if (!"DRAFT".equals(profile.status())) {
+      throw new IllegalStateException("Only a draft profile can acknowledge readiness findings");
+    }
+    return readinessRepository.acknowledge(workspaceId, profile.id());
   }
 
   @Transactional
@@ -143,6 +178,15 @@ public class OnboardingService {
   @Transactional
   public long completeSetup(
       UUID workspaceId, List<String> requestedSkills, SearchPreferences preferences) {
+    return completeSetup(workspaceId, requestedSkills, preferences, false);
+  }
+
+  @Transactional
+  public long completeSetup(
+      UUID workspaceId,
+      List<String> requestedSkills,
+      SearchPreferences preferences,
+      boolean acknowledgeReadiness) {
     validatePreferences(preferences);
     List<String> skills =
         intelligenceRepository.resolveOrCreateSkills(workspaceId, requestedSkills);
@@ -161,6 +205,12 @@ public class OnboardingService {
     repository.replaceDraftSkills(workspaceId, profile.id(), skills);
     repository.savePreferences(workspaceId, profile.id(), preferences);
     OnboardingProfile completed = repository.latestProfile(workspaceId).orElseThrow();
+    if (acknowledgeReadiness) {
+      ResumeReadinessAssessment assessment = readinessRepository.find(workspaceId, completed.id());
+      if (assessment.acknowledgementRequired()) {
+        readinessRepository.acknowledge(workspaceId, completed.id());
+      }
+    }
     return repository.confirm(workspaceId, completed);
   }
 

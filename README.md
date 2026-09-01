@@ -4,7 +4,8 @@ JobLens is a batch-first modular monolith for personal job-market intelligence. 
 
 New session: start with [SESSION_HANDOFF.md](SESSION_HANDOFF.md). To choose the next piece of work,
 use [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Detailed historical evidence remains in
-[BUILD_PROGRESS.md](BUILD_PROGRESS.md).
+[BUILD_PROGRESS.md](BUILD_PROGRESS.md). The explicit requirements, operating envelope, API/Batch
+boundary, and scale triggers are in [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md).
 
 ## Architecture
 
@@ -44,7 +45,7 @@ intelligence   normalization, skills, duplicate detection, candidate profile, an
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets; V18 adds categorized inclusive skill/role taxonomy, workspace-private additions, and versioned suggestion evidence; V19 makes custom-skill reference cleanup follow workspace deletion; V20 adds versioned ESCO taxonomy releases and uncatalogued-term review artifacts.
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets; V18 adds categorized inclusive skill/role taxonomy, workspace-private additions, and versioned suggestion evidence; V19 makes custom-skill reference cleanup follow workspace deletion; V20 adds versioned ESCO taxonomy releases and uncatalogued-term review artifacts; V21 adds versioned resume-readability assessments, stable findings, and acknowledgement state.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -83,7 +84,7 @@ Environment variables override these values. Never commit real credentials; `.en
 
 1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.
 2. (Recommended) import the pinned ESCO release once: `curl -X POST 'http://localhost:8080/api/batch/taxonomy/esco/import?taxonomyVersion=1.2.1'`. The import is a restartable, idempotent Batch job; until it completes, the curated JobLens seed remains the fallback catalogue.
-3. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text. Resume structure—not membership in a software skill list—determines acceptance. Job descriptions and interview requirement documents are rejected, while a structurally valid non-IT resume remains reviewable even when nothing matches the taxonomy. JobLens stores metadata, hash, and bounded suggestion evidence, not the original file bytes or extracted resume text.
+3. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text. Unsupported, corrupt, oversized, or unreadable files fail. A readable but unusual resume, job description, or interview-style document is preserved as `REVIEW_REQUIRED` with evidence and must be acknowledged before activation. JobLens stores metadata, hash, assessment measures, and bounded evidence—not the original file bytes or full extracted text.
 4. In **Review and activate**, inspect detected skill chips, title suggestions, and uncatalogued-term review cards. Each suggestion shows matched text, source section, taxonomy version, and confidence; nothing is silently accepted as fact. Search the catalogues, remove mistakes, or add a private workspace term.
 5. Choose target roles, preferred sectors, and your current city. Select country names from the integrated-market dropdown; ISO alpha-2 codes remain internal. Each option identifies its supporting source. City/region remains provider-facing text. Provider keywords, page count, employment type, and work arrangement are under **Advanced search options**. Taxonomy qualifiers such as the leading `ICT` in `ICT account manager` remain visible in the reviewed ESCO role but are removed from provider and portal queries, producing the broader `account manager` search.
 6. Click **Save and activate profile** once. This versions the reviewed skills and preferences together and activates the runnable source definitions. Each desired market becomes an independent provider profile with its own pagination and restart checkpoint. JobLens searches Adzuna for every supported market and Jooble only for the regional country configured by `JOOBLE_COUNTRY_CODE`. Direct official Greenhouse or Lever URLs are validated and searched without ATS credentials.
@@ -95,15 +96,22 @@ Environment variables override these values. Never commit real credentials; `.en
 7. Open a result with its source link. This records `VIEWED` and redirects to the real public job listing; it does not mark the job as applied. Click **Save application** when you want to track it.
 8. Open `http://localhost:8080/applications` to move applications through allowed statuses, refresh deterministic follow-ups, and complete reminders.
 
-Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, normalized search preferences, searchable skill and role catalogues, integrated country capabilities, explainable profile suggestions, and reviewed-skill replacement. Relevant inspection endpoints are `GET /api/candidate-profile/intelligence`, `/skills/catalog?query=...`, `/roles/catalog?query=...`, and `/countries`. **Find jobs** runs and inspects the complete search pipeline. Swagger sends the browser workspace cookie with each request.
+Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** documents resume upload, current profile, normalized search preferences, searchable skill and role catalogues, integrated country capabilities, explainable profile/readiness findings, acknowledgement, and reviewed-skill replacement. Relevant inspection endpoints include `GET /api/candidate-profile/intelligence`, `GET /api/candidate-profile/readiness`, `POST /api/candidate-profile/readiness/acknowledgement`, `/skills/catalog?query=...`, `/roles/catalog?query=...`, and `/countries`. **Find jobs** runs and inspects the complete search pipeline. Swagger sends the browser workspace cookie with each request.
 
 Profile matching loads the applicable PostgreSQL catalogue and aliases once, then uses deterministic
 case-insensitive token-boundary matching in memory. Flyway seeds a cross-discipline starter taxonomy;
 user-created skills and roles are visible only inside their workspace. Custom skills are compared
 directly with job text for that candidate, so they can contribute to the existing explainable
 technical score without becoming global extraction terms. Title confidence is a transparent ordering
-heuristic (headline 0.950, recent experience 0.850, other resume body 0.600), not a probability or an
+heuristic (headline 0.950, recent experience 0.900, other resume body 0.600), not a probability or an
 employment claim.
+
+Resume readiness uses deterministic `readability-v1` findings for contact details, standard
+sections, job-title lines, employment dates, education, parsing quality, length, document-type
+uncertainty, and DOCX layout markup that can be measured reliably. Its 0-100 score is not candidate
+quality, employability, job fit, or a proprietary ATS score. The source boundary and exact deductions
+are documented in [ATS_READINESS.md](ATS_READINESS.md). Keyword alignment remains deliberately
+separate because it requires an explicit target role or job description.
 
 The integrated country catalogue is an explicit snapshot of markets supported by JobLens's Adzuna
 adapter, plus the configured Jooble regional market when credentials are present. The provider API

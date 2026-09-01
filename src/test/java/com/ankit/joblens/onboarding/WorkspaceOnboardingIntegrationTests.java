@@ -1,6 +1,7 @@
 package com.ankit.joblens.onboarding;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,6 +17,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -319,6 +325,123 @@ class WorkspaceOnboardingIntegrationTests {
     assertThat(profile.skills()).isEmpty();
     assertThat(onboardingService.intelligence(workspaceId).skillSuggestions()).isEmpty();
     assertThat(onboardingService.intelligence(workspaceId).roleSuggestions()).isEmpty();
+    ResumeReadinessAssessment readiness = onboardingService.readiness(workspaceId);
+    assertThat(readiness.status()).isEqualTo("READY");
+    assertThat(readiness.assessmentVersion()).isEqualTo("readability-v1");
+    assertThat(readiness.findings())
+        .extracting(ResumeReadinessAssessment.Finding::code)
+        .contains("CONTACT_DETAILS_FOUND", "EDUCATION_SECTION_FOUND", "DOCX_SIMPLE_LAYOUT");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM resume_readiness_assessment WHERE profile_version_id=?",
+                Integer.class,
+                profile.id()))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void preservesSuspiciousReadableUploadAndRequiresAcknowledgementBeforeActivation()
+      throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    UUID otherWorkspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    workspaces.create(otherWorkspaceId);
+    byte[] docx =
+        docx(
+            """
+            Software Engineer interview requirements
+            Job description
+            We are looking for a Java developer to join the team.
+            Key responsibilities include designing services and reviewing code.
+            The candidate must complete screening questions before the interview.
+            """);
+
+    OnboardingProfile draft =
+        onboardingService.upload(
+            workspaceId,
+            new MockMultipartFile(
+                "file",
+                "review-required.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                docx));
+
+    ResumeReadinessAssessment assessment = onboardingService.readiness(workspaceId);
+    assertThat(draft.status()).isEqualTo("DRAFT");
+    assertThat(assessment.status()).isEqualTo("REVIEW_REQUIRED");
+    assertThat(assessment.acknowledgementRequired()).isTrue();
+    assertThatThrownBy(() -> onboardingService.readiness(otherWorkspaceId))
+        .isInstanceOf(IllegalStateException.class);
+    mvc.perform(
+            get("/setup").cookie(new Cookie(WorkspaceContext.COOKIE_NAME, workspaceId.toString())))
+        .andExpect(status().isOk())
+        .andExpect(
+            content().string(org.hamcrest.Matchers.containsString("Resume machine readability")))
+        .andExpect(
+            content().string(org.hamcrest.Matchers.containsString("DOCUMENT_TYPE_UNCERTAIN")))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("acknowledgeReadiness")));
+    mvc.perform(get("/v3/api-docs"))
+        .andExpect(status().isOk())
+        .andExpect(
+            content()
+                .string(org.hamcrest.Matchers.containsString("/api/candidate-profile/readiness")));
+
+    SearchPreferences preferences =
+        new SearchPreferences(
+            "Software Engineer",
+            "technology",
+            "Singapore",
+            "Java",
+            "SG | Singapore",
+            2,
+            "PERMANENT",
+            "HYBRID");
+    assertThatThrownBy(
+            () -> onboardingService.completeSetup(workspaceId, List.of("Java"), preferences))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("acknowledge");
+
+    long candidateId =
+        onboardingService.completeSetup(workspaceId, List.of("Java"), preferences, true);
+    assertThat(candidateId).isPositive();
+    assertThat(onboardingService.readiness(workspaceId).acknowledgedAt()).isNotNull();
+  }
+
+  @Test
+  void assessesAReadablePdfFixtureWithoutRetainingItsBytes() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    byte[] pdf =
+        pdf(
+            """
+            Morgan Lee
+            morgan@example.com
+            Professional Summary
+            Business analyst improving customer operations.
+            Experience
+            Senior Business Analyst - Example Company
+            2021 - Present
+            Skills
+            Business Analysis, Project Management
+            Education
+            Bachelor of Commerce
+            """);
+
+    OnboardingProfile draft =
+        onboardingService.upload(
+            workspaceId,
+            new MockMultipartFile("file", "morgan-resume.pdf", "application/pdf", pdf));
+
+    ResumeReadinessAssessment assessment = onboardingService.readiness(workspaceId);
+    assertThat(draft.status()).isEqualTo("DRAFT");
+    assertThat(assessment.contentType()).isEqualTo("application/pdf");
+    assertThat(assessment.status()).isEqualTo("READY");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT size_bytes=? FROM workspace_resume WHERE id=(SELECT resume_id FROM workspace_profile_version WHERE id=?)",
+                Boolean.class,
+                pdf.length,
+                draft.id()))
+        .isTrue();
   }
 
   @Test
@@ -335,7 +458,8 @@ class WorkspaceOnboardingIntegrationTests {
                 20,
                 1,
                 Duration.ZERO),
-            profileIntelligence);
+            profileIntelligence,
+            new ResumeReadinessRepository(new NamedParameterJdbcTemplate(jdbc)));
 
     createAndConfirm(configuredOnboarding, workspaceId, "Java Developer", "banking", "Java");
 
@@ -618,6 +742,26 @@ class WorkspaceOnboardingIntegrationTests {
           "<?xml version=\"1.0\" encoding=\"UTF-8\"?><w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body>"
               + paragraphs
               + "</w:body></w:document>");
+    }
+    return output.toByteArray();
+  }
+
+  private static byte[] pdf(String text) throws Exception {
+    var output = new ByteArrayOutputStream();
+    try (var document = new PDDocument()) {
+      var page = new PDPage();
+      document.addPage(page);
+      try (var stream = new PDPageContentStream(document, page)) {
+        stream.beginText();
+        stream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 11);
+        stream.newLineAtOffset(50, 750);
+        for (String line : text.lines().toList()) {
+          stream.showText(line.replace('—', '-'));
+          stream.newLineAtOffset(0, -15);
+        }
+        stream.endText();
+      }
+      document.save(output);
     }
     return output.toByteArray();
   }

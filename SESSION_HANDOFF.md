@@ -9,14 +9,14 @@ future work is indexed in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
-Implementation baseline: M2.6 Inclusive Profile Intelligence
+Implementation baseline: M2.7 Explainable ATS Readiness Advisor + D0 System Design Baseline
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V20
-Latest full test: 97 tests, 0 failures, 0 errors, 0 skipped
-Latest focused check: fresh PostgreSQL 17, assisted setup render, and profile-intelligence OpenAPI verified
+Latest Flyway migration: V21
+Latest full test: 104 tests, 0 failures, 0 errors, 0 skipped
+Latest focused check: fresh PostgreSQL 17 through V21; 10 onboarding integration tests pass
 ```
 
 Before making changes:
@@ -27,14 +27,15 @@ git status --short
 docker compose ps
 ```
 
-Read [AGENTS.md](AGENTS.md), then select exactly one milestone from
+Read [AGENTS.md](AGENTS.md) and [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
 ## 2. Product flow that works now
 
 ```text
 /setup
-  → upload PDF/DOC/DOCX and reject job/interview documents without resume structure
+  → upload readable PDF/DOC/DOCX and receive versioned machine-readability findings
+  → acknowledge review-required evidence for suspicious or unusual readable documents
   → review evidence-backed skills and titles, searchable private additions, current city,
     and country-name/desired-location rows in one form
   → save and activate the reviewed profile in one transaction
@@ -222,21 +223,19 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 ## 10. Handoff rule
 
 M0 Jooble live acceptance, M0.5 Portal Search Hub, M0.6 Smart Portal Query Planner, M1 source
-health/run observability, M2 Lever, M2.5 normalized multi-market preferences, and M2.6 Inclusive
-Profile Intelligence are complete. M2.7 remains blocked on explicit user approval. The selected order
-is:
+health/run observability, M2 Lever, M2.5 normalized multi-market preferences, M2.6 Inclusive
+Profile Intelligence, M2.7 Explainable ATS Readiness Advisor, and D0 System Design Baseline are
+complete. The selected order is:
 
 ```text
-M2.6 Inclusive Profile Intelligence — COMPLETE (reopened implementation, now ESCO-backed)
-  → STOP, demonstrate it, and ask the user for approval — CURRENT BOUNDARY
-M2.7 Explainable ATS Readiness Advisor
-  → STOP, demonstrate it, and ask the user for approval
+M2.7 Explainable ATS Readiness Advisor — COMPLETE
+D0 System Design Baseline — COMPLETE
 M2.8 Typed SQL Resource Registry
-  → STOP and review what comes next with the user
+  → requires explicit user approval — CURRENT BOUNDARY
 ```
 
 Do not combine these modules and do not silently advance from one to another. At each boundary,
 finish tests, evidence, documentation, and a conventional commit, then explicitly ask the user before
 starting the next module. React migration remains a later, separate presentation-layer decision.
 
-Do not begin M2.7 until the user explicitly approves it after reviewing M2.6 evidence.
+Do not begin M2.8 until the user explicitly approves it after reviewing M2.7 and D0 evidence.
