@@ -252,9 +252,9 @@ Resume-review follow-up hardening rejects short lowercase taxonomy fragments suc
 `sing`, prevents rejected catalogue matches from reappearing as uncatalogued suggestions, and strips
 trailing sentence punctuation from review terms. Catalogue suggestions reuse their existing category
 and confidence evidence for deterministic grouping and ordering; each category reveals six entries
-at a time. Preferred sectors are optional end to end. Country selection remains name-based, defaults
-new location rows to the country name, and visibly blocks unsupported legacy codes instead of silently
-selecting a different country.
+at a time. Preferred sectors are optional end to end. Country selection remains name-based, resets
+the city/region field to the chosen country name on every country change, and visibly blocks
+unsupported legacy codes instead of silently selecting a different country.
 
 Adzuna follow-up diagnosis found that country routing was correct but relevance-sorted India API
 results included expired advertisements dating back to 2022. Discovery now requests date order and a

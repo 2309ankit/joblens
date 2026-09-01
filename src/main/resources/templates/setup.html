@@ -205,14 +205,11 @@
     const populateLocation = row => {
       const country = row.querySelector('select[name="countryCodes"]');
       const location = row.querySelector('input[name="locations"]');
-      const previousCountry = country.dataset.previousCountry || '';
       const selectedCountry = country.selectedOptions[0]?.dataset.countryName || '';
-      if (!location.value.trim() || location.value.trim() === previousCountry) location.value = selectedCountry;
-      country.dataset.previousCountry = selectedCountry;
+      location.value = selectedCountry;
     };
     targets.querySelectorAll('.target-row').forEach(row => {
       const country = row.querySelector('select[name="countryCodes"]');
-      country.dataset.previousCountry = country.selectedOptions[0]?.dataset.countryName || '';
       country.addEventListener('change', () => populateLocation(row));
     });
     addTarget.addEventListener('click', () => {

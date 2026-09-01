@@ -219,8 +219,8 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
   suggested title is factually correct.
 - Resume skill review groups catalogue matches by their existing category and evidence order, reveals
   long groups incrementally, rejects short lowercase taxonomy fragments, and keeps preferred sectors
-  optional. Search countries are selected by name; unsupported legacy codes must be reviewed rather
-  than silently mapped to another country.
+  optional. Search countries are selected by name and reset the city/region default when changed;
+  unsupported legacy codes must be reviewed rather than silently mapped to another country.
 - Java repositories explicitly reference SQL resource paths. SQL is correctly externalized, but
   those string paths are runtime-checked and should gain a typed, startup-validated registry.
 
