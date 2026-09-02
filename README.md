@@ -25,7 +25,7 @@ Browser cookie → workspace → validated resume draft → confirmed candidate/
                     ├─ skillExtractionStep   → job_skill
                     ├─ exactDuplicateDetectionStep → duplicate_cluster/membership/evidence
                     ├─ fuzzyDuplicateDetectionStep → job_similarity
-                    └─ scoringStep            → job_score/job_score_reason
+                    └─ scoringStep            → best job_score + per-role score/reason evidence
 
 CSV → searchProfileImportJob → search_profile (legacy/operator batch input remains supported)
 
@@ -45,7 +45,7 @@ intelligence   normalization, skills, duplicate detection, candidate profile, an
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets; V18 adds categorized inclusive skill/role taxonomy, workspace-private additions, and versioned suggestion evidence; V19 makes custom-skill reference cleanup follow workspace deletion; V20 adds versioned ESCO taxonomy releases and uncatalogued-term review artifacts; V21 adds versioned resume-readability assessments, stable findings, and acknowledgement state; V22 separates ordered target-role intent from résumé evidence and persists versioned generated provider queries per market.
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets; V18 adds categorized inclusive skill/role taxonomy, workspace-private additions, and versioned suggestion evidence; V19 makes custom-skill reference cleanup follow workspace deletion; V20 adds versioned ESCO taxonomy releases and uncatalogued-term review artifacts; V21 adds versioned resume-readability assessments, stable findings, and acknowledgement state; V22 separates ordered target-role intent from résumé evidence and persists versioned generated provider queries per market; V23 adds versioned role-calibration overlays and per-role score evidence.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -101,8 +101,8 @@ Swagger UI is `http://localhost:8080/swagger-ui.html`. **Candidate profile** doc
 Profile matching loads the applicable PostgreSQL catalogue and aliases once, then uses deterministic
 case-insensitive token-boundary matching in memory. Flyway seeds a cross-discipline starter taxonomy;
 user-created skills and roles are visible only inside their workspace. Custom skills are compared
-directly with job text for that candidate, so they can contribute to the existing explainable
-technical score without becoming global extraction terms. Title confidence is a transparent ordering
+directly with job text for that candidate, so they can contribute to the universal confirmed-skill
+dimension without becoming global extraction terms. Title confidence is a transparent ordering
 heuristic (headline 0.950, recent experience 0.900, other resume body 0.600), not a probability or an
 employment claim.
 
@@ -122,7 +122,7 @@ before profile activation rather than producing a knowingly unrunnable source pr
 
 ## What each batch does
 
-`findJobsJob` is the normal user flow: independent discovery for every confirmed source/market profile, including safe Greenhouse and Lever board enrichment when direct official URLs are exposed; normalization; skills; exact/fuzzy duplicate analysis; and workspace candidate scoring in six ordered steps. Location scoring matches any confirmed market and names the matched location and country in its reason. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
+`findJobsJob` is the normal user flow: independent discovery for every confirmed source/market profile, including safe Greenhouse and Lever board enrichment when direct official URLs are exposed; normalization; skills; exact/fuzzy duplicate analysis; and workspace candidate scoring in six ordered steps. The `universal-v1` policy evaluates each job against every selected target role, then projects the highest role score while retaining all per-role reasons. Frontend, Backend Engineering, AI/ML, and Sales/Customer Success add versioned calibrated title/skill evidence; every other role keeps the same universal title, confirmed-skill, sector, seniority, location/work, employment, salary, and freshness dimensions. Missing calibrated skills lower evidence points but never discard a job. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
 Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
 
@@ -237,7 +237,7 @@ jobNormalizationStep: raw NEW/FAILED → normalized_job
 skillExtractionStep: normalized_job → canonical job_skill rows
 exactDuplicateDetectionStep: normalized_job → exact clusters, memberships, and evidence
 fuzzyDuplicateDetectionStep: non-exact candidate pairs → explainable similarity suggestions
-scoringStep:         job + skills + default candidate → score and reasons
+scoringStep:         job + skills + selected roles → universal/overlay scores and reasons
 ```
 
 Optional development failure injection:
@@ -249,7 +249,12 @@ curl -X POST \
 
 Use `failDuplicateDetection=true` or `failFuzzyDetection=true` to demonstrate transactional rollback and restart of the corresponding duplicate step. Failure-injection parameters are non-identifying.
 
-Identifying parameters are `businessDate`, `normalizationVersion=v1`, and `duplicateDetectionVersion=fuzzy-v1`. Current score weights are Technical 40, Domain 15, Seniority 10, Location/work 10, Employment 10, Salary 10, Freshness 5. Persisted reason points must sum to the total score.
+Identifying parameters are `businessDate`, `normalizationVersion=v1`,
+`duplicateDetectionVersion=fuzzy-v1`, and `rankingPolicyVersion=universal-v1` (plus workspace,
+candidate, and search-definition identity in Find Jobs). Current universal weights are role title 25,
+confirmed/calibrated skills 15, optional sector 15, seniority 10, location/work arrangement 10,
+employment 10, salary availability 10, and freshness 5. The compatibility `technical_score` projection
+is title plus skills and `domain_score` is sector. Persisted reason points must sum to the total score.
 
 Inspect derived data:
 
@@ -257,7 +262,8 @@ Inspect derived data:
 docker compose exec -T postgres psql -U joblens -d joblens \
   -c "select alias_name, s.canonical_name from skill_alias a join skill s on s.id=a.skill_id order by alias_name;" \
   -c "select n.title, s.canonical_name, js.mention_count from job_skill js join normalized_job n on n.id=js.normalized_job_id join skill s on s.id=js.skill_id order by n.id,s.canonical_name;" \
-  -c "select n.title, sc.total_score, sc.technical_score, sc.domain_score, sc.seniority_score, sc.location_score, sc.employment_score, sc.salary_score, sc.freshness_score from job_score sc join normalized_job n on n.id=sc.normalized_job_id order by sc.total_score desc;"
+  -c "select n.title, sc.best_target_role_name, sc.ranking_policy_version, sc.calibration_pack_code, sc.calibration_pack_version, sc.total_score from job_score sc join normalized_job n on n.id=sc.normalized_job_id order by sc.total_score desc;" \
+  -c "select target_role_name, policy_version, total_score, title_score, skill_score, sector_score, seniority_score, location_score, employment_score, salary_score, freshness_score from job_role_score order by normalized_job_id,total_score desc;"
 ```
 
 ## 4. Inspect exact duplicates
@@ -361,7 +367,10 @@ open http://localhost:8080/swagger-ui.html
 open http://localhost:8080/dashboard
 ```
 
-The job detail endpoint returns normalized fields, canonical skills, score categories, score reasons, exact-cluster membership, and fuzzy similarity matches. The Thymeleaf dashboard is available at `/dashboard`.
+The job detail endpoint returns normalized fields, canonical skills, the best target role, ranking and
+overlay versions, every per-role score with point reasons, exact-cluster membership, and fuzzy
+similarity matches. The Thymeleaf dashboard names the best role/overlay and is available at
+`/dashboard`.
 
 Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, **GREENHOUSE**, or **LEVER**. Clicking records the job as viewed for this workspace and redirects through the exact listing URL supplied by that provider. Adzuna discovery requests date-sorted postings no more than `ADZUNA_MAX_DAYS_OLD` days old (default 30), and older landed Adzuna rows are excluded from dashboard/API lists. The latest-run table names the source and market, such as **ADZUNA — India (IN)**, so parallel country runs are distinguishable. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel creates three explainable queries for each selected market. LinkedIn is generated for every market; JobStreet appears for Singapore, SEEK Australia for `AU`, and SEEK New Zealand for `NZ`. Unselected regional links are not shown. These portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
 
@@ -424,6 +433,7 @@ The anonymous, manual-use product flow is complete. These are separate product c
 - Add optional schedules/notifications after the manual one-click workflow is proven useful.
 - Add more legitimate source adapters only when a candidate-facing public search API exists or a commercial agreement explicitly authorizes this use. The current LinkedIn and SEEK/JobStreet APIs are partner/hirer integrations for posting and applications, not public candidate-job discovery; dashboard links provide direct searches instead. LinkedIn and Indeed scraping remain prohibited.
 - Add login/account recovery only if anonymous browser-cookie workspaces need cross-device persistence.
-- Calibrate deterministic scoring and fuzzy thresholds against reviewed real examples.
+- Complete M3.3 Job Explorer filtering/keyset pagination, then collect private Fit/Maybe/Not-fit labels
+  in M3.4 to measure Precision@10 and revise the initial deterministic overlay signals from evidence.
 
 The latest full verification evidence is recorded in `BUILD_PROGRESS.md`.

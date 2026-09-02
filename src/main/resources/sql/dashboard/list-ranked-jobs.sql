@@ -1,5 +1,9 @@
 SELECT n.id, n.title, n.company, n.location, n.source,
        COALESCE(s.total_score, 0) AS score,
+       s.best_target_role_name,
+       s.ranking_policy_version,
+       s.calibration_pack_code,
+       s.calibration_pack_version,
        COALESCE(v.view_count, 0) AS view_count,
        application.id AS application_id,
        application.status AS application_status

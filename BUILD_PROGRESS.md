@@ -236,8 +236,8 @@ No external job-source integrations have been implemented.
 
 M2.7 Explainable ATS Readiness Advisor and the requested D0 System Design Baseline are complete.
 M3 **General Role Intent, Job Explorer, and Ranking Calibration** was approved and started on
-2026-09-02; M3.1 intent and generated queries is complete, while M3.2 has not started. M2.8 is
-deferred. Flyway V21 adds profile-version-owned
+2026-09-02; M3.1 intent and generated queries and M3.2 role-aware ranking are complete, while M3.3
+has not started. M2.8 is deferred. Flyway V21 adds profile-version-owned
 readability assessments, stable findings, acknowledgement state, and workspace-safe inspection.
 `SYSTEM_DESIGN.md` records explicit requirements, operating assumptions, the API/Batch boundary,
 failure model, and measurable scale triggers. Flyway V18 extends the existing profile-version model with categorized taxonomy,
@@ -278,11 +278,10 @@ and this file remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-M3.1 **Intent and generated queries** is complete. The next checkpoint is M3.2 **Role-aware ranking**
-and requires an explicit decision before implementation. The architecture accepts every catalogue or
-private role; Frontend, AI/ML, and Sales/Customer Success are only the first curated calibration packs
-planned for M3.2. M2.8 Typed SQL Resource Registry is deferred while M3 is active. React migration, original-resume object storage,
-schedules/notifications, and login/cross-device recovery remain separate and unstarted.
+M3.2 **Role-aware ranking** is complete. The next checkpoint is M3.3 **Job Explorer** and requires an
+explicit decision before implementation. M2.8 Typed SQL Resource Registry is deferred while M3 is
+active. React migration, original-resume object storage, schedules/notifications, and
+login/cross-device recovery remain separate and unstarted.
 
 ## M3.1 Intent and Generated Queries Evidence
 
@@ -307,6 +306,34 @@ completed with 108 tests, 0 failures, 0 errors, and 0 skipped. The Docker image 
 container recreated; `/actuator/health` returned `UP`, Flyway reported V22, the local database
 contained 25 backfilled role-intent rows and 8 legacy query rows, and the workspace-safe query endpoint
 returned its per-market legacy plans.
+
+## M3.2 Role-Aware Ranking Evidence
+
+Flyway V23 introduces versioned database-owned calibration packs, role mappings, calibrated title and
+skill signals, and candidate-private `job_role_score` / `job_role_score_reason` evidence. The
+`universal-v1` policy scores every selected catalogue or workspace-private role across title,
+confirmed skills, optional sectors, seniority, selected market and work arrangement, employment type,
+salary availability, and freshness. Frontend, Backend Engineering, AI/ML, and Sales/Customer Success
+are the first four overlays; an unmapped role such as Registered Nurse still receives the universal
+policy rather than a lower-quality alternate algorithm.
+
+Each job is evaluated independently against the candidate's one to three ordered target roles. The
+highest result becomes the existing `job_score` projection and records its target role, universal
+policy version, and optional calibration-pack version. All per-role scores and point-by-point reasons
+are reconciled transactionally and idempotently. A missing calibrated core skill contributes a
+visible zero-point reason but never filters the posting. Find-jobs and direct intelligence launches
+include the ranking-policy version as an identifying parameter, so a future policy revision creates a
+new logical Batch run. Job detail REST responses expose every role score and its reasons; dashboard
+rows name the best target role and active overlay.
+
+Verification on 2026-09-03: fresh PostgreSQL 17 Testcontainers applied all 23 migrations. Focused
+tests covered Frontend versus Backend selection, AI/ML, Sales, Customer Success, the universal-only
+Registered Nurse path, missing-core-skill behavior, per-role persistence/reason reconciliation,
+idempotent reruns, and the existing Find-jobs restart path. `./mvnw clean test` completed with 111
+tests, 0 failures, 0 errors, and 0 skipped. The Docker image was rebuilt and the app container
+recreated; startup validated 23 migrations, `/actuator/health` returned `UP`, PostgreSQL reported
+Flyway V23, and the four active version `1.0.0` overlays were `FRONTEND`, `BACKEND`, `AI_ML`, and
+`SALES_CUSTOMER_SUCCESS`.
 
 ## Explainable ATS Readiness Advisor Evidence
 

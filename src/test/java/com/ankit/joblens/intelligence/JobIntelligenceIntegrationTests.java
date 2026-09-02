@@ -338,6 +338,32 @@ class JobIntelligenceIntegrationTests {
     assertThat(((Number) score.get("total_score")).intValue()).isBetween(0, 100);
     assertThat(((Number) score.get("reason_sum")).intValue())
         .isEqualTo(((Number) score.get("total_score")).intValue());
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT ranking_policy_version FROM job_score WHERE normalized_job_id=?",
+                String.class,
+                normalizedId))
+        .isEqualTo("universal-v1");
+    int roleScoreCount =
+        jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM job_role_score WHERE normalized_job_id=?",
+            Integer.class,
+            normalizedId);
+    assertThat(roleScoreCount).isPositive();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                """
+                SELECT count(*) FROM job_role_score role_score
+                WHERE role_score.normalized_job_id=?
+                  AND role_score.total_score <> (
+                    SELECT COALESCE(sum(reason.points), 0)
+                    FROM job_role_score_reason reason
+                    WHERE reason.job_role_score_id=role_score.id
+                  )
+                """,
+                Integer.class,
+                normalizedId))
+        .isZero();
 
     launch(null);
     assertThat(
@@ -352,6 +378,12 @@ class JobIntelligenceIntegrationTests {
                 Integer.class,
                 normalizedId))
         .isEqualTo(1);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM job_role_score WHERE normalized_job_id=?",
+                Integer.class,
+                normalizedId))
+        .isEqualTo(roleScoreCount);
   }
 
   @Test

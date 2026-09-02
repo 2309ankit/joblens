@@ -52,9 +52,11 @@ class JobScoreCalculatorTests {
 
     JobScore score = calculator.calculate(job, 99L);
 
-    assertThat(score.technical()).isEqualTo(40);
+    assertThat(score.technical()).isEqualTo(33);
+    assertThat(score.bestRole().targetRoleName()).isEqualTo("Registered Nurse");
+    assertThat(score.bestRole().calibrationPackCode()).isNull();
     assertThat(score.reasons())
-        .filteredOn(reason -> reason.category().equals("TECHNICAL"))
+        .filteredOn(reason -> reason.category().equals("CONFIRMED_SKILLS"))
         .singleElement()
         .satisfies(reason -> assertThat(reason.text()).contains("Clinical Documentation"));
   }

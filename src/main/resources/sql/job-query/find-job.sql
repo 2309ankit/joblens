@@ -1,6 +1,8 @@
 SELECT n.*, COALESCE(s.total_score, 0) AS score,
        s.technical_score, s.domain_score, s.seniority_score, s.location_score,
-       s.employment_score, s.salary_score, s.freshness_score
+       s.employment_score, s.salary_score, s.freshness_score,
+       s.best_target_role_name, s.ranking_policy_version,
+       s.calibration_pack_code, s.calibration_pack_version
 FROM normalized_job n
 LEFT JOIN job_score s
   ON s.normalized_job_id = n.id

@@ -1,5 +1,6 @@
 package com.ankit.joblens.discovery;
 
+import com.ankit.joblens.intelligence.JobScoreCalculator;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ public class FindJobsService {
             .addString("searchDefinitionVersion", definitionVersion, true)
             .addString("normalizationVersion", "v1", true)
             .addString("duplicateDetectionVersion", "fuzzy-v1", true)
+            .addString("rankingPolicyVersion", JobScoreCalculator.POLICY_VERSION, true)
             .toJobParameters();
     JobExecution execution = jobOperator.start(findJobsJob, parameters);
     runs.record(workspaceId, candidateProfileId, businessDate, execution);

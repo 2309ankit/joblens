@@ -1,6 +1,8 @@
 SELECT n.id, n.title, n.company, n.location, n.description_text, n.employment_type,
        n.salary_min, n.salary_max, n.salary_currency, n.remote_type, n.posted_at,
-       n.source_url, COALESCE(s.total_score, 0) AS score
+       n.source_url, COALESCE(s.total_score, 0) AS score,
+       s.best_target_role_name, s.ranking_policy_version,
+       s.calibration_pack_code, s.calibration_pack_version
 FROM normalized_job n
 LEFT JOIN job_score s
   ON s.normalized_job_id = n.id

@@ -86,6 +86,10 @@ public class DashboardController {
               row.put("company", resultSet.getString("company"));
               row.put("location", resultSet.getString("location"));
               row.put("score", resultSet.getBigDecimal("score"));
+              row.put("bestRole", resultSet.getString("best_target_role_name"));
+              row.put("rankingPolicy", resultSet.getString("ranking_policy_version"));
+              row.put("calibrationPack", resultSet.getString("calibration_pack_code"));
+              row.put("calibrationVersion", resultSet.getString("calibration_pack_version"));
               row.put("source", resultSet.getString("source"));
               row.put("viewCount", resultSet.getInt("view_count"));
               row.put("applicationId", resultSet.getObject("application_id", Long.class));

@@ -271,12 +271,14 @@ React migration, ranking calibration, or moving to another module without explic
 ## M3 — General Role Intent, Job Explorer, and Ranking Calibration
 
 Status: approved and started on 2026-09-02. M2.8 Typed SQL Resource Registry is deliberately
-deferred, not cancelled. M3.1 completed on 2026-09-02; M3.2 is the next checkpoint and has not started.
+deferred, not cancelled. M3.1 completed on 2026-09-02 and M3.2 completed on 2026-09-03. M3.3 is the
+next checkpoint and has not started.
 
 Goal: turn user-selected job-search directions into explainable provider queries, role-aware ranking,
 and an inspectable job explorer. The architecture supports every catalogue or workspace-private role.
-Frontend, AI/ML, and Sales/Customer Success are the first curated calibration packs, not a closed list
-of supported professions; every other role receives a deterministic generic fallback.
+Frontend, Backend Engineering, AI/ML, and Sales/Customer Success are the first curated calibration
+overlays, not a closed list of supported professions. Every role receives the deterministic universal
+ranking policy; mapped roles receive additional versioned evidence from an overlay.
 
 ### Product boundary
 
@@ -298,9 +300,11 @@ does not alter the stored résumé evidence. Manually added roles are search int
 ### In scope
 
 - A versioned, database-owned role-pack model with role family, title aliases, core/preferred/supporting
-  skill signals, and explainable scoring/query weights. Unmapped roles use their canonical title,
-  aliases, and confirmed candidate skills through a generic fallback.
-- Three initial curated calibration packs: **Frontend**, **AI/ML**, and **Sales/Customer Success**.
+  skill signals, and explainable scoring/query weights. All roles use their canonical title, aliases,
+  confirmed candidate skills, sectors, seniority, market, work arrangement, employment type, salary,
+  and freshness through the universal policy.
+- Four initial curated calibration overlays: **Frontend**, **Backend Engineering**, **AI/ML**, and
+  **Sales/Customer Success**.
   Existing ESCO roles remain a canonical taxonomy reference; raw ESCO labels do not automatically
   become active curated aliases.
 - Resume role-direction suggestions based on title/experience/skill evidence, with selection,
@@ -319,9 +323,9 @@ does not alter the stored résumé evidence. Manually added roles are search int
 
 ### Acceptance criteria
 
-1. Any catalogue or private role can be selected as intent. A résumé with clear Frontend, AI/ML, or
-   Sales/Customer Success evidence receives an initial calibrated suggestion; an ambiguous résumé is
-   not force-classified and any uncalibrated role uses the generic fallback.
+1. Any catalogue or private role can be selected as intent. Frontend, Backend Engineering, AI/ML, and
+   Sales/Customer Success roles receive an initial calibrated overlay; an ambiguous résumé is not
+   force-classified and an unmapped role still receives the universal policy.
 2. Selected roles generate bounded provider queries per selected market; the generated terms and their
    role-pack version are inspectable before discovery. Normal setup has no mandatory keyword field.
 3. Every ranked job exposes the active role pack and point-by-point score reasons. A missing core skill
@@ -332,7 +336,7 @@ does not alter the stored résumé evidence. Manually added roles are search int
    market searched from the advertised job location when those differ.
 6. Feedback, role-pack versions, recalculation, and score reasons are isolated by workspace and remain
    reproducible after restart/rerun.
-7. PostgreSQL Testcontainers covers all three role packs, ambiguous-role fallback, country/source
+7. PostgreSQL Testcontainers covers all four role overlays, the universal-only path, country/source
    filtering, cursor behavior, feedback isolation, deterministic reranking, and calibration metrics.
 8. A small reviewed fixture corpus demonstrates the before/after Precision@10 outcome; production
    calibration changes require user-reviewed examples rather than guessed weight changes.
@@ -342,8 +346,9 @@ does not alter the stored résumé evidence. Manually added roles are search int
 1. **M3.1 — Intent and generated queries — COMPLETE:** normalize ordered target roles, preserve
    résumé evidence separately, remove mandatory provider terms, and preview reproducible generated
    queries.
-2. **M3.2 — Role-aware ranking:** add generic and curated role packs, per-role score evidence, and a
-   best-matching target role without dropping jobs merely for missing a signal.
+2. **M3.2 — Role-aware ranking — COMPLETE:** apply one universal policy to every role, add four
+   curated overlays, persist per-role score evidence, and select the best-matching target role without
+   dropping jobs merely for missing a signal.
 3. **M3.3 — Job Explorer:** move filters, stable sorting, country grouping, and 20-row keyset Load more
    to backend SQL/API while keeping lightweight browser rendering.
 4. **M3.4 — Feedback and calibration:** add workspace-private Fit/Maybe/Not-fit reviews, reason codes,

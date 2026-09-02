@@ -13,6 +13,27 @@ public record JobScore(
     int employment,
     int salary,
     int freshness,
-    List<Reason> reasons) {
+    List<Reason> reasons,
+    RoleScore bestRole,
+    List<RoleScore> roleScores) {
   public record Reason(String category, int points, String text) {}
+
+  public record RoleScore(
+      Long targetRoleId,
+      String targetRoleName,
+      int rolePriority,
+      String policyVersion,
+      String calibrationPackCode,
+      String calibrationPackVersion,
+      String calibrationPackName,
+      int total,
+      int title,
+      int skill,
+      int sector,
+      int seniority,
+      int location,
+      int employment,
+      int salary,
+      int freshness,
+      List<Reason> reasons) {}
 }

@@ -1,7 +1,8 @@
 # JobLens System Design Baseline (D0)
 
-Status: baseline v1, recorded after M2.7. This is the design contract for the current personal-scale
-modular monolith. Values labelled **target** are design objectives, not load-test claims.
+Status: baseline v1, recorded after M2.7 and updated through M3.2. This is the design contract for the
+current personal-scale modular monolith. Values labelled **target** are design objectives, not
+load-test claims.
 
 ## 1. Problem and boundary
 
@@ -41,6 +42,7 @@ machine. It favors correctness, auditability, and restartability over concurrenc
 | Identity | One anonymous cookie per workspace | No recovery or cross-device guarantee |
 | Resume upload | PDF/DOC/DOCX, 5 MB, at least 80 readable characters | Synchronous API operation |
 | Search markets | Maximum 10 per profile | Independent provider profile/checkpoint per market |
+| Search intent | One primary plus up to two additional target roles | Ordered and explicitly selected by the user |
 | User-selected pages | 1-20 | Provider/global caps still apply |
 | Adzuna fetch cap | Default 5 pages × 20 results/profile | 100 results/profile/run before provider count termination |
 | Adzuna freshness | 30 days | Old landed Adzuna rows excluded from user results |
@@ -49,6 +51,7 @@ machine. It favors correctness, auditability, and restartability over concurrenc
 | ESCO import | 250 records/page, 30-second timeout, 3 attempts | Explicit restartable operator job |
 | Fuzzy thresholds | 75 possible, 90 likely | Heuristics pending reviewed calibration |
 | Resume readability | 0-100 `readability-v1` | Parser readability only; review severity requires acknowledgement |
+| Job ranking | 0-100 `universal-v1` per selected role | Four initial versioned overlays add evidence without excluding other roles |
 | Storage retention | Indefinite until workspace/data deletion | Known policy gap; not a durability promise |
 
 Design targets for the current envelope:
@@ -89,7 +92,9 @@ Workspace
                           └─ Normalized Jobs
                               ├─ Duplicate Evidence
                               ├─ Workspace Sightings
-                              └─ Candidate Scores / Reasons
+                              └─ Candidate Scores
+                                  ├─ Best-role projection / reasons
+                                  └─ Per-target-role scores / reasons
 
 Candidate Profile + Normalized Job
   └─ Application
@@ -166,6 +171,11 @@ Find Jobs data flow:
 - Résumé role suggestions remain evidence; one to three user-selected target roles are stored as
   ordered intent. `role-intent-v1` query plans are persisted separately from both, so an advanced
   provider override cannot silently rewrite what role the user selected.
+- `universal-v1` evaluates every posting independently against each selected role. Frontend, Backend
+  Engineering, AI/ML, and Sales/Customer Success can add versioned calibrated title/skill evidence;
+  an unmapped role uses the same universal dimensions without an overlay. The highest result is the
+  compatibility projection, while every per-role score and reason remains candidate-private and
+  reproducible. Missing signals contribute zero points and never act as hidden filters.
 - A `REVIEW_REQUIRED` resume assessment must be acknowledged before activation.
 - Raw identity is `(source, external_job_id)`; changed payload hashes reset derived processing.
 - Chunk writers update derived state and source status in the same transaction.
@@ -213,8 +223,9 @@ single deployable remain adequate until a measured trigger says otherwise.
 
 ## 9. Design risks and next decisions
 
-1. M3.1 now provides explicit role intent and reproducible provider queries. Role-aware weights and
-   reviewed relevance labels remain M3.2–M3.4 work.
+1. M3.1 provides explicit role intent and reproducible provider queries. M3.2 provides universal
+   role-aware ranking plus four initial overlays. Job Explorer and reviewed relevance labels remain
+   M3.3–M3.4 work; the overlay seeds are transparent starting rules, not measured accuracy claims.
 2. SQL resource paths are runtime strings; M2.8 will add typed startup validation without changing
    JDBC behavior.
 3. Retention is indefinite and anonymous workspaces are unrecoverable.

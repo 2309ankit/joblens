@@ -1,5 +1,6 @@
 package com.ankit.joblens.batchapi;
 
+import com.ankit.joblens.intelligence.JobScoreCalculator;
 import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,7 +66,8 @@ public class JobIntelligenceController {
             .addString("workspaceId", workspaceId.toString(), true)
             .addLong("candidateProfileId", candidateProfileId, true)
             .addString("normalizationVersion", "v1", true)
-            .addString("duplicateDetectionVersion", "fuzzy-v1", true);
+            .addString("duplicateDetectionVersion", "fuzzy-v1", true)
+            .addString("rankingPolicyVersion", JobScoreCalculator.POLICY_VERSION, true);
     if (failAfterItems != null) {
       parameters.addLong("failAfterItems", failAfterItems, false);
     }

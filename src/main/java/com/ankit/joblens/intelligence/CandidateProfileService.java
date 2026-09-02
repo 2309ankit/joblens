@@ -4,7 +4,6 @@ import com.ankit.joblens.jdbc.ClasspathSql;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -58,15 +57,17 @@ public class CandidateProfileService {
         ((Number) base.get("id")).longValue(),
         (String) base.get("primary_location"),
         locations,
-        array(base.get("target_roles")),
-        array(base.get("target_domains")),
+        array(base.get("target_roles"), false),
+        array(base.get("target_domains"), true),
         skills,
         prefs);
   }
 
-  private static Set<String> array(Object value) {
+  private static Set<String> array(Object value, boolean lowercase) {
     if (value instanceof String[] a)
-      return java.util.Arrays.stream(a).map(String::toLowerCase).collect(Collectors.toSet());
+      return java.util.Arrays.stream(a)
+          .map(item -> lowercase ? item.toLowerCase() : item)
+          .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
     return Set.of();
   }
 }

@@ -69,7 +69,8 @@ public class JobQueryController {
   @GetMapping("/{id}")
   @Operation(
       summary = "Get job details",
-      description = "Returns job fields, skills, score reasons, duplicates, and similarity matches")
+      description =
+          "Returns job fields, skills, the best and per-target-role score reasons, duplicates, and similarity matches")
   public Map<String, Object> job(
       @PathVariable long id, HttpServletRequest request, HttpServletResponse response) {
     UUID workspaceId = workspaceContext.resolve(request, response);
@@ -104,6 +105,19 @@ public class JobQueryController {
         jdbc.queryForList(
             load("sql/job-query/list-score-reasons.sql"),
             Map.of("id", id, "candidateProfileId", scoreProfileId)));
+    List<Map<String, Object>> roleScores =
+        jdbc.query(
+            load("sql/job-query/list-job-role-scores.sql"),
+            Map.of("id", id, "candidateProfileId", scoreProfileId),
+            (resultSet, row) -> row(resultSet));
+    roleScores.forEach(
+        roleScore ->
+            roleScore.put(
+                "reasons",
+                jdbc.queryForList(
+                    load("sql/job-query/list-job-role-score-reasons.sql"),
+                    Map.of("roleScoreId", roleScore.get("id")))));
+    result.put("roleScores", roleScores);
     result.put("duplicateCluster", duplicateQueryRepository.findClusterForJob(id));
     result.put("similarityMatches", duplicateQueryRepository.findSimilaritiesForJob(id));
     return result;

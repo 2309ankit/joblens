@@ -9,14 +9,14 @@ future work is indexed in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
-Implementation baseline: M2.7 Explainable ATS Readiness Advisor + D0 System Design Baseline
+Implementation baseline: M3.2 Role-Aware Ranking
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V22
-Latest full test: 108 tests, 0 failures, 0 errors, 0 skipped
-Latest focused check: fresh PostgreSQL 17 through V22; 11 onboarding + 2 query-planner tests pass
+Latest Flyway migration: V23
+Latest full test: 111 tests, 0 failures, 0 errors, 0 skipped
+Latest focused check: fresh PostgreSQL 17 through V23; role-aware ranking, intelligence, and Find-jobs integration suites pass
 ```
 
 Before making changes:
@@ -48,7 +48,7 @@ Read [AGENTS.md](AGENTS.md) and [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), then selec
       3. normalization
       4. skill extraction
       5. exact and fuzzy duplicate analysis
-      6. candidate scoring with reasons
+      6. universal role-aware scoring with optional calibrated overlays and per-role reasons
   → open original listing (records VIEWED)
   → save an application
 
@@ -119,7 +119,7 @@ search profile.
 
 ## 5. Data and processing decisions
 
-- Flyway V1-V20 owns application and Spring Batch metadata schemas.
+- Flyway V1-V23 owns application and Spring Batch metadata schemas.
 - Search countries/locations are normalized as independent `workspace_search_target` rows. Confirming
   preferences creates one provider profile and checkpoint per supported source/market combination.
 - Spring JDBC is used; JPA and Lombok are intentionally absent.
@@ -128,9 +128,12 @@ search profile.
   and SHA-256 identity are retained.
 - Exact duplicate evidence is source/external ID or normalized-content hash.
 - Fuzzy matches are explainable review suggestions, not probabilities or automatic merges.
-- Scoring is deterministic, preference-driven, and accompanied by category reasons. Workspace-private
-  custom skills are matched directly against job text for their candidate without entering the global
-  extraction catalogue.
+- Scoring applies deterministic `universal-v1` dimensions to every selected role. Frontend, Backend
+  Engineering, AI/ML, and Sales/Customer Success add versioned title/skill evidence; other catalogue
+  and workspace-private roles retain the same universal policy. The best role projects to
+  `job_score`, while all candidate-private alternatives and reasons persist in `job_role_score`.
+  Workspace-private custom skills are matched directly without entering the global extraction
+  catalogue.
 - Unknown end clients are not guessed. Any future estimate must expose evidence and uncertainty.
 
 ## 6. Main inspection points
@@ -179,7 +182,7 @@ src/main/java/com/ankit/joblens/
   dashboard/      Thymeleaf controllers and view tracking
 
 src/main/resources/
-  db/migration/   Flyway V1-V20
+  db/migration/   Flyway V1-V23
   sql/            externalized SQL grouped by feature
   templates/      setup, dashboard, applications
 ```
@@ -209,7 +212,8 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Lever enrichment activates only for a direct global `jobs.lever.co` URL; tracking redirects and the
   separate EU host are deliberately unsupported.
 - Discovery is sequential and intentionally unpartitioned at current personal scale.
-- Fuzzy thresholds and scoring weights need reviewed real-world calibration.
+- Fuzzy thresholds and the initial role-overlay signals still need reviewed real-world calibration;
+  M3.4 owns feedback and Precision@10 rather than automatic self-training.
 - Original resume storage, schedules, and external notifications are not implemented.
 - Market insights are shared market-level projections rather than private workspace projections.
 - The inclusive taxonomy is a curated starter set, with optional versioned ESCO skill/occupation
@@ -236,7 +240,8 @@ M2.7 Explainable ATS Readiness Advisor — COMPLETE
 D0 System Design Baseline — COMPLETE
 M3 General Role Intent, Job Explorer, and Ranking Calibration
   → approved and started on 2026-09-02; M3.1 intent and generated queries is complete
-  → M3.2 role-aware ranking awaits the next explicit checkpoint decision
+  → M3.2 role-aware ranking is complete, including the Backend Engineering overlay
+  → M3.3 Job Explorer awaits the next explicit checkpoint decision
 M2.8 Typed SQL Resource Registry
   → deferred while M3 is active
 ```
@@ -245,4 +250,4 @@ Do not combine these modules and do not silently advance from one to another. At
 finish tests, evidence, documentation, and a conventional commit, then explicitly ask the user before
 starting the next module. React migration remains a later, separate presentation-layer decision.
 
-M3.1 is verified. Do not start M3.2 or M2.8 without the next explicit checkpoint decision.
+M3.2 is verified. Do not start M3.3 or M2.8 without the next explicit checkpoint decision.
