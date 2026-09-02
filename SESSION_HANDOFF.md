@@ -10,6 +10,7 @@ future work is indexed in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
 Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
 Implementation baseline: M3.2 Role-Aware Ranking
+M3.2 implementation commit: 2885c84 (feat(ranking): add role-aware calibration)
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
@@ -17,6 +18,7 @@ Database: PostgreSQL 17
 Latest Flyway migration: V23
 Latest full test: 111 tests, 0 failures, 0 errors, 0 skipped
 Latest focused check: fresh PostgreSQL 17 through V23; role-aware ranking, intelligence, and Find-jobs integration suites pass
+Local runtime: Docker app running; PostgreSQL healthy; /actuator/health reports UP
 ```
 
 Before making changes:
@@ -30,7 +32,122 @@ docker compose ps
 Read [AGENTS.md](AGENTS.md) and [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
-## 2. Product flow that works now
+## 2. M3.2 completed slice — exact handoff
+
+### Product and architecture decision
+
+M3.2 does not divide professions into "supported" roles and a weaker generic algorithm. Every one of
+the candidate's one to three ordered target roles is evaluated by the same deterministic,
+versioned `universal-v1` policy. A mapped role also receives an additive, versioned calibration
+overlay containing curated title and skill evidence. An unmapped catalogue or workspace-private role
+still receives the full universal policy using its selected title, aliases, confirmed candidate
+skills, sectors, seniority, markets, work arrangement, employment type, salary availability, and
+freshness.
+
+The overlays are transparent starter rules, not a claim of measured ranking accuracy. M3.4 must use
+user-reviewed Fit/Maybe/Not-fit examples and sample-qualified Precision@10 before changing weights or
+claiming improvement. There is no LLM, automatic self-training, forced role classification, or hidden
+job rejection.
+
+### Deterministic scoring contract
+
+For every normalized job, scoring loads the candidate and ordered target roles once at step creation,
+then calculates one independent 0–100 score per role. The highest total becomes the best-role
+projection. A tie is resolved by the user's role priority: primary before secondary before
+exploratory.
+
+| Dimension | Maximum | Current deterministic evidence |
+| --- | ---: | --- |
+| Role title | 25 | Exact selected role 25; catalogue alias 23; primary overlay title 22; related overlay title 18; full distinctive-token match 18; partial token match 10 |
+| Skills | 15 | Confirmed candidate skills up to 8, plus overlay core 4, preferred 2, and supporting 1 |
+| Optional sector | 15 | Three points per matched preferred-sector term, capped at 15 |
+| Seniority | 10 | Exact explicit level 10; adjacent level 6; unspecified policies receive bounded partial points |
+| Location/work arrangement | 10 | Selected market 5 plus accepted remote/hybrid/onsite arrangement 5, with separate reason rows |
+| Employment | 10 | Exact requested type 10; `ANY` 5; missing provider value 3 |
+| Salary availability | 10 | Provider supplied salary 5; missing salary uses the bounded configured default, currently 3 |
+| Freshness | 5 | Full points through the configured fresh window, partial points through the second window |
+
+Persisted reason points reconcile exactly to each role total. A missing core skill produces an
+explicit zero-point `CALIBRATED_CORE_SKILLS` reason; it does not filter or discard the posting. The
+existing `job_score.technical_score` remains a compatibility projection of title plus skills, and
+`domain_score` remains the sector score, preserving the earlier database constraint and API shape.
+
+### Initial version 1.0.0 calibration overlays
+
+| Overlay | Mapped roles | Curated skill levels |
+| --- | --- | --- |
+| `FRONTEND` | Frontend Engineer | Core: HTML, CSS, JavaScript; preferred: TypeScript, React, Angular, Vue.js; supporting: Next.js, Redux, Web Accessibility |
+| `BACKEND` | Backend Engineer | Core: Java, Spring Boot, SQL; preferred: REST, PostgreSQL; supporting: Kafka, Docker |
+| `AI_ML` | Data Scientist, AI Engineer, Machine Learning Engineer | Data Scientist: Python, Machine Learning, Statistics; SQL and Data Analysis preferred. AI Engineer: Python and Machine Learning core, Docker supporting. ML Engineer: Python and Machine Learning core, SQL preferred, Docker supporting |
+| `SALES_CUSTOMER_SUCCESS` | Sales Manager, Sales Executive, Account Executive, Customer Success Manager, Customer Success Specialist | Sales/CRM signals according to role; Customer Service/CRM for success roles; Stakeholder Management preferred for Sales Manager and Customer Success Manager |
+
+Curated title alternatives include UI Engineer/UI Developer/Web UI Engineer, API Engineer/Server-side
+Engineer, Machine Learning Scientist/Generative AI Engineer/Applied ML Engineer/MLOps Engineer, and
+the relevant Sales Lead, Sales Representative, Account Sales Executive, Client Success Manager, and
+Customer Success Associate variants. Flyway V23 also seeds missing canonical roles for AI Engineer,
+Machine Learning Engineer, Sales Executive, Account Executive, and Customer Success Specialist, plus
+the bounded aliases needed by these mappings.
+
+### Persistence and restart behavior
+
+Flyway `V23__create_role_aware_ranking.sql` adds:
+
+- versioned `role_calibration_pack`, role mapping, title-signal, and skill-signal tables;
+- candidate-private `job_role_score` and `job_role_score_reason` tables;
+- best target-role, ranking-policy, and calibration-pack identity on `job_score`;
+- constraints for score ranges, dimensional totals, role priority, identity, and active pack version.
+
+The scoring writer replaces all role scores/reasons for one job and candidate inside the Batch chunk
+transaction, then updates the best-role projection and scored content hash. Rerunning unchanged input
+does not create duplicate role scores. The pack code/version and `universal-v1` policy are persisted
+with the result so the explanation remains inspectable even when future packs exist.
+
+Both normal Find Jobs launches and direct intelligence API launches add
+`rankingPolicyVersion=universal-v1` as an identifying Spring Batch parameter. A future scoring-policy
+change must bump this constant and the relevant pack version so it creates a new logical JobInstance
+instead of being mistaken for the prior calculation.
+
+V23 does not silently recalculate historical `job_score` rows during application startup. Existing
+rows retain `ranking_policy_version=legacy-v1`, have no `job_role_score` children, and appear as **Not
+rescored** on the dashboard until the user runs Find and rank jobs or launches intelligence with a new
+business date. This preserves migration safety and keeps recalculation an explicit Batch action.
+
+### Inspection behavior
+
+- `GET /api/jobs` includes the best target role and ranking/overlay versions in each ranked row.
+- `GET /api/jobs/{id}` additionally returns `roleScores`, every dimension, and nested point reasons
+  for each selected role, ordered by score and then user priority.
+- The dashboard's Top scored jobs table names the best target role and either the active pack/version
+  or `Universal`; old rows are clearly labelled **Not rescored**.
+- The scoring step remains part of the existing six-step `findJobsJob`; no provider, scheduler,
+  service boundary, or microservice was added.
+
+### Verification evidence
+
+- `./mvnw clean test`: 111 tests, 0 failures, 0 errors, 0 skipped.
+- Fresh PostgreSQL 17 Testcontainers applied all 23 Flyway migrations.
+- Focused coverage proves Frontend versus Backend separation and best-role choice, AI/ML, Sales,
+  Customer Success, the universal-only Registered Nurse path, missing-core-skill behavior, reason-sum
+  invariants, per-role persistence, idempotent rerun, and existing Find-jobs failure/restart behavior.
+- `./mvnw -q -DskipTests package`, `docker compose build app`, and forced app recreation succeeded.
+- The recreated app validated V23; `/actuator/health` returned `UP`; PostgreSQL reported active
+  version `1.0.0` packs `AI_ML`, `BACKEND`, `FRONTEND`, and `SALES_CUSTOMER_SUCCESS`.
+- Formatting and repository checks passed: `spotless:check`, `git diff --check`, and a clean worktree
+  after commit `2885c84`.
+
+### Deliberately not included in M3.2
+
+M3.3 Job Explorer has not started. It owns backend SQL/API filtering by country/search market, source,
+freshness, work mode, and saved state; Recommended/Newest sorting; country grouping; and stable
+20-row keyset **Load more** pagination that preserves filter/sort state. These operations should be
+performed in PostgreSQL, with the browser limited to rendering and interaction.
+
+M3.4 has not started. It owns workspace-private Fit/Maybe/Not-fit feedback, optional reason codes,
+auditability, reviewed fixture samples, false-positive analysis, and Precision@10 reporting by role
+pack, market, and scoring version. M2.8 Typed SQL Resource Registry remains deferred while M3 is
+active. Do not start any of these without an explicit user checkpoint.
+
+## 3. Product flow that works now
 
 ```text
 /setup
@@ -61,7 +178,7 @@ Read [AGENTS.md](AGENTS.md) and [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), then selec
 Each anonymous browser workspace owns its candidate profile, preferences, sightings, scores, views,
 applications, and follow-ups. The browser cookie is the current identity boundary.
 
-## 3. Current architecture
+## 4. Current architecture
 
 JobLens remains a batch-first modular monolith: one Spring Boot application, one PostgreSQL database,
 one deployable image.
@@ -92,7 +209,7 @@ Important jobs:
 Automatic Batch startup remains disabled. Jobs use meaningful identifying parameters, persisted
 ExecutionContext checkpoints, observable failures, restarts, and idempotent writes.
 
-## 4. Job sources
+## 5. Job sources
 
 | Source | Current behavior | Credential |
 | --- | --- | --- |
@@ -117,7 +234,7 @@ JOOBLE_API_KEY=your-singapore-regional-key
 Rebuild/restart the app, then save and confirm preferences again so the workspace receives a Jooble
 search profile.
 
-## 5. Data and processing decisions
+## 6. Data and processing decisions
 
 - Flyway V1-V23 owns application and Spring Batch metadata schemas.
 - Search countries/locations are normalized as independent `workspace_search_target` rows. Confirming
@@ -136,7 +253,7 @@ search profile.
   catalogue.
 - Unknown end clients are not guessed. Any future estimate must expose evidence and uncertainty.
 
-## 6. Main inspection points
+## 7. Main inspection points
 
 ```text
 Application: http://localhost:8080
@@ -169,7 +286,7 @@ GET  /api/follow-ups
 GET  /api/batch/executions
 ```
 
-## 7. Code map
+## 8. Code map
 
 ```text
 src/main/java/com/ankit/joblens/
@@ -187,7 +304,7 @@ src/main/resources/
   templates/      setup, dashboard, applications
 ```
 
-## 8. Verification commands
+## 9. Verification commands
 
 ```bash
 ./mvnw -q spotless:apply
@@ -202,7 +319,7 @@ curl http://localhost:8080/actuator/health
 
 Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens, or resume data.
 
-## 9. Known limitations
+## 10. Known limitations
 
 - Anonymous cookie workspaces have no account recovery or cross-device synchronization.
 - Jooble needs a regional key and its provider quota must be monitored.
@@ -228,7 +345,7 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Java repositories explicitly reference SQL resource paths. SQL is correctly externalized, but
   those string paths are runtime-checked and should gain a typed, startup-validated registry.
 
-## 10. Handoff rule
+## 11. Handoff rule
 
 M0 Jooble live acceptance, M0.5 Portal Search Hub, M0.6 Smart Portal Query Planner, M1 source
 health/run observability, M2 Lever, M2.5 normalized multi-market preferences, M2.6 Inclusive
