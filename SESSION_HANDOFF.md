@@ -259,6 +259,47 @@ The eventual user experience should distinguish an active search from a recovera
 and provide the appropriate status or recovery action without leaking framework internals. Retain
 detailed Batch identity only in operator/admin inspection.
 
+#### BUG-M3-006 — .NET Engineer ranks highly for Java Backend and unrelated Frontend profiles
+
+Status: **OPEN and not investigated**. This is a ranking-quality query, not evidence that a specific
+weight or matcher is already known to be wrong.
+
+User-reported reproductions:
+
+1. A candidate whose profile and résumé are predominantly Java and backend engineering receives a
+   high-ranked `.NET Engineer` job suggestion.
+2. A Frontend Engineer candidate with no reported .NET experience also receives a `.NET Engineer`
+   suggestion with a high score.
+
+Expected behavior to evaluate: a posting with neither a meaningful target-role relationship nor
+relevant confirmed/calibrated skills should not appear strongly recommended merely because it
+matches non-role dimensions such as market, work arrangement, employment type, salary availability,
+freshness, or generic words such as `Engineer`. JobLens may retain such a posting as a low-confidence
+result, but the score and explanation must not imply strong candidate fit without supporting role or
+skill evidence.
+
+Evidence required before selecting a fix:
+
+- the exact normalized `.NET Engineer` title, description, extracted `job_skill` rows, and content
+  hash;
+- each affected candidate's ordered target roles, confirmed skills, sectors, markets, and
+  preferences;
+- every persisted `job_role_score` dimension and `job_role_score_reason`, including which target role
+  became the best projection;
+- whether `.NET`, `C#`, `ASP.NET`, or related aliases were actually extracted or matched;
+- the contribution from role title, confirmed skills, calibrated skills, sector, seniority,
+  location/work arrangement, employment, salary, and freshness;
+- what the user interface means by “high”: an absolute threshold, relative ordering in a weak result
+  set, or only a visually prominent raw score;
+- a comparison fixture containing a genuine Java Backend job and a genuine Frontend job under the
+  same non-role preferences.
+
+Do not immediately add a hard `.NET` exclusion or tune only the Backend/Frontend overlays. First
+determine whether the defect is generic-title matching, excessive non-role baseline points, missing
+negative evidence, absent skill extraction, best-role projection, or presentation/ranking semantics.
+Any scoring change must remain deterministic, explainable, versioned, and tested against unrelated
+professions that use the universal-only policy.
+
 ## 3. Product flow that works now
 
 ```text
