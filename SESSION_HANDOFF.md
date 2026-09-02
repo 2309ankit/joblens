@@ -147,6 +147,41 @@ auditability, reviewed fixture samples, false-positive analysis, and Precision@1
 pack, market, and scoring version. M2.8 Typed SQL Resource Registry remains deferred while M3 is
 active. Do not start any of these without an explicit user checkpoint.
 
+### Open observed bug — AI Engineer returns no integrated results
+
+Status: **OPEN and not investigated**, recorded from user observation on 2026-09-03. Do not claim a
+cause or a fix without reproducing it and collecting evidence.
+
+Reproduction reported by the user:
+
+1. Select/search for the target role **AI Engineer**.
+2. The generated outbound LinkedIn search query looks correct.
+3. Run integrated JobLens discovery with ten selected countries.
+4. Adzuna and the JobLens ranked-results view return zero jobs for every country.
+
+Known boundary: the outbound LinkedIn link and integrated Adzuna discovery are different execution
+paths. A plausible-looking LinkedIn query proves only that the outbound query renderer produced an
+expected string; it does not yet prove which terms, country routes, provider profiles, pages, raw
+responses, freshness rules, normalization, workspace sightings, or ranking inputs were used by the
+Adzuna/Find-jobs path.
+
+Required evidence for a future diagnosis, without assuming the fault is ranking or Adzuna:
+
+- the active candidate's ordered role intent and persisted generated query rows;
+- all ten active Adzuna source profiles, including country, location, keywords, page limit, and query
+  origin/version;
+- the corresponding source-run statuses, pages attempted/fetched, received/new/changed/unchanged,
+  raw/normalized/sighted/scored counts, and sanitized failures;
+- sanitized provider request paths and Adzuna response counts for at least one affected country;
+- whether rows reached raw landing but were removed by freshness, normalization, workspace-sighting,
+  or user-result eligibility rules;
+- a control run using a known broad role in one of the same countries, so provider/configuration
+  failure can be separated from AI Engineer query relevance.
+
+Do not broaden this report into a new provider, scraping, ranking-weight change, or country redesign.
+Reproduce and locate the first stage whose count becomes zero before choosing a fix or assigning it to
+a milestone.
+
 ## 3. Product flow that works now
 
 ```text
