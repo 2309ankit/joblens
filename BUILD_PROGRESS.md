@@ -235,7 +235,8 @@ No external job-source integrations have been implemented.
 ## Current Milestone
 
 M2.7 Explainable ATS Readiness Advisor and the requested D0 System Design Baseline are complete in
-the working tree. The repository is stopped before M2.8. Flyway V21 adds profile-version-owned
+the working tree. No implementation milestone is active; M3 is proposed for user verdict and M2.8 is
+deferred. Flyway V21 adds profile-version-owned
 readability assessments, stable findings, acknowledgement state, and workspace-safe inspection.
 `SYSTEM_DESIGN.md` records explicit requirements, operating assumptions, the API/Batch boundary,
 failure model, and measurable scale triggers. Flyway V18 extends the existing profile-version model with categorized taxonomy,
@@ -276,9 +277,13 @@ and this file remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-No implementation milestone is active after M2.7 and D0. M2.8 Typed SQL Resource Registry is
-selectable only after explicit user approval. React migration, ranking calibration, original-resume object
-storage, schedules/notifications, and login/cross-device recovery remain separate and unstarted.
+No implementation milestone is active after M2.7 and D0. On 2026-09-02, M3 **Role-Aware Job Explorer
+and Ranking Calibration** was recorded as a proposal for user verdict. It combines soft role-direction
+suggestions, three initial role packs (Frontend, AI/ML, Sales/Customer Success), generated provider
+queries, explainable role-aware ranking, country/source/freshness exploration, and private review
+feedback into one bounded outcome. M2.8 Typed SQL Resource Registry is deferred while this proposal is
+reviewed. No M3 code has started. React migration, original-resume object storage,
+schedules/notifications, and login/cross-device recovery remain separate and unstarted.
 
 ## Explainable ATS Readiness Advisor Evidence
 

@@ -29,7 +29,7 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 | 2.7 | Explainable ATS Readiness Advisor — COMPLETE | Give non-blocking, evidence-based resume improvement guidance | None |
 | D0 | System Design Baseline — COMPLETE | Make requirements, operating parameters, API/Batch boundaries, and scale triggers explicit | None |
 | 2.8 | Typed SQL Resource Registry | Remove fragile SQL-path strings while retaining Spring JDBC | M2.7 complete and user approval |
-| 3 | Ranking calibration workflow | Improve relevance using reviewed decisions instead of guessed weights | User-reviewed job examples |
+| 3 | Role-aware Job Explorer and Ranking Calibration — PROPOSED | Improve relevance and make country/source/ranking decisions inspectable | User verdict, then reviewed job examples |
 | 4 | Original resume storage | Retain the uploaded source document through a storage abstraction | Storage choice and retention policy |
 | 5 | Scheduling and notifications | Automate proven manual jobs and follow-ups | Delivery channel and frequency choices |
 | 6 | Login and workspace recovery | Enable cross-device use after anonymous flow is stable | Identity and privacy decisions |
@@ -268,20 +268,83 @@ repository/integration regression coverage, no inline complex SQL regression, do
 Out of scope: changing persistence behavior, schema redesign unrelated to query registration, JPA,
 React migration, ranking calibration, or moving to another module without explicit user approval.
 
-## M3 — Ranking calibration workflow
+## M3 — Role-Aware Job Explorer and Ranking Calibration
 
-Goal: make ranking more useful from reviewed examples while keeping it deterministic and explainable.
+Status: proposed on 2026-09-02; awaiting explicit user verdict. M2.8 Typed SQL Resource Registry
+is deliberately deferred, not cancelled. No M3 implementation starts until this scope is approved.
 
-Proposed acceptance criteria:
+Goal: turn a confirmed job-search direction into explainable provider queries, role-aware ranking, and
+an inspectable job explorer. The product must work for Frontend, AI/ML, and Sales/Customer Success
+without treating every profession as a backend-engineering variant.
 
-- User can mark a ranked job as relevant, neutral, or irrelevant and optionally choose reason codes.
-- Feedback is workspace-owned and auditable.
-- A calibration report compares current score components with reviewed outcomes.
-- Weight changes create a versioned preference revision and trigger an explicit rerank.
-- Existing scores remain explainable; no LLM or opaque automatic employer inference is introduced.
-- Tests prove isolation, versioning, rerun idempotency, and reason reconciliation.
+### Product boundary
 
-Out of scope: machine learning until enough reviewed examples exist.
+```text
+resume evidence + user confirmation
+  → one or more role directions
+  → role-pack query variants per selected market
+  → public provider discovery
+  → deterministic role-aware scoring
+  → country/source/freshness filters and reviewed feedback
+  → measurable calibration
+```
+
+Role detection is advisory, not a fact claim. A strong résumé signal may suggest a direction; mixed
+signals show alternatives; weak evidence does not invent a role. A user-confirmed target role always
+outranks inferred evidence.
+
+### In scope
+
+- A versioned, database-owned role-pack model with role family, title aliases, core/preferred/supporting
+  skill signals, and explainable scoring/query weights.
+- Three initial curated packs: **Frontend**, **AI/ML**, and **Sales/Customer Success**. Existing ESCO
+  roles remain a canonical taxonomy reference; raw ESCO labels do not automatically become visible
+  primary choices or active role-pack aliases.
+- Resume role-direction suggestions based on title/experience/skill evidence, with user confirmation,
+  correction, multi-role support, and a broad fallback when evidence is weak.
+- Generated provider-query preview from confirmed role direction and selected country/location. It
+  replaces the normal need to edit technical provider keywords; an advanced override remains optional.
+- Deterministic, versioned scoring with role-specific title, core-skill, preferred-skill, location,
+  seniority, freshness, and optional-sector reasons. No hidden scoring change.
+- A workspace-safe Job Explorer: country/search-market, source, freshness, work-mode, and saved-state
+  filters; Recommended and Newest sorts; country grouping; stable keyset "Load more" pagination.
+- Job-level `Fit`, `Maybe`, and `Not a fit` feedback with optional reason codes. Feedback is
+  workspace-private and auditable.
+- A calibration view/API that reports reviewed-result quality, including Precision@10 and common
+  false-positive reasons, by role pack and market.
+
+### Acceptance criteria
+
+1. A résumé with clear Frontend, AI/ML, or Sales/Customer Success evidence receives explainable role
+   direction suggestions; an ambiguous résumé is not force-classified.
+2. Confirmed roles generate bounded provider queries per selected market; the generated terms and their
+   role-pack version are inspectable before discovery.
+3. Every ranked job exposes the active role pack and point-by-point score reasons. A missing core skill
+   lowers a score but does not silently discard a potentially relevant job.
+4. The dashboard shows 20 jobs initially and supports stable Load-more pagination while preserving
+   filter/sort state. Country is filter/group context, not an unexplained replacement for relevance.
+5. Country choices use the existing provider-supported country catalogue. Results distinguish the
+   market searched from the advertised job location when those differ.
+6. Feedback, role-pack versions, recalculation, and score reasons are isolated by workspace and remain
+   reproducible after restart/rerun.
+7. PostgreSQL Testcontainers covers all three role packs, ambiguous-role fallback, country/source
+   filtering, cursor behavior, feedback isolation, deterministic reranking, and calibration metrics.
+8. A small reviewed fixture corpus demonstrates the before/after Precision@10 outcome; production
+   calibration changes require user-reviewed examples rather than guessed weight changes.
+
+### Explicitly out of scope
+
+- LLM ranking, automatic self-training, or opaque role inference.
+- New job providers, portal scraping, employer-board crawling, scheduling, login, or resume-object
+  storage.
+- Cross-workspace feedback sharing.
+- Treating salary ranking across different currencies as directly comparable.
+
+### Inputs needed after approval
+
+For calibration evidence, collect 5–10 relevant and 5–10 irrelevant/maybe job examples for each
+initial role pack. Links or copied titles/descriptions are enough; they remain local test/review
+fixtures and do not require a third-party AI service.
 
 ## M4 — Original resume storage
 
@@ -337,6 +400,6 @@ Use this request format:
 ```text
 Read AGENTS.md, SESSION_HANDOFF.md, SYSTEM_DESIGN.md, README.md, BUILD_PROGRESS.md, and
 NEXT_MILESTONES.md. Preserve the current worktree. Review the completed M2.7/D0 evidence and obtain
-explicit user approval before starting exactly one remaining milestone. Do not start M2.8, React
-migration, ranking calibration, or unrelated work without that approval.
+explicit user approval before starting exactly one remaining milestone. Do not start M3, M2.8, React
+migration, or unrelated work without that approval.
 ```

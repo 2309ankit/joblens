@@ -234,12 +234,15 @@ complete. The selected order is:
 ```text
 M2.7 Explainable ATS Readiness Advisor — COMPLETE
 D0 System Design Baseline — COMPLETE
+M3 Role-Aware Job Explorer and Ranking Calibration
+  → proposed on 2026-09-02; awaiting explicit user verdict
 M2.8 Typed SQL Resource Registry
-  → requires explicit user approval — CURRENT BOUNDARY
+  → deferred while the M3 proposal is under review
 ```
 
 Do not combine these modules and do not silently advance from one to another. At each boundary,
 finish tests, evidence, documentation, and a conventional commit, then explicitly ask the user before
 starting the next module. React migration remains a later, separate presentation-layer decision.
 
-Do not begin M2.8 until the user explicitly approves it after reviewing M2.7 and D0 evidence.
+Do not begin M3 or M2.8 until the user explicitly approves exactly one milestone. M3 is the current
+proposal; M2.8 remains deferred.
