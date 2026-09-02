@@ -224,16 +224,22 @@ public class ProfileIntelligenceRepository {
   }
 
   public List<String> resolveOrCreateRoles(UUID workspaceId, List<String> requestedRoles) {
-    var resolved = new LinkedHashMap<String, String>();
+    return resolveOrCreateRoleValues(workspaceId, requestedRoles).stream()
+        .map(NamedValue::name)
+        .toList();
+  }
+
+  public List<NamedValue> resolveOrCreateRoleValues(UUID workspaceId, List<String> requestedRoles) {
+    var values = new LinkedHashMap<String, NamedValue>();
     for (String requested : requestedRoles) {
       String normalized = normalize(requested, 150, "role");
       if (normalized.isBlank()) {
         continue;
       }
       NamedValue value = resolveRole(workspaceId, normalized);
-      resolved.putIfAbsent(value.name().toLowerCase(Locale.ROOT), value.name());
+      values.putIfAbsent(value.name().toLowerCase(Locale.ROOT), value);
     }
-    return List.copyOf(resolved.values());
+    return List.copyOf(values.values());
   }
 
   private NamedValue resolveSkill(UUID workspaceId, String name) {

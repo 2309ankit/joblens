@@ -53,6 +53,7 @@ public class OnboardingController {
       }
     }
     model.addAttribute("readiness", readiness);
+    model.addAttribute("providerQueries", onboardingService.providerQueries(workspaceId));
     if (!model.containsAttribute("preferences")) {
       model.addAttribute(
           "preferences",
@@ -81,7 +82,7 @@ public class OnboardingController {
       @RequestParam(name = "targetRoles", required = false) List<String> targetRoles,
       @RequestParam String targetDomains,
       @RequestParam String primaryLocation,
-      @RequestParam String keywords,
+      @RequestParam(name = "keywords", defaultValue = "") String keywords,
       @RequestParam List<String> countryCodes,
       @RequestParam List<String> locations,
       @RequestParam int maxPages,
@@ -111,10 +112,9 @@ public class OnboardingController {
               maxPages,
               employmentPreference,
               workPreference);
-      long candidateProfileId =
-          onboardingService.completeSetup(workspaceId, skills, preferences, acknowledgeReadiness);
+      onboardingService.completeSetup(workspaceId, skills, preferences, acknowledgeReadiness);
       redirectAttributes.addFlashAttribute(
-          "message", "Profile activated. Candidate profile " + candidateProfileId + " is ready.");
+          "message", "Profile activated. Your generated searches are ready.");
     } catch (RuntimeException exception) {
       redirectAttributes.addFlashAttribute("error", exception.getMessage());
     }
@@ -186,9 +186,8 @@ public class OnboardingController {
       RedirectAttributes redirectAttributes) {
     UUID workspaceId = workspaceContext.resolve(request, response);
     try {
-      long candidateProfileId = onboardingService.confirm(workspaceId);
-      redirectAttributes.addFlashAttribute(
-          "message", "Profile confirmed. Candidate profile " + candidateProfileId + " is ready.");
+      onboardingService.confirm(workspaceId);
+      redirectAttributes.addFlashAttribute("message", "Profile confirmed and ready.");
     } catch (RuntimeException exception) {
       redirectAttributes.addFlashAttribute("error", exception.getMessage());
     }

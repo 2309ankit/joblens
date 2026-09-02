@@ -29,7 +29,7 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 | 2.7 | Explainable ATS Readiness Advisor — COMPLETE | Give non-blocking, evidence-based resume improvement guidance | None |
 | D0 | System Design Baseline — COMPLETE | Make requirements, operating parameters, API/Batch boundaries, and scale triggers explicit | None |
 | 2.8 | Typed SQL Resource Registry | Remove fragile SQL-path strings while retaining Spring JDBC | M2.7 complete and user approval |
-| 3 | Role-aware Job Explorer and Ranking Calibration — PROPOSED | Improve relevance and make country/source/ranking decisions inspectable | User verdict, then reviewed job examples |
+| 3 | General Role Intent, Job Explorer, and Ranking Calibration — IN PROGRESS | Improve relevance and make country/source/ranking decisions inspectable | Reviewed job examples for calibration |
 | 4 | Original resume storage | Retain the uploaded source document through a storage abstraction | Storage choice and retention policy |
 | 5 | Scheduling and notifications | Automate proven manual jobs and follow-ups | Delivery channel and frequency choices |
 | 6 | Login and workspace recovery | Enable cross-device use after anonymous flow is stable | Identity and privacy decisions |
@@ -268,20 +268,21 @@ repository/integration regression coverage, no inline complex SQL regression, do
 Out of scope: changing persistence behavior, schema redesign unrelated to query registration, JPA,
 React migration, ranking calibration, or moving to another module without explicit user approval.
 
-## M3 — Role-Aware Job Explorer and Ranking Calibration
+## M3 — General Role Intent, Job Explorer, and Ranking Calibration
 
-Status: proposed on 2026-09-02; awaiting explicit user verdict. M2.8 Typed SQL Resource Registry
-is deliberately deferred, not cancelled. No M3 implementation starts until this scope is approved.
+Status: approved and started on 2026-09-02. M2.8 Typed SQL Resource Registry is deliberately
+deferred, not cancelled. M3.1 completed on 2026-09-02; M3.2 is the next checkpoint and has not started.
 
-Goal: turn a confirmed job-search direction into explainable provider queries, role-aware ranking, and
-an inspectable job explorer. The product must work for Frontend, AI/ML, and Sales/Customer Success
-without treating every profession as a backend-engineering variant.
+Goal: turn user-selected job-search directions into explainable provider queries, role-aware ranking,
+and an inspectable job explorer. The architecture supports every catalogue or workspace-private role.
+Frontend, AI/ML, and Sales/Customer Success are the first curated calibration packs, not a closed list
+of supported professions; every other role receives a deterministic generic fallback.
 
 ### Product boundary
 
 ```text
-resume evidence + user confirmation
-  → one or more role directions
+resume role evidence + user-selected target roles
+  → one primary and up to two additional search directions
   → role-pack query variants per selected market
   → public provider discovery
   → deterministic role-aware scoring
@@ -290,20 +291,23 @@ resume evidence + user confirmation
 ```
 
 Role detection is advisory, not a fact claim. A strong résumé signal may suggest a direction; mixed
-signals show alternatives; weak evidence does not invent a role. A user-confirmed target role always
-outranks inferred evidence.
+signals show alternatives; weak evidence does not invent a role. Suggestions and target roles are
+separate facts: selecting a suggested role makes it search intent, while dismissing or ignoring it
+does not alter the stored résumé evidence. Manually added roles are search intent immediately.
 
 ### In scope
 
 - A versioned, database-owned role-pack model with role family, title aliases, core/preferred/supporting
-  skill signals, and explainable scoring/query weights.
-- Three initial curated packs: **Frontend**, **AI/ML**, and **Sales/Customer Success**. Existing ESCO
-  roles remain a canonical taxonomy reference; raw ESCO labels do not automatically become visible
-  primary choices or active role-pack aliases.
-- Resume role-direction suggestions based on title/experience/skill evidence, with user confirmation,
-  correction, multi-role support, and a broad fallback when evidence is weak.
-- Generated provider-query preview from confirmed role direction and selected country/location. It
-  replaces the normal need to edit technical provider keywords; an advanced override remains optional.
+  skill signals, and explainable scoring/query weights. Unmapped roles use their canonical title,
+  aliases, and confirmed candidate skills through a generic fallback.
+- Three initial curated calibration packs: **Frontend**, **AI/ML**, and **Sales/Customer Success**.
+  Existing ESCO roles remain a canonical taxonomy reference; raw ESCO labels do not automatically
+  become active curated aliases.
+- Resume role-direction suggestions based on title/experience/skill evidence, with selection,
+  correction, ordered multi-role support, and no forced classification when evidence is weak.
+- Generated provider-query preview from selected roles, confirmed skills, and selected
+  country/location. It replaces the normal need to edit technical provider keywords; an advanced
+  override remains optional and never changes the stored role intent.
 - Deterministic, versioned scoring with role-specific title, core-skill, preferred-skill, location,
   seniority, freshness, and optional-sector reasons. No hidden scoring change.
 - A workspace-safe Job Explorer: country/search-market, source, freshness, work-mode, and saved-state
@@ -315,10 +319,11 @@ outranks inferred evidence.
 
 ### Acceptance criteria
 
-1. A résumé with clear Frontend, AI/ML, or Sales/Customer Success evidence receives explainable role
-   direction suggestions; an ambiguous résumé is not force-classified.
-2. Confirmed roles generate bounded provider queries per selected market; the generated terms and their
-   role-pack version are inspectable before discovery.
+1. Any catalogue or private role can be selected as intent. A résumé with clear Frontend, AI/ML, or
+   Sales/Customer Success evidence receives an initial calibrated suggestion; an ambiguous résumé is
+   not force-classified and any uncalibrated role uses the generic fallback.
+2. Selected roles generate bounded provider queries per selected market; the generated terms and their
+   role-pack version are inspectable before discovery. Normal setup has no mandatory keyword field.
 3. Every ranked job exposes the active role pack and point-by-point score reasons. A missing core skill
    lowers a score but does not silently discard a potentially relevant job.
 4. The dashboard shows 20 jobs initially and supports stable Load-more pagination while preserving
@@ -331,6 +336,22 @@ outranks inferred evidence.
    filtering, cursor behavior, feedback isolation, deterministic reranking, and calibration metrics.
 8. A small reviewed fixture corpus demonstrates the before/after Precision@10 outcome; production
    calibration changes require user-reviewed examples rather than guessed weight changes.
+
+### Delivery checkpoints
+
+1. **M3.1 — Intent and generated queries — COMPLETE:** normalize ordered target roles, preserve
+   résumé evidence separately, remove mandatory provider terms, and preview reproducible generated
+   queries.
+2. **M3.2 — Role-aware ranking:** add generic and curated role packs, per-role score evidence, and a
+   best-matching target role without dropping jobs merely for missing a signal.
+3. **M3.3 — Job Explorer:** move filters, stable sorting, country grouping, and 20-row keyset Load more
+   to backend SQL/API while keeping lightweight browser rendering.
+4. **M3.4 — Feedback and calibration:** add workspace-private Fit/Maybe/Not-fit reviews, reason codes,
+   and sample-qualified Precision@10 reporting by role pack, market, and scoring version.
+
+Each checkpoint must pass focused tests and preserve the existing one-click Batch flow before the next
+checkpoint begins. Weekly market insights remain hidden with a clear empty state until their Batch job
+has data; internal candidate IDs are not user-facing setup concepts.
 
 ### Explicitly out of scope
 
@@ -399,7 +420,6 @@ Use this request format:
 
 ```text
 Read AGENTS.md, SESSION_HANDOFF.md, SYSTEM_DESIGN.md, README.md, BUILD_PROGRESS.md, and
-NEXT_MILESTONES.md. Preserve the current worktree. Review the completed M2.7/D0 evidence and obtain
-explicit user approval before starting exactly one remaining milestone. Do not start M3, M2.8, React
-migration, or unrelated work without that approval.
+NEXT_MILESTONES.md. Preserve the current worktree. Resume only the active M3 checkpoint recorded in
+BUILD_PROGRESS.md. Do not start M2.8, React migration, or unrelated work without explicit approval.
 ```

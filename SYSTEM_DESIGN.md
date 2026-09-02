@@ -111,6 +111,7 @@ multi-step, replayable work.
 | --- | --- | --- | --- |
 | Upload/review profile | MVC/REST | Synchronous transaction | One bounded document and draft |
 | Readiness acknowledgement | MVC/REST | Synchronous transaction | One owned assessment |
+| Select role intent / preview queries | MVC/REST | Synchronous transaction | At most three roles and ten markets |
 | Save preferences/application/view | MVC/REST | Synchronous transaction | Small resource mutation |
 | Find and rank jobs | API launch/status | Spring Batch | External failures, multiple steps, checkpoints |
 | Recalculate intelligence | API/operator launch | Spring Batch | Bulk deterministic replay |
@@ -149,7 +150,8 @@ raw JSONB landing → normalization → skills → duplicates → candidate scor
 
 Find Jobs data flow:
 
-1. Resolve the workspace and active candidate/search profiles.
+1. Resolve the workspace, active candidate, ordered target roles, and versioned per-market query
+   profiles.
 2. Fetch provider pages outside uncontrolled database transactions.
 3. Persist untouched provider JSON, source URL, payload hash, and immutable run evidence.
 4. Normalize new/changed raw rows in chunks.
@@ -161,6 +163,9 @@ Find Jobs data flow:
 - PostgreSQL is the system of record and Flyway is the sole schema owner.
 - Profile review and activation are separate states. Activation copies one reviewed version into the
   runnable candidate projection transactionally.
+- Résumé role suggestions remain evidence; one to three user-selected target roles are stored as
+  ordered intent. `role-intent-v1` query plans are persisted separately from both, so an advanced
+  provider override cannot silently rewrite what role the user selected.
 - A `REVIEW_REQUIRED` resume assessment must be acknowledged before activation.
 - Raw identity is `(source, external_job_id)`; changed payload hashes reset derived processing.
 - Chunk writers update derived state and source status in the same transaction.
@@ -208,7 +213,8 @@ single deployable remain adequate until a measured trigger says otherwise.
 
 ## 9. Design risks and next decisions
 
-1. Ranking and fuzzy thresholds are starting heuristics; M3 requires reviewed relevance labels.
+1. M3.1 now provides explicit role intent and reproducible provider queries. Role-aware weights and
+   reviewed relevance labels remain M3.2–M3.4 work.
 2. SQL resource paths are runtime strings; M2.8 will add typed startup validation without changing
    JDBC behavior.
 3. Retention is indefinite and anonymous workspaces are unrecoverable.

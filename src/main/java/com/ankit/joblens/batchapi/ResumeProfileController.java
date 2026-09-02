@@ -4,6 +4,7 @@ import com.ankit.joblens.onboarding.IntegratedCountry;
 import com.ankit.joblens.onboarding.OnboardingProfile;
 import com.ankit.joblens.onboarding.OnboardingService;
 import com.ankit.joblens.onboarding.ProfileIntelligence;
+import com.ankit.joblens.onboarding.ProviderQueryPreview;
 import com.ankit.joblens.onboarding.ResumeReadinessAssessment;
 import com.ankit.joblens.onboarding.RoleOption;
 import com.ankit.joblens.onboarding.SearchPreferences;
@@ -140,6 +141,16 @@ public class ResumeProfileController {
         preferences.maxPages(),
         preferences.employmentPreference(),
         preferences.workPreference());
+  }
+
+  @GetMapping("/search-queries")
+  @Operation(
+      summary = "Inspect generated provider queries",
+      description =
+          "Returns the reproducible role-intent query plan for each selected market. GENERATED queries come from selected roles and confirmed skills; OVERRIDE means the optional advanced text was used.")
+  public List<ProviderQueryPreview> searchQueries(
+      HttpServletRequest request, HttpServletResponse response) {
+    return service.providerQueries(workspaceContext.resolve(request, response));
   }
 
   @PutMapping

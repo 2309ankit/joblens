@@ -26,7 +26,7 @@
 <body><main>
   <div class="header">
     <div><h1>Set up JobLens</h1><p class="muted">Two steps: upload your resume, then choose the jobs you want.</p></div>
-    <span class="workspace">Workspace <span th:text="${workspaceId}">id</span></span>
+    <span class="workspace">Private browser workspace</span>
   </div>
   <p class="notice ok" th:if="${message}" th:text="${message}"></p>
   <p class="notice error" th:if="${error}" th:text="${error}"></p>
@@ -93,7 +93,8 @@
         </div>
       </div>
       <details th:if="${!profileIntelligence.termSuggestions.empty}">
-        <summary>Rejected or ambiguous text</summary>
+        <summary>Why some résumé text was not suggested</summary>
+        <p class="help">Short, ambiguous, or low-evidence fragments stay here so they cannot silently become search skills.</p>
         <p class="evidence" th:each="suggestion : ${profileIntelligence.termSuggestions}" th:if="${suggestion.reviewState != 'SUGGESTED'}" th:text="${suggestion.term + ' — ' + suggestion.reviewState + ': ' + suggestion.evidence}">Rejected evidence</p>
       </details>
       <div id="selected-skills" class="chips">
@@ -103,7 +104,7 @@
       <datalist id="skill-options"><option th:each="skill : ${skillCatalog}" th:value="${skill.name}" th:text="${skill.category}"></option></datalist>
 
       <h3>Jobs you want</h3>
-      <p class="help">Title suggestions come from a résumé headline or recent experience. They are not accepted until you add them.</p>
+      <p class="help">Title suggestions are résumé evidence. Add up to three roles to say what you actually want next; a role can be both detected and selected.</p>
       <div class="suggestions" th:if="${!profileIntelligence.roleSuggestions.empty}">
         <div class="suggestion" th:each="suggestion : ${profileIntelligence.roleSuggestions}">
           <strong th:text="${suggestion.name}">Product Manager</strong>
@@ -114,6 +115,7 @@
       </div>
       <div id="selected-roles" class="chips"><span class="chip" th:each="role : ${profile.targetRoles}"><span th:text="${role}">Product Manager</span><input type="hidden" name="targetRoles" th:value="${role}"><button type="button" aria-label="Remove role">×</button></span></div>
       <div class="picker"><div><label for="role-search">Search or add a target role</label><input id="role-search" list="role-options" placeholder="For example: Product Manager"></div><button id="add-role" class="secondary" type="button">Add role</button></div>
+      <p class="help">Order matters: first is your primary direction, followed by secondary and exploratory roles.</p>
       <datalist id="role-options"><option th:each="role : ${roleCatalog}" th:value="${role.name}" th:text="${role.category}"></option></datalist>
       <div class="form-grid">
         <div><label for="targetDomains">Preferred sectors <span class="help">(optional)</span></label><input id="targetDomains" th:field="*{targetDomains}"><p class="help">Example: healthcare, retail, education. Leave blank to search across sectors.</p></div>
@@ -133,8 +135,8 @@
 
       <details>
         <summary>Advanced search options</summary>
-        <label for="keywords">Provider search terms</label><input id="keywords" th:field="*{keywords}" required>
-        <p class="help">Short terms sent to job APIs, such as Java Spring Boot.</p>
+        <label for="keywords">Override generated provider query <span class="help">(optional)</span></label><input id="keywords" th:field="*{keywords}" placeholder="Leave blank to use your selected roles and skills">
+        <p class="help">Use this only when a provider needs a special query. It changes the provider text, not your selected target roles.</p>
         <div class="form-grid">
           <div><label for="maxPages">Pages per source</label><input id="maxPages" type="number" th:field="*{maxPages}" min="1" max="20"></div>
           <div><label for="employmentPreference">Employment type</label><select id="employmentPreference" th:field="*{employmentPreference}"><option value="ANY">Any</option><option value="PERMANENT">Permanent</option><option value="CONTRACT">Contract</option></select></div>
@@ -148,6 +150,15 @@
       </label>
       <button type="submit">Save and activate profile</button>
     </form>
+    <div class="profile-card" th:if="${!providerQueries.empty}">
+      <h3>Searches JobLens will run</h3>
+      <p class="help">Generated from your selected roles and confirmed skills. These are stored with a version so every run can be explained.</p>
+      <div class="finding" th:each="query : ${providerQueries}">
+        <strong th:text="${query.role != null ? query.role : 'Advanced override'}">Frontend Engineer</strong>
+        <span class="help" th:text="${query.location + ' (' + query.countryCode + ') · ' + query.generationVersion}">Singapore (SG) · role-intent-v1</span>
+        <p><code th:text="${query.query}">Frontend Engineer React TypeScript</code></p>
+      </div>
+    </div>
   </section>
   <section th:unless="${profile}"><p class="muted">Step 2 will appear after JobLens accepts your resume.</p></section>
   <a class="button" href="/dashboard">Go to dashboard</a>
@@ -156,6 +167,9 @@
   function addChip(container, fieldName, value) {
     const clean = value.trim().replace(/\s+/g, ' ');
     if (!clean || [...container.querySelectorAll('input')].some(input => input.value.toLowerCase() === clean.toLowerCase())) return;
+    if (fieldName === 'targetRoles' && container.querySelectorAll('input').length >= 3) {
+      alert('Choose up to three target roles. Remove one before adding another.'); return;
+    }
     const chip = document.createElement('span');
     chip.className = 'chip';
     const label = document.createElement('span');

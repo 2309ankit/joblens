@@ -112,6 +112,10 @@ public class OnboardingService {
     return countryCatalog.countries();
   }
 
+  public List<ProviderQueryPreview> providerQueries(UUID workspaceId) {
+    return repository.providerQueries(workspaceId);
+  }
+
   public ProfileIntelligence intelligence(UUID workspaceId) {
     OnboardingProfile profile =
         repository
@@ -251,14 +255,24 @@ public class OnboardingService {
     if (preferences == null
         || preferences.targetRoles().isBlank()
         || preferences.primaryLocation().isBlank()
-        || preferences.keywords().isBlank()
         || preferences.employmentPreference().isBlank()
         || preferences.workPreference().isBlank()) {
       throw new IllegalArgumentException("Complete all required preferences");
+    }
+    if (csvCount(preferences.targetRoles()) > 3) {
+      throw new IllegalArgumentException("Choose up to three target roles");
     }
     if (preferences.maxPages() < 1 || preferences.maxPages() > 20) {
       throw new IllegalArgumentException("Maximum pages must be between 1 and 20");
     }
     preferences.targets().forEach(target -> countryCatalog.requireSupported(target.countryCode()));
+  }
+
+  private static long csvCount(String value) {
+    return java.util.Arrays.stream(value.split(","))
+        .map(String::trim)
+        .filter(item -> !item.isBlank())
+        .distinct()
+        .count();
   }
 }

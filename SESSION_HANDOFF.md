@@ -14,9 +14,9 @@ Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V21
-Latest full test: 105 tests, 0 failures, 0 errors, 0 skipped
-Latest focused check: fresh PostgreSQL 17 through V21; 10 onboarding integration tests pass
+Latest Flyway migration: V22
+Latest full test: 108 tests, 0 failures, 0 errors, 0 skipped
+Latest focused check: fresh PostgreSQL 17 through V22; 11 onboarding + 2 query-planner tests pass
 ```
 
 Before making changes:
@@ -234,15 +234,15 @@ complete. The selected order is:
 ```text
 M2.7 Explainable ATS Readiness Advisor — COMPLETE
 D0 System Design Baseline — COMPLETE
-M3 Role-Aware Job Explorer and Ranking Calibration
-  → proposed on 2026-09-02; awaiting explicit user verdict
+M3 General Role Intent, Job Explorer, and Ranking Calibration
+  → approved and started on 2026-09-02; M3.1 intent and generated queries is complete
+  → M3.2 role-aware ranking awaits the next explicit checkpoint decision
 M2.8 Typed SQL Resource Registry
-  → deferred while the M3 proposal is under review
+  → deferred while M3 is active
 ```
 
 Do not combine these modules and do not silently advance from one to another. At each boundary,
 finish tests, evidence, documentation, and a conventional commit, then explicitly ask the user before
 starting the next module. React migration remains a later, separate presentation-layer decision.
 
-Do not begin M3 or M2.8 until the user explicitly approves exactly one milestone. M3 is the current
-proposal; M2.8 remains deferred.
+M3.1 is verified. Do not start M3.2 or M2.8 without the next explicit checkpoint decision.

@@ -43,7 +43,9 @@ public class PortalSearchQueryPlanner {
         new PortalSearchQuery(
             "Broad fallback",
             broadRoleQuery(primaryRole, alternateRole),
-            SearchKeywordNormalizer.normalize(preferences.keywords())));
+            preferences.keywords().isBlank()
+                ? primaryRole
+                : SearchKeywordNormalizer.normalize(preferences.keywords())));
   }
 
   private static List<String> technologies(String keywords, List<String> candidateSkills) {

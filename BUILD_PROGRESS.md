@@ -234,8 +234,9 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-M2.7 Explainable ATS Readiness Advisor and the requested D0 System Design Baseline are complete in
-the working tree. No implementation milestone is active; M3 is proposed for user verdict and M2.8 is
+M2.7 Explainable ATS Readiness Advisor and the requested D0 System Design Baseline are complete.
+M3 **General Role Intent, Job Explorer, and Ranking Calibration** was approved and started on
+2026-09-02; M3.1 intent and generated queries is complete, while M3.2 has not started. M2.8 is
 deferred. Flyway V21 adds profile-version-owned
 readability assessments, stable findings, acknowledgement state, and workspace-safe inspection.
 `SYSTEM_DESIGN.md` records explicit requirements, operating assumptions, the API/Batch boundary,
@@ -277,13 +278,35 @@ and this file remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-No implementation milestone is active after M2.7 and D0. On 2026-09-02, M3 **Role-Aware Job Explorer
-and Ranking Calibration** was recorded as a proposal for user verdict. It combines soft role-direction
-suggestions, three initial role packs (Frontend, AI/ML, Sales/Customer Success), generated provider
-queries, explainable role-aware ranking, country/source/freshness exploration, and private review
-feedback into one bounded outcome. M2.8 Typed SQL Resource Registry is deferred while this proposal is
-reviewed. No M3 code has started. React migration, original-resume object storage,
+M3.1 **Intent and generated queries** is complete. The next checkpoint is M3.2 **Role-aware ranking**
+and requires an explicit decision before implementation. The architecture accepts every catalogue or
+private role; Frontend, AI/ML, and Sales/Customer Success are only the first curated calibration packs
+planned for M3.2. M2.8 Typed SQL Resource Registry is deferred while M3 is active. React migration, original-resume object storage,
 schedules/notifications, and login/cross-device recovery remain separate and unstarted.
+
+## M3.1 Intent and Generated Queries Evidence
+
+Flyway V22 adds ordered, normalized target roles for profile versions and active candidates without
+changing the immutable résumé suggestion evidence. A selected suggestion records its provenance;
+manually added catalogue or workspace-private roles are equally valid search intent. The service
+enforces one to three roles and preserves their primary, secondary, and exploratory order.
+
+Normal setup no longer requires provider keywords. `role-intent-v1` generates one bounded natural
+query per selected role and adds at most two confirmed skills from relevant catalogue categories. An
+optional advanced override produces one explicit `OVERRIDE` query without changing target roles.
+Queries persist per market with origin/version metadata, project to independent source profiles on
+activation, render on setup before discovery, and are exposed at
+`GET /api/candidate-profile/search-queries`. Existing definitions were backfilled as `legacy-v1` so
+their active searches remain runnable. Internal candidate/workspace IDs are removed from normal setup
+messages, ambiguous-term copy now explains why fragments were withheld, and the empty weekly-insight
+instruction is hidden until aggregate data exists.
+
+Verification on 2026-09-02: a fresh PostgreSQL 17 Testcontainer applied all 22 migrations; 11
+workspace-onboarding integration tests and 2 provider-query planner tests passed. `./mvnw clean test`
+completed with 108 tests, 0 failures, 0 errors, and 0 skipped. The Docker image was rebuilt and the app
+container recreated; `/actuator/health` returned `UP`, Flyway reported V22, the local database
+contained 25 backfilled role-intent rows and 8 legacy query rows, and the workspace-safe query endpoint
+returned its per-market legacy plans.
 
 ## Explainable ATS Readiness Advisor Evidence
 

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -24,16 +25,33 @@ public class OnboardingRepository {
   private final JoobleProperties joobleProperties;
   private final ProfileIntelligenceRepository profileIntelligenceRepository;
   private final ResumeReadinessRepository readinessRepository;
+  private final ProviderQueryPlanner providerQueryPlanner;
 
+  @Autowired
   public OnboardingRepository(
       NamedParameterJdbcTemplate jdbc,
       JoobleProperties joobleProperties,
       ProfileIntelligenceRepository profileIntelligenceRepository,
-      ResumeReadinessRepository readinessRepository) {
+      ResumeReadinessRepository readinessRepository,
+      ProviderQueryPlanner providerQueryPlanner) {
     this.jdbc = jdbc;
     this.joobleProperties = joobleProperties;
     this.profileIntelligenceRepository = profileIntelligenceRepository;
     this.readinessRepository = readinessRepository;
+    this.providerQueryPlanner = providerQueryPlanner;
+  }
+
+  OnboardingRepository(
+      NamedParameterJdbcTemplate jdbc,
+      JoobleProperties joobleProperties,
+      ProfileIntelligenceRepository profileIntelligenceRepository,
+      ResumeReadinessRepository readinessRepository) {
+    this(
+        jdbc,
+        joobleProperties,
+        profileIntelligenceRepository,
+        readinessRepository,
+        new ProviderQueryPlanner());
   }
 
   public long saveResume(
@@ -81,6 +99,9 @@ public class OnboardingRepository {
         Map.of("sourceProfileVersionId", activeProfile.id(), "draftProfileVersionId", draftId));
     jdbc.update(
         load("sql/onboarding/copy-term-suggestions.sql"),
+        Map.of("sourceProfileVersionId", activeProfile.id(), "draftProfileVersionId", draftId));
+    jdbc.update(
+        load("sql/onboarding/copy-profile-target-roles.sql"),
         Map.of("sourceProfileVersionId", activeProfile.id(), "draftProfileVersionId", draftId));
     readinessRepository.copy(activeProfile.id(), draftId);
     return latestProfile(workspaceId).orElseThrow();
@@ -140,9 +161,14 @@ public class OnboardingRepository {
 
   public void savePreferences(
       UUID workspaceId, long profileVersionId, SearchPreferences preferences) {
-    List<String> targetRoles =
-        profileIntelligenceRepository.resolveOrCreateRoles(
+    List<ProfileIntelligenceRepository.NamedValue> roleValues =
+        profileIntelligenceRepository.resolveOrCreateRoleValues(
             workspaceId, csv(preferences.targetRoles()));
+    if (roleValues.isEmpty() || roleValues.size() > 3) {
+      throw new IllegalArgumentException("Choose between one and three target roles");
+    }
+    List<String> targetRoles =
+        roleValues.stream().map(ProfileIntelligenceRepository.NamedValue::name).toList();
     jdbc.update(
         load("sql/onboarding/update-profile-preferences.sql"),
         new MapSqlParameterSource()
@@ -151,6 +177,35 @@ public class OnboardingRepository {
             .addValue("targetRoles", targetRoles.toArray(String[]::new))
             .addValue("targetDomains", csv(preferences.targetDomains()).toArray(String[]::new))
             .addValue("primaryLocation", preferences.primaryLocation()));
+    jdbc.update(
+        load("sql/onboarding/delete-profile-target-roles.sql"),
+        Map.of("profileVersionId", profileVersionId));
+    int rolePriority = 1;
+    var plannedRoles = new java.util.ArrayList<ProviderQueryPlanner.TargetRole>();
+    for (ProfileIntelligenceRepository.NamedValue role : roleValues) {
+      String category =
+          jdbc.queryForObject(
+              load("sql/onboarding/find-role-category.sql"),
+              Map.of("roleId", role.id()),
+              String.class);
+      jdbc.update(
+          load("sql/onboarding/insert-profile-target-role.sql"),
+          new MapSqlParameterSource()
+              .addValue("profileVersionId", profileVersionId)
+              .addValue("roleId", role.id())
+              .addValue("priority", rolePriority));
+      plannedRoles.add(
+          new ProviderQueryPlanner.TargetRole(role.id(), role.name(), category, rolePriority++));
+    }
+    List<ProviderQueryPlanner.CandidateSkill> candidateSkills =
+        jdbc.query(
+            load("sql/onboarding/list-profile-skills-with-category.sql"),
+            Map.of("profileVersionId", profileVersionId),
+            (resultSet, row) ->
+                new ProviderQueryPlanner.CandidateSkill(
+                    resultSet.getString("canonical_name"), resultSet.getString("category")));
+    List<ProviderQueryPlanner.GeneratedQuery> queryPlan =
+        providerQueryPlanner.plan(plannedRoles, candidateSkills, preferences.keywords());
     Map<String, String> values = new LinkedHashMap<>();
     values.put("weight.technical", "40");
     values.put("weight.domain", "15");
@@ -174,21 +229,44 @@ public class OnboardingRepository {
             load("sql/onboarding/upsert-search-definition.sql"),
             new MapSqlParameterSource()
                 .addValue("workspaceId", workspaceId)
-                .addValue("keywords", SearchKeywordNormalizer.normalize(preferences.keywords()))
+                .addValue("keywords", queryPlan.getFirst().text())
+                .addValue(
+                    "queryOverride",
+                    preferences.keywords().isBlank()
+                        ? null
+                        : SearchKeywordNormalizer.normalize(preferences.keywords()))
                 .addValue("maxPages", preferences.maxPages()),
             Long.class);
+    jdbc.update(
+        load("sql/onboarding/delete-search-queries.sql"),
+        Map.of("searchDefinitionId", searchDefinitionId));
     jdbc.update(
         load("sql/onboarding/deactivate-search-targets.sql"),
         Map.of("searchDefinitionId", searchDefinitionId));
     int priority = 1;
     for (SearchTarget target : preferences.targets()) {
-      jdbc.update(
-          load("sql/onboarding/insert-search-target.sql"),
-          new MapSqlParameterSource()
-              .addValue("searchDefinitionId", searchDefinitionId)
-              .addValue("countryCode", target.countryCode())
-              .addValue("location", target.location())
-              .addValue("priority", priority++));
+      long searchTargetId =
+          jdbc.queryForObject(
+              load("sql/onboarding/insert-search-target.sql"),
+              new MapSqlParameterSource()
+                  .addValue("searchDefinitionId", searchDefinitionId)
+                  .addValue("countryCode", target.countryCode())
+                  .addValue("location", target.location())
+                  .addValue("priority", priority++),
+              Long.class);
+      for (ProviderQueryPlanner.GeneratedQuery query : queryPlan) {
+        jdbc.queryForObject(
+            load("sql/onboarding/insert-search-query.sql"),
+            new MapSqlParameterSource()
+                .addValue("searchDefinitionId", searchDefinitionId)
+                .addValue("searchTargetId", searchTargetId)
+                .addValue("roleId", query.roleId())
+                .addValue("priority", query.priority())
+                .addValue("queryText", query.text())
+                .addValue("generationVersion", query.generationVersion())
+                .addValue("origin", query.origin()),
+            Long.class);
+      }
     }
   }
 
@@ -205,6 +283,7 @@ public class OnboardingRepository {
                 new SearchDefinition(
                     resultSet.getLong("id"),
                     resultSet.getString("keywords"),
+                    resultSet.getString("provider_query_override"),
                     resultSet.getInt("max_pages")));
     if (definitions.isEmpty()) {
       return Optional.empty();
@@ -231,7 +310,7 @@ public class OnboardingRepository {
             String.join(", ", current.targetRoles()),
             String.join(", ", current.targetDomains()),
             current.primaryLocation(),
-            definition.keywords(),
+            definition.queryOverride() == null ? "" : definition.queryOverride(),
             SearchTarget.format(targets),
             definition.maxPages(),
             values.getOrDefault("employment.preference", "ANY"),
@@ -255,6 +334,8 @@ public class OnboardingRepository {
     jdbc.update(load("sql/onboarding/update-candidate.sql"), parameters);
     jdbc.update(load("sql/onboarding/replace-candidate-skills.sql"), parameters);
     jdbc.update(load("sql/onboarding/copy-candidate-skills.sql"), parameters);
+    jdbc.update(load("sql/onboarding/replace-candidate-target-roles.sql"), parameters);
+    jdbc.update(load("sql/onboarding/copy-candidate-target-roles.sql"), parameters);
     jdbc.update(load("sql/onboarding/replace-candidate-preferences.sql"), parameters);
     jdbc.update(load("sql/onboarding/copy-candidate-preferences.sql"), parameters);
     jdbc.update(load("sql/onboarding/activate-profile.sql"), parameters);
@@ -273,24 +354,28 @@ public class OnboardingRepository {
         Map.of("workspaceId", workspaceId));
     SearchDefinition definition = searchDefinition(workspaceId);
     for (StoredSearchTarget target : storedTargets(definition.id())) {
-      upsertSearchProfile(
-          workspaceId,
-          profileId(workspaceId, "adzuna", target),
-          "ADZUNA",
-          target.countryCode().toLowerCase(),
-          definition,
-          target,
-          preferences);
-      if (joobleProperties.hasCredentials()
-          && joobleProperties.supportsCountry(target.countryCode())) {
+      for (StoredSearchQuery query : storedQueries(target.id())) {
         upsertSearchProfile(
             workspaceId,
-            profileId(workspaceId, "jooble", target),
-            "JOOBLE",
+            profileId(workspaceId, "adzuna", target, query),
+            "ADZUNA",
             target.countryCode().toLowerCase(),
             definition,
             target,
+            query,
             preferences);
+        if (joobleProperties.hasCredentials()
+            && joobleProperties.supportsCountry(target.countryCode())) {
+          upsertSearchProfile(
+              workspaceId,
+              profileId(workspaceId, "jooble", target, query),
+              "JOOBLE",
+              target.countryCode().toLowerCase(),
+              definition,
+              target,
+              query,
+              preferences);
+        }
       }
     }
   }
@@ -302,6 +387,7 @@ public class OnboardingRepository {
       String sourceKey,
       SearchDefinition definition,
       StoredSearchTarget target,
+      StoredSearchQuery query,
       SearchPreferences preferences) {
     jdbc.update(
         load("sql/onboarding/upsert-workspace-search-profile.sql"),
@@ -309,12 +395,13 @@ public class OnboardingRepository {
             .addValue("profileId", profileId)
             .addValue("source", source)
             .addValue("sourceKey", sourceKey)
-            .addValue("keywords", definition.keywords())
+            .addValue("keywords", query.text())
             .addValue("location", target.location())
             .addValue("employmentType", employmentType(preferences.employmentPreference()))
             .addValue("workspaceId", workspaceId)
             .addValue("searchDefinitionId", definition.id())
             .addValue("searchTargetId", target.id())
+            .addValue("searchQueryId", query.id())
             .addValue("maxPages", preferences.maxPages()));
   }
 
@@ -326,6 +413,7 @@ public class OnboardingRepository {
             new SearchDefinition(
                 resultSet.getLong("id"),
                 resultSet.getString("keywords"),
+                resultSet.getString("provider_query_override"),
                 resultSet.getInt("max_pages")));
   }
 
@@ -340,13 +428,41 @@ public class OnboardingRepository {
                 resultSet.getString("location")));
   }
 
-  private static String profileId(UUID workspaceId, String source, StoredSearchTarget target) {
+  private List<StoredSearchQuery> storedQueries(long searchTargetId) {
+    return jdbc.query(
+        load("sql/onboarding/list-search-queries.sql"),
+        Map.of("searchTargetId", searchTargetId),
+        (resultSet, row) ->
+            new StoredSearchQuery(
+                resultSet.getLong("id"),
+                resultSet.getString("query_text"),
+                resultSet.getInt("priority")));
+  }
+
+  public List<ProviderQueryPreview> providerQueries(UUID workspaceId) {
+    return jdbc.query(
+        load("sql/onboarding/list-provider-query-preview.sql"),
+        Map.of("workspaceId", workspaceId),
+        (resultSet, row) ->
+            new ProviderQueryPreview(
+                resultSet.getString("country_code"),
+                resultSet.getString("location"),
+                resultSet.getString("role_name"),
+                resultSet.getString("query_text"),
+                resultSet.getString("generation_version"),
+                resultSet.getString("origin"),
+                resultSet.getInt("priority")));
+  }
+
+  private static String profileId(
+      UUID workspaceId, String source, StoredSearchTarget target, StoredSearchQuery query) {
     return "w-"
         + workspaceToken(workspaceId)
         + "-"
         + source
         + "-"
-        + hash(target.countryCode() + "|" + target.location()).substring(0, 10);
+        + hash(target.countryCode() + "|" + target.location() + "|" + query.priority())
+            .substring(0, 10);
   }
 
   private static String hash(String value) {
@@ -404,7 +520,9 @@ public class OnboardingRepository {
     return List.of((String[]) array.getArray());
   }
 
-  private record SearchDefinition(long id, String keywords, int maxPages) {}
+  private record SearchDefinition(long id, String keywords, String queryOverride, int maxPages) {}
 
   private record StoredSearchTarget(long id, String countryCode, String location) {}
+
+  private record StoredSearchQuery(long id, String text, int priority) {}
 }

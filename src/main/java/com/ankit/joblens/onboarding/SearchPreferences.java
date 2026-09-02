@@ -8,7 +8,7 @@ public record SearchPreferences(
     @NotBlank String targetRoles,
     String targetDomains,
     @NotBlank String primaryLocation,
-    @NotBlank String keywords,
+    String keywords,
     @NotBlank String searchMarkets,
     @Min(1) @Max(20) int maxPages,
     @NotBlank String employmentPreference,
@@ -16,6 +16,7 @@ public record SearchPreferences(
 
   public SearchPreferences {
     targetDomains = targetDomains == null ? "" : targetDomains.trim();
+    keywords = keywords == null ? "" : keywords.trim();
   }
 
   public java.util.List<SearchTarget> targets() {

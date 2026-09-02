@@ -7,3 +7,4 @@ ON CONFLICT (search_definition_id, country_code, (lower(location)))
 DO UPDATE SET priority = EXCLUDED.priority,
               active = TRUE,
               updated_at = CURRENT_TIMESTAMP
+RETURNING id

@@ -674,6 +674,83 @@ class WorkspaceOnboardingIntegrationTests {
         .isEqualTo(2);
   }
 
+  @Test
+  void storesOrderedRoleIntentAndGeneratesInspectableQueriesWhenOverrideIsBlank() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    long resumeId =
+        onboarding.saveResume(workspaceId, "resume.pdf", "application/pdf", 100, "9".repeat(64));
+    long profileId = onboarding.createDraft(workspaceId, resumeId, "Multiple directions");
+    onboarding.addSkills(profileId, List.of("React", "TypeScript", "Machine Learning", "CRM"));
+
+    onboarding.savePreferences(
+        workspaceId,
+        profileId,
+        new SearchPreferences(
+            "Frontend Engineer, Data Scientist, Sales Manager",
+            "",
+            "Singapore",
+            "",
+            "SG | Singapore",
+            2,
+            "PERMANENT",
+            "HYBRID"));
+    long candidateId =
+        onboarding.confirm(workspaceId, onboarding.latestProfile(workspaceId).orElseThrow());
+
+    assertThat(onboarding.preferences(workspaceId).orElseThrow().keywords()).isBlank();
+    assertThat(
+            jdbc.queryForList(
+                "SELECT role.canonical_name FROM workspace_profile_target_role target JOIN role_catalog role ON role.id=target.role_id WHERE target.profile_version_id=? ORDER BY target.priority",
+                String.class,
+                profileId))
+        .containsExactly("Frontend Engineer", "Data Scientist", "Sales Manager");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM candidate_target_role WHERE candidate_profile_id=?",
+                Integer.class,
+                candidateId))
+        .isEqualTo(3);
+    assertThat(onboarding.providerQueries(workspaceId))
+        .extracting(ProviderQueryPreview::query)
+        .containsExactly(
+            "Frontend Engineer React TypeScript",
+            "Data Scientist Machine Learning",
+            "Sales Manager CRM");
+    assertThat(
+            jdbc.queryForList(
+                "SELECT keywords FROM search_profile WHERE workspace_id=? AND active=true ORDER BY search_query_id",
+                String.class,
+                workspaceId))
+        .containsExactly(
+            "Frontend Engineer React TypeScript",
+            "Data Scientist Machine Learning",
+            "Sales Manager CRM");
+
+    mvc.perform(
+            get("/api/candidate-profile/search-queries")
+                .cookie(new Cookie(WorkspaceContext.COOKIE_NAME, workspaceId.toString())))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("role-intent-v1")))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.containsString("Frontend Engineer React TypeScript")));
+    mvc.perform(
+            get("/setup").cookie(new Cookie(WorkspaceContext.COOKIE_NAME, workspaceId.toString())))
+        .andExpect(status().isOk())
+        .andExpect(
+            content().string(org.hamcrest.Matchers.containsString("Searches JobLens will run")))
+        .andExpect(
+            content()
+                .string(org.hamcrest.Matchers.containsString("Override generated provider query")))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Candidate profile " + candidateId))));
+  }
+
   private List<String> candidateSkills(long candidateProfileId) {
     return jdbc.queryForList(
         """
