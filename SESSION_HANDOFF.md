@@ -147,7 +147,9 @@ auditability, reviewed fixture samples, false-positive analysis, and Precision@1
 pack, market, and scoring version. M2.8 Typed SQL Resource Registry remains deferred while M3 is
 active. Do not start any of these without an explicit user checkpoint.
 
-### Open observed bug — AI Engineer returns no integrated results
+### Open observed bugs and UX gaps
+
+#### BUG-M3-001 — AI Engineer returns no integrated results
 
 Status: **OPEN and not investigated**, recorded from user observation on 2026-09-03. Do not claim a
 cause or a fix without reproducing it and collecting evidence.
@@ -181,6 +183,81 @@ Required evidence for a future diagnosis, without assuming the fault is ranking 
 Do not broaden this report into a new provider, scraping, ranking-weight change, or country redesign.
 Reproduce and locate the first stage whose count becomes zero before choosing a fix or assigning it to
 a milestone.
+
+#### BUG-M3-002 — Résumé title suggestions contain false positives, duplicates, and missed directions
+
+Status: **OPEN and not investigated**, recorded from a user-supplied Senior AI Engineer résumé on
+2026-09-03. The supplied résumé contains personal contact and profile information; those values are
+deliberately not copied into this repository. The minimum redacted evidence needed to reproduce the
+problem is recorded below.
+
+Relevant résumé structure:
+
+- The document headline is `Senior AI Engineer`.
+- The professional summary starts with `Senior software engineer` and describes production AI/agent
+  systems, full-stack applications, Python, TypeScript, Go, SQL, REST, and gRPC.
+- Recent experience contains `AI Engineer` and multiple explicit `Front-end Developer` positions.
+- A contact/profile line has the form `Blog: medium.com/@...`.
+
+Observed setup output:
+
+- `AI Engineer — RESUME_HEADLINE — Senior AI Engineer` is shown twice as two separate suggestions.
+- `Software Engineer — RESUME_HEADLINE` is derived from the professional-summary sentence.
+- `medium — RESUME_HEADLINE — Blog: medium.com/@...` is suggested as a role with medium confidence,
+  even though `medium` is the website host and not an occupation.
+- No Frontend Engineer direction is shown in the reported suggestions despite explicit Front-end
+  Developer experience entries.
+- The rejected/ambiguous panel shows `AI — REJECTED: Senior AI Engineer`, plus short fragments such as
+  `R` and `js` extracted from unrelated prose or skill lines. This is noisy and makes the valid AI
+  evidence appear contradictory.
+
+Expected product boundary to verify later: contact, social, and blog labels or URL hosts must not
+become job-title suggestions; identical canonical suggestions should not be repeated; evidence source
+labels should correspond to the actual résumé section; and explicit recent experience should be
+eligible to suggest more than one plausible direction without silently selecting it as search intent.
+Do not change extraction heuristics until the stored suggestion/evidence rows and section parsing for
+this redacted fixture have been inspected.
+
+#### UX-M3-003 — Preferred sectors need a selectable catalogue control
+
+Status: **OPEN product/UX gap; not designed or implemented**.
+
+The setup form currently makes preferred sectors difficult to enter consistently. The requested
+direction is a searchable dropdown or multi-select backed by normalized sector records, while keeping
+preferred sectors optional. The handoff must not assume whether this reuses an existing taxonomy,
+adds a small curated sector catalogue, or permits workspace-private values; that data-model decision
+must be made before implementation. Preserve selected values across profile versions and ensure the
+same normalized values drive query generation and the optional sector ranking dimension.
+
+#### BUG-M3-004 — City/region is mandatory even when country is selected
+
+Status: **OPEN and not investigated**.
+
+Observed behavior: setup requires a city/region value even when the user has already selected a
+supported country. The user expects country-only searches to be valid and city/region to narrow the
+market only when supplied. Before changing validation, verify each provider's behavior for a blank or
+country-level location and how `workspace_search_target`, query generation, source profiles, scoring,
+and portal links represent a country-only target. Do not silently manufacture a city or make the
+stored ISO country code user-editable.
+
+#### BUG-M3-005 — Find Jobs leaks a raw Spring Batch already-running error
+
+Status: **OPEN and not investigated**.
+
+Observed user-facing message when trying to run Find Jobs again:
+
+```text
+A job execution for this job is already running: JobInstance: id=36, version=0, Job=[findJobsJob]
+```
+
+The concurrency guard may be correct if an execution is genuinely active, but exposing JobInstance
+IDs, versions, and the internal Batch job name is not an acceptable normal-user abstraction. It is
+also unknown whether execution 36 was actively progressing, stuck, or merely represented by stale
+state. A future diagnosis must inspect the JobExecution/StepExecution status, timestamps, exit
+description, workspace run projection, and restart/abandon rules before changing concurrency logic.
+The eventual user experience should distinguish an active search from a recoverable failed/stale run
+and provide the appropriate status or recovery action without leaking framework internals. Retain
+detailed Batch identity only in operator/admin inspection.
 
 ## 3. Product flow that works now
 
