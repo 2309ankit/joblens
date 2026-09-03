@@ -1,6 +1,6 @@
 # JobLens
 
-JobLens V1 is a production SaaS product under development for explainable job-market intelligence.
+JobLens V1 is a production SaaS product for explainable job-market intelligence.
 The current repository is a batch-first modular-monolith implementation: an anonymous browser workspace can upload and validate a
 resume, review skill/title evidence, select search intent, discover legitimate public postings, rank
 candidate-visible jobs, and track applications. Anonymous identity and the local Compose topology are

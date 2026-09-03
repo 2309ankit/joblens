@@ -4,7 +4,7 @@
 
 **JobLens**
 
-JobLens V1 is a production SaaS product under development for explainable job-market intelligence.
+JobLens V1 is a production SaaS product for explainable job-market intelligence.
 Spring Batch is retained for durable ingestion and reprocessing; it is not the product boundary.
 
 The mandatory engineering lifecycle and review gates are defined in

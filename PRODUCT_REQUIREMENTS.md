@@ -13,8 +13,8 @@ legitimate public sources.
 
 The product is not primarily a Spring Batch learning exercise and must not be described as a
 personal-only finished application. Spring Batch is one implementation tool for durable ingestion and
-reprocessing. The current repository is **JobLens V1 under development**: it has a functionally rich
-architecture foundation, but it is not yet a launch-ready corporate-grade service.
+reprocessing. The current repository contains the **JobLens V1** implementation. It has a functionally
+rich architecture foundation, but it is not yet a launch-ready corporate-grade service.
 
 “Corporate-grade” means authenticated multi-user operation, privacy and security controls, reliable
 asynchronous execution, measurable service levels, support/admin tooling, deployability, backups,

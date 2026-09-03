@@ -2,8 +2,8 @@
 
 Status: **mandatory V1 development and review standard**, adopted on 2026-09-04.
 
-JobLens V1 is under development. This document defines how a change moves from requirement to
-release evidence. It does not declare the application launch-ready. `PRODUCT_REQUIREMENTS.md` owns
+This document defines how a JobLens V1 change moves from requirement to release evidence. It does
+not declare the application launch-ready. `PRODUCT_REQUIREMENTS.md` owns
 product scope and launch gates; `SYSTEM_DESIGN.md` owns the architecture baseline;
 `BUILD_PROGRESS.md` records observed implementation evidence.
 
