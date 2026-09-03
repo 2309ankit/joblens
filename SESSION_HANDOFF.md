@@ -1,8 +1,9 @@
 # JobLens Session Handoff
 
-Use this file to resume work quickly. Historical implementation evidence remains in
-[BUILD_PROGRESS.md](BUILD_PROGRESS.md), the operator guide is [README.md](README.md), and selectable
-future work is indexed in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
+Use this file to resume work quickly. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) is the
+authoritative startup product/launch contract, [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) is the target
+architecture, [BUILD_PROGRESS.md](BUILD_PROGRESS.md) is historical evidence, [README.md](README.md)
+is the local operator guide, and [NEXT_MILESTONES.md](NEXT_MILESTONES.md) indexes selectable work.
 
 ## 1. Resume checkpoint
 
@@ -11,6 +12,7 @@ Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
 Implementation baseline: M3.2 Role-Aware Ranking
 M3.2 implementation commit: 2885c84 (feat(ranking): add role-aware calibration)
+Product baseline: D1 Startup Requirements and Architecture
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
@@ -29,10 +31,67 @@ git status --short
 docker compose ps
 ```
 
-Read [AGENTS.md](AGENTS.md) and [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), then select exactly one milestone from
+Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md), and
+[SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
-## 2. M3.2 completed slice — exact handoff
+## 2. D1 startup requirements re-baseline
+
+The earlier “personal learning application” boundary is superseded. JobLens is a multi-user SaaS
+startup for job seekers. Spring Batch remains a useful durable execution mechanism, but it is not the
+product purpose. The current anonymous Compose application is a verified prototype foundation and
+must not be called production-ready, corporate-ready, or complete.
+
+Planning assumptions—not demand forecasts or load-test claims—are:
+
+| Stage | Accounts | DAU | Peak sessions | Discovery commands/day |
+| --- | ---: | ---: | ---: | ---: |
+| Private beta | 5,000 | 500 | 100 | 1,000 |
+| Year one | 50,000 | 5,000 | 750 | 10,000 |
+| Stress point | 250,000 | 25,000 | 3,000 | 50,000 |
+
+Year-one technical targets include 200 peak API requests/second, five admitted discovery
+commands/second, two million shared normalized jobs, 25 million candidate sightings/scores, 99.9%
+monthly authenticated-API availability, read p95 below 300 ms, mutation p95 below 500 ms, discovery
+acknowledgement below two seconds, progress freshness below five seconds, RPO at most five minutes,
+and RTO at most sixty minutes. None is currently verified by load or recovery testing.
+
+The current search model would make about 18 provider page calls for a median two-role,
+three-market, three-page run, or roughly 180,000/day at the year-one command estimate before retries.
+The target architecture therefore shares provider ingestion by normalized query fingerprint and
+freshness window, enforces provider budgets/admission control, and keeps candidate intent, ranking,
+feedback, and applications private.
+
+Real-time means a product command returns a run ID quickly and exposes committed progress through SSE
+with polling fallback while workers continue durable processing. It does not mean synchronous
+provider crawling. The modular monolith remains: one codebase may run as separately scaled stateless
+API and worker roles. A broker, search engine, or microservice requires measured throughput,
+fault-isolation, deployment, data-ownership, or team-ownership pressure.
+
+### Fixed versus not fixed
+
+| Area | State | Summary |
+| --- | --- | --- |
+| PostgreSQL/Flyway and modular codebase | FIXED foundation | Incremental schema, explicit SQL, transactional boundaries |
+| Raw landing and deterministic Batch processing | FIXED foundation | Bounded source calls, restart, checkpoints, normalization, skills and duplicate evidence |
+| Profile/intent/market/ranking/application flows | PARTIAL | Functional prototype, but open correctness/UX defects and no authenticated ownership |
+| Source ecosystem | PARTIAL | Legitimate adapters exist; provider contracts, quotas, shared acquisition and sustainable costs are unresolved |
+| Job Explorer and ranking quality | PARTIAL | Explainable scores exist; filters/keyset paging, feedback calibration and cross-role accuracy remain |
+| Identity/RBAC/account recovery | MISSING launch blocker | Anonymous UUID cookie is not authentication |
+| Product run queue/concurrency/recovery/live progress | MISSING launch blocker | Batch metadata exists but product abstraction, admission control, cancellation and SSE do not |
+| Privacy/storage/export/deletion | MISSING launch blocker | Original résumé storage, scanning, retention and account workflows do not exist |
+| Production platform | MISSING launch blocker | No CI/CD, production environment, managed HA database, restore evidence, centralized observability or security/load testing |
+
+Current local scale is only 14 anonymous workspaces, 1,528 raw jobs, 1,527 normalized jobs, 22 search
+runs, 47 Batch executions, two applications, and a 36 MB database. This is evidence of behavior, not
+capacity.
+
+Startup delivery is now indexed as D1 followed by selectable S0–S6 milestones. The recommended first
+implementation checkpoint is S0 critical defect reproduction and run safety because the recorded
+onboarding, zero-result, location, cross-role ranking, and active-run defects undermine product
+evidence. No S0–S6 runtime work was performed during this documentation re-baseline.
+
+## 3. M3.2 completed slice — exact handoff
 
 ### Product and architecture decision
 
@@ -300,7 +359,7 @@ negative evidence, absent skill extraction, best-role projection, or presentatio
 Any scoring change must remain deterministic, explainable, versioned, and tested against unrelated
 professions that use the universal-only policy.
 
-## 3. Product flow that works now
+## 4. Product flow that works now
 
 ```text
 /setup
@@ -331,10 +390,11 @@ professions that use the universal-only policy.
 Each anonymous browser workspace owns its candidate profile, preferences, sightings, scores, views,
 applications, and follow-ups. The browser cookie is the current identity boundary.
 
-## 4. Current architecture
+## 5. Current implementation architecture
 
-JobLens remains a batch-first modular monolith: one Spring Boot application, one PostgreSQL database,
-one deployable image.
+The current prototype is a batch-first modular monolith: one Spring Boot application, one PostgreSQL
+database, and one deployable image. The target keeps the modular codebase while allowing separately
+scaled API and worker runtime roles.
 
 ```text
 Thymeleaf / REST
@@ -353,7 +413,7 @@ Important jobs:
 | Job | Purpose |
 | --- | --- |
 | `findJobsJob` | Normal one-click workspace flow from discovery through scoring |
-| `searchProfileImportJob` | Original CSV/Spring Batch learning workflow |
+| `searchProfileImportJob` | Legacy/operator CSV import workflow |
 | `jobDiscoveryJob` | Operator launch of discovery only |
 | `jobIntelligenceJob` | Operator launch of normalization through scoring |
 | `applicationFollowUpJob` | Candidate-scoped deterministic reminders |
@@ -362,7 +422,7 @@ Important jobs:
 Automatic Batch startup remains disabled. Jobs use meaningful identifying parameters, persisted
 ExecutionContext checkpoints, observable failures, restarts, and idempotent writes.
 
-## 5. Job sources
+## 6. Job sources
 
 | Source | Current behavior | Credential |
 | --- | --- | --- |
@@ -387,7 +447,7 @@ JOOBLE_API_KEY=your-singapore-regional-key
 Rebuild/restart the app, then save and confirm preferences again so the workspace receives a Jooble
 search profile.
 
-## 6. Data and processing decisions
+## 7. Data and processing decisions
 
 - Flyway V1-V23 owns application and Spring Batch metadata schemas.
 - Search countries/locations are normalized as independent `workspace_search_target` rows. Confirming
@@ -406,7 +466,7 @@ search profile.
   catalogue.
 - Unknown end clients are not guessed. Any future estimate must expose evidence and uncertainty.
 
-## 7. Main inspection points
+## 8. Main inspection points
 
 ```text
 Application: http://localhost:8080
@@ -439,7 +499,7 @@ GET  /api/follow-ups
 GET  /api/batch/executions
 ```
 
-## 8. Code map
+## 9. Code map
 
 ```text
 src/main/java/com/ankit/joblens/
@@ -457,7 +517,7 @@ src/main/resources/
   templates/      setup, dashboard, applications
 ```
 
-## 9. Verification commands
+## 10. Verification commands
 
 ```bash
 ./mvnw -q spotless:apply
@@ -472,7 +532,7 @@ curl http://localhost:8080/actuator/health
 
 Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens, or resume data.
 
-## 10. Known limitations
+## 11. Known limitations
 
 - Anonymous cookie workspaces have no account recovery or cross-device synchronization.
 - Jooble needs a regional key and its provider quota must be monitored.
@@ -481,7 +541,8 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Greenhouse enrichment activates only when a legitimate source exposes a direct official board URL.
 - Lever enrichment activates only for a direct global `jobs.lever.co` URL; tracking redirects and the
   separate EU host are deliberately unsupported.
-- Discovery is sequential and intentionally unpartitioned at current personal scale.
+- Discovery is sequential and unpartitioned in the current prototype; it does not meet the startup
+  provider-budget or concurrency target.
 - Fuzzy thresholds and the initial role-overlay signals still need reviewed real-world calibration;
   M3.4 owns feedback and Precision@10 rather than automatic self-training.
 - Original resume storage, schedules, and external notifications are not implemented.
@@ -498,26 +559,25 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Java repositories explicitly reference SQL resource paths. SQL is correctly externalized, but
   those string paths are runtime-checked and should gain a typed, startup-validated registry.
 
-## 11. Handoff rule
+## 12. Handoff rule
 
-M0 Jooble live acceptance, M0.5 Portal Search Hub, M0.6 Smart Portal Query Planner, M1 source
-health/run observability, M2 Lever, M2.5 normalized multi-market preferences, M2.6 Inclusive
-Profile Intelligence, M2.7 Explainable ATS Readiness Advisor, and D0 System Design Baseline are
-complete. The selected order is:
+The feature milestones through M3.2 remain verified implementation history. D1 now supersedes the
+old personal/learning requirement boundary. The startup delivery index is:
 
 ```text
-M2.7 Explainable ATS Readiness Advisor — COMPLETE
-D0 System Design Baseline — COMPLETE
-M3 General Role Intent, Job Explorer, and Ranking Calibration
-  → approved and started on 2026-09-02; M3.1 intent and generated queries is complete
-  → M3.2 role-aware ranking is complete, including the Backend Engineering overlay
-  → M3.3 Job Explorer awaits the next explicit checkpoint decision
-M2.8 Typed SQL Resource Registry
-  → deferred while M3 is active
+D1 Startup requirements and architecture — COMPLETE
+S0 Critical defect reproduction and run safety — RECOMMENDED NEXT, NOT STARTED
+S1 Authenticated account ownership and RBAC — NOT STARTED
+S2 Product run commands, safe concurrency/recovery and live progress — NOT STARTED
+S3 Shared ingestion and provider budgets — NOT STARTED
+S4 Job Explorer and reviewed ranking quality — NOT STARTED
+S5 Résumé object lifecycle and privacy workflows — NOT STARTED
+S6 Production platform gate — NOT STARTED
 ```
 
-Do not combine these modules and do not silently advance from one to another. At each boundary,
-finish tests, evidence, documentation, and a conventional commit, then explicitly ask the user before
-starting the next module. React migration remains a later, separate presentation-layer decision.
+M3.3 and M2.8 remain unstarted historical-track options and do not override S0–S6. Do not combine the
+startup modules or silently advance. At each boundary, finish tests, evidence, documentation, and a
+conventional commit, then obtain explicit user direction before starting another module.
 
-M3.2 is verified. Do not start M3.3 or M2.8 without the next explicit checkpoint decision.
+The implementation baseline is M3.2 and the product baseline is D1. Do not start S0–S6, M3.3, M2.8,
+React migration, or a microservice split without the next explicit checkpoint decision.

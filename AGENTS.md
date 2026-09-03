@@ -2,7 +2,10 @@
 
 ## Project Objective
 
-JobLens is a production-style personal job-market intelligence application built primarily to learn and demonstrate Spring Batch in a realistic system.
+JobLens is a production SaaS startup for multi-user, explainable job-market intelligence. The
+repository began as a Spring Batch learning build, but learning/demo value is no longer the product
+boundary or an acceptable reason to treat production capabilities as optional. Spring Batch remains
+an implementation tool for durable, restartable ingestion and reprocessing.
 
 The intended pipeline is:
 
@@ -17,7 +20,8 @@ CSV search profiles
 → market insights
 → Thymeleaf dashboard
 
-This is a guided incremental build. Do not attempt to implement the entire architecture at once.
+This remains a guided incremental build. Do not attempt to implement the entire startup architecture
+at once, and do not claim launch readiness until the gates in `PRODUCT_REQUIREMENTS.md` have evidence.
 
 ## Current Technology Baseline
 
@@ -91,10 +95,18 @@ The repository currently has these verified working slices:
 * deterministic smart portal queries derived from preferred roles, sectors, confirmed resume skills, and a broad fallback
 * workspace-scoped resume skill review with draft-before-activation semantics
 * Thymeleaf application lifecycle and candidate-scoped follow-up controls
+* universal role-aware scoring with versioned Frontend, Backend, AI/ML, and Sales/Customer Success overlays and per-role evidence
 
-The anonymous manual-use product flow is complete. Optional future extensions are documented in `README.md`; do not start object storage, schedules, login, unsupported portal scraping, or microservices unless explicitly requested.
+The current anonymous flow is a verified prototype baseline, not a production-ready startup. Identity,
+authorization, shared/provider-budgeted ingestion, real-time run control, secure résumé storage,
+privacy workflows, observability, HA/backups, and delivery infrastructure remain launch gaps. Do not
+silently implement all gaps together; select and verify one approved milestone at a time. Unsupported
+portal scraping remains prohibited, and microservices still require an explicit measured trigger.
 
-Read `SESSION_HANDOFF.md` first for the concise current-state handoff, `NEXT_MILESTONES.md` for the selectable future-work index, `README.md` for the operator runbook, and `BUILD_PROGRESS.md` for detailed evidence and milestone history before beginning a new session.
+Read `PRODUCT_REQUIREMENTS.md` for the product/launch contract, `SYSTEM_DESIGN.md` for the startup
+architecture, `SESSION_HANDOFF.md` for the resume point, `NEXT_MILESTONES.md` for selectable work,
+`README.md` for the local operator runbook, and `BUILD_PROGRESS.md` for historical evidence before
+beginning a new session.
 
 ## Build Commands
 
@@ -112,7 +124,8 @@ PostgreSQL/Testcontainers tests require Docker Desktop to be running. For local 
 
 ## Architecture Rules
 
-JobLens starts as a modular monolith.
+JobLens starts as a modular monolith that can run the same versioned codebase in independently scaled
+API and worker process roles. User count alone does not justify service extraction.
 
 Do not introduce:
 
@@ -124,7 +137,9 @@ Do not introduce:
 * unnecessary abstractions
 * empty package hierarchies with no implementation
 
-Prefer simple architecture that can evolve when a second real use case requires abstraction.
+Prefer simple architecture that can evolve when measured scaling, fault-isolation, deployment, data
+ownership, or team-ownership pressure requires abstraction. Production requirements are not
+permission to add infrastructure without an approved milestone and evidence.
 
 Use Java records where they improve immutable data-transfer structures.
 

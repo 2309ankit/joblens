@@ -4,7 +4,8 @@
 
 **JobLens**
 
-Production-style personal job-market intelligence platform built around Spring Batch.
+Production SaaS startup for explainable job-market intelligence. Spring Batch is retained for durable
+ingestion and reprocessing; it is not the product boundary.
 
 ## Current Environment
 
@@ -234,13 +235,15 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-M2.7 Explainable ATS Readiness Advisor and the requested D0 System Design Baseline are complete.
-M3 **General Role Intent, Job Explorer, and Ranking Calibration** was approved and started on
-2026-09-02; M3.1 intent and generated queries and M3.2 role-aware ranking are complete, while M3.3
-has not started. M2.8 is deferred. Flyway V21 adds profile-version-owned
+D1 **Startup Requirements and Architecture Baseline** replaces the earlier personal/learning
+operating assumptions. M2.7 and D0 remain completed history. M3.1 intent/generated queries and M3.2
+role-aware ranking are implemented; M3.3 has not started. No startup implementation tranche was
+silently started during D1. Flyway V21 adds profile-version-owned
 readability assessments, stable findings, acknowledgement state, and workspace-safe inspection.
-`SYSTEM_DESIGN.md` records explicit requirements, operating assumptions, the API/Batch boundary,
-failure model, and measurable scale triggers. Flyway V18 extends the existing profile-version model with categorized taxonomy,
+`PRODUCT_REQUIREMENTS.md` now owns startup users, demand estimates, functional/non-functional
+requirements, launch gates, and the implemented/partial/missing assessment. `SYSTEM_DESIGN.md`
+translates that baseline into shared ingestion, private ranking, API/worker roles, real-time progress,
+security, reliability, and scale decisions. Flyway V18 extends the existing profile-version model with categorized taxonomy,
 workspace-private additions, and versioned deterministic suggestion evidence; V19 keeps private-skill
 references cleanup-safe when a workspace is deleted; V20 adds a restartable, idempotent ESCO release
 import and uncatalogued-term review artifacts.
@@ -270,18 +273,46 @@ known expired India rows, restored the exact provider URL for a recent India job
 country/location fields through REST. `./mvnw clean test` completed with 102 tests, 0 failures, 0
 errors, and 0 skipped.
 
-Documentation navigation is split by purpose: `SESSION_HANDOFF.md` is the concise resume point,
-`NEXT_MILESTONES.md` is the selection index for future work, `README.md` is the user/operator runbook,
-and this file remains the detailed evidence history.
+Documentation navigation is split by purpose: `PRODUCT_REQUIREMENTS.md` is the product/launch
+contract, `SYSTEM_DESIGN.md` is the startup architecture, `SESSION_HANDOFF.md` is the resume point,
+`NEXT_MILESTONES.md` is the selection index, `README.md` is the local operator runbook, and this file
+remains the detailed evidence history.
 
 `findJobsJob` executes discovery, normalization, skill extraction, exact duplicate detection, fuzzy duplicate analysis, and workspace candidate scoring as one restartable Spring Batch Job. Adzuna, optional Jooble, and Greenhouse sit behind `JobSourceClient`; provider JSON is stored before provider-specific normalization. Greenhouse is internally discovered and validated only from exposed official board URLs, rather than asking users for technical board tokens. Complex discovery and inspection SQL is externalized and uses `NamedParameterJdbcTemplate`.
 
 ## Next Observable Milestone
 
-M3.2 **Role-aware ranking** is complete. The next checkpoint is M3.3 **Job Explorer** and requires an
-explicit decision before implementation. M2.8 Typed SQL Resource Registry is deferred while M3 is
-active. React migration, original-resume object storage, schedules/notifications, and
-login/cross-device recovery remain separate and unstarted.
+D1 documentation is complete after repository and local-data inspection. The next implementation
+checkpoint must be explicitly selected from S0–S6 in `NEXT_MILESTONES.md`; recommended first is S0
+**Critical defect reproduction and run safety** because the current open bugs undermine onboarding,
+discovery and ranking evidence. M3.3, M2.8, authentication, storage, real-time delivery, infrastructure,
+and service extraction remain unstarted unless selected as their own milestone.
+
+## D1 Startup Requirements and Architecture Evidence
+
+The previous documents described one anonymous operator on a personal machine and treated identity,
+storage and operations as optional extensions. Repository inspection on 2026-09-04 confirmed the
+actual implementation: one Compose app, one PostgreSQL container, anonymous UUID-cookie ownership,
+Actuator health, direct Batch launch paths, no Spring Security dependency, no SSE/WebSocket channel,
+no rate limiter, no CI/CD or infrastructure as code, no managed backup/restore contract, and no
+central metrics/tracing/logging stack.
+
+The local database contained 14 workspaces, 1,528 raw postings, 1,527 normalized jobs, 22 search runs,
+47 Batch executions, two applications, and 36 MB total size. These figures are recorded as functional
+evidence only, not scale evidence. D1 establishes a year-one planning envelope of 50,000 accounts,
+5,000 DAU, 750 peak sessions, 10,000 discovery commands/day, 200 API requests/second, two million
+normalized jobs, and 25 million candidate sightings/score projections. No load claim is made.
+
+At a median two roles, three markets, and three pages, the current isolated search model would make
+about 180,000 provider page requests/day at that target before retries. D1 therefore fixes shared
+query-fingerprint ingestion, provider budgets, and private candidate ranking as the target boundary.
+It also defines API/worker runtime roles from one modular codebase, durable product commands/outbox,
+SSE with polling fallback, authenticated account/RBAC requirements, 99.9% availability, p95 latency,
+RPO/RTO targets, privacy controls, production operations, and gated service-extraction triggers.
+
+The readiness matrix explicitly distinguishes verified foundation from launch blockers. This was a
+documentation/analysis milestone: no runtime behavior, schema, dependencies, or deployment topology
+was changed.
 
 ## M3.1 Intent and Generated Queries Evidence
 
@@ -661,7 +692,9 @@ Three policy unit tests and three PostgreSQL Testcontainers integration tests ve
 
 Manual verification applied Flyway V8, created application 1 for `MANUAL-FUZZY-1`, and transitioned it from `SAVED` to `APPLIED` effective 2026-08-21. JobExecution 13 / JobInstance 12 completed with read/write 1/1, one commit, and zero rollbacks; REST and SQL showed `APPLICATION_CHECK_IN`, due 2026-08-28. JobExecution 14 / JobInstance 13 reran unchanged state with one row and identical creation/update timestamps.
 
-Known limitation: follow-up rules are deterministic code configuration and the tasklet deliberately reconciles the personal-scale application set in one transaction. If volume grows, the same policy can move behind database-configured rules and chunked partitioning based on measured need.
+Historical limitation at that checkpoint: follow-up rules were deterministic code configuration and
+the tasklet reconciled the full application set in one transaction. D1 supersedes the former
+personal-scale assumption; chunking/partitioning must now be validated against the startup envelope.
 
 ## Explainable Fuzzy Duplicate Similarity Milestone
 
@@ -697,7 +730,10 @@ Files introduced for this milestone include:
 * duplicate SQL resources under `src/main/resources/sql/`
 * `FuzzySimilarityCalculatorTests`
 
-Known limitation: pair enumeration currently occurs in memory with cheap blocking. This is appropriate for the personal-scale dataset; database-side blocking should be introduced only when measured volume justifies it. Thresholds and weights are deterministic starting heuristics and should be calibrated against reviewed examples.
+Historical limitation at that checkpoint: pair enumeration occurred in memory with cheap blocking.
+D1 supersedes the former personal-scale assumption; database-side blocking/partitioning must be load
+tested against the startup envelope. Thresholds and weights remain deterministic starting heuristics
+that require reviewed calibration.
 
 ## Exact Duplicate Detection Milestone
 

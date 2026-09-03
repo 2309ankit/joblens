@@ -1,7 +1,8 @@
 # JobLens Next Milestone Index
 
-This is the short decision index for future work. It is not a promise to implement every item. Select
-one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the historical evidence log.
+This is the short decision index for future work. The startup product contract is
+[PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md); [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the
+historical evidence log. Select one milestone at a time.
 
 ## Selection rules
 
@@ -15,7 +16,23 @@ one milestone at a time; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the hist
 7. Stop after every selected module, show its evidence, and obtain explicit user approval before
    beginning the next module.
 
-## Recommended order
+## Startup delivery order
+
+| Priority | Milestone | Why now | External dependency |
+| --- | --- | --- | --- |
+| D1 | Startup requirements and architecture baseline — COMPLETE | Replaces the personal/learning boundary with users, SLOs, real-time semantics, launch gates, and a fixed/not-fixed assessment | Product assumptions require owner review |
+| S0 | Critical defect reproduction and run safety | Locate the first failing stage for the recorded zero-result, extraction, location, cross-role ranking, and already-running defects | Redacted fixtures and provider access for controlled tests |
+| S1 | Authenticated account ownership and RBAC | Anonymous UUID cookies cannot protect a public multi-user product | Identity-provider and account-linking decision |
+| S2 | Product run commands and live progress | Add admission control, idempotency, safe concurrency/recovery, cancellation, and SSE/polling status | S1 ownership contract |
+| S3 | Shared ingestion and provider budgets | Prevent equivalent user searches from multiplying external requests and cost | Provider quotas/contracts and freshness policy |
+| S4 | Job Explorer and reviewed ranking quality | Add backend filters/sorts/keyset paging plus private feedback and Precision@10 | Stable run/corpus identity |
+| S5 | Résumé object lifecycle and privacy workflows | Add encrypted/scanned storage, retention, export, and deletion | Storage/retention/security decisions |
+| S6 | Production platform gate | CI/CD, staging/production, managed HA data, observability, backups/restore, load/security/failure testing | Deployment platform and operating ownership |
+
+The following table is the earlier feature-build order retained for history. Its incomplete entries
+do not override the startup sequence above.
+
+## Historical feature order
 
 | Priority | Milestone | Why now | External dependency |
 | --- | --- | --- | --- |
@@ -406,8 +423,8 @@ than placing business logic inside scheduled methods. Persist notification attem
 Goal: attach existing anonymous workspaces to a recoverable account without losing ownership safety.
 
 Decisions required: identity provider or local credentials, account-linking flow, cookie migration,
-data export/deletion, and privacy policy. This is a product/security milestone, not a prerequisite for
-the current personal browser workflow.
+data export/deletion, and privacy policy. Under the startup baseline this is no longer optional future
+work; it is superseded by S1 and is required before a public multi-user launch.
 
 ## Explicitly unavailable or prohibited shortcuts
 
@@ -424,7 +441,7 @@ the current personal browser workflow.
 Use this request format:
 
 ```text
-Read AGENTS.md, SESSION_HANDOFF.md, SYSTEM_DESIGN.md, README.md, BUILD_PROGRESS.md, and
-NEXT_MILESTONES.md. Preserve the current worktree. Resume only the active M3 checkpoint recorded in
-BUILD_PROGRESS.md. Do not start M2.8, React migration, or unrelated work without explicit approval.
+Read AGENTS.md, PRODUCT_REQUIREMENTS.md, SYSTEM_DESIGN.md, SESSION_HANDOFF.md, README.md,
+BUILD_PROGRESS.md, and NEXT_MILESTONES.md. Preserve the current worktree. Select exactly one startup
+milestone from S0–S6; do not infer permission to implement the remaining launch gaps together.
 ```

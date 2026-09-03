@@ -1,15 +1,23 @@
 # JobLens
 
-JobLens is a batch-first modular monolith for personal job-market intelligence. Each anonymous browser workspace can upload and validate a resume, review explainable skill and title suggestions, control job preferences in the UI, discover public Adzuna postings and optionally Jooble postings, safely enrich from automatically detected Greenhouse and Lever boards, rank only its discovered jobs, and track applications.
+JobLens is a production SaaS startup for explainable job-market intelligence. The current repository
+is a batch-first modular-monolith prototype: an anonymous browser workspace can upload and validate a
+resume, review skill/title evidence, select search intent, discover legitimate public postings, rank
+candidate-visible jobs, and track applications. Anonymous identity and the local Compose topology are
+verified development foundations, not the target production boundary.
 
-New session: start with [SESSION_HANDOFF.md](SESSION_HANDOFF.md). To choose the next piece of work,
-use [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Detailed historical evidence remains in
-[BUILD_PROGRESS.md](BUILD_PROGRESS.md). The explicit requirements, operating envelope, API/Batch
-boundary, and scale triggers are in [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md).
+The authoritative startup requirements and fixed/not-fixed assessment are in
+[PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md). New sessions start with
+[SESSION_HANDOFF.md](SESSION_HANDOFF.md), architecture decisions are in
+[SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), selectable work is in
+[NEXT_MILESTONES.md](NEXT_MILESTONES.md), and historical evidence remains in
+[BUILD_PROGRESS.md](BUILD_PROGRESS.md).
 
 ## Architecture
 
-One Spring Boot application, one PostgreSQL database, one deployable process:
+Current development topology: one Spring Boot application, one PostgreSQL database, and one process.
+The startup target keeps one modular codebase but permits independently scaled API and worker runtime
+roles:
 
 ```text
 Browser cookie → workspace → validated resume draft → confirmed candidate/preferences
@@ -122,7 +130,7 @@ before profile activation rather than producing a knowingly unrunnable source pr
 
 ## What each batch does
 
-`findJobsJob` is the normal user flow: independent discovery for every confirmed source/market profile, including safe Greenhouse and Lever board enrichment when direct official URLs are exposed; normalization; skills; exact/fuzzy duplicate analysis; and workspace candidate scoring in six ordered steps. The `universal-v1` policy evaluates each job against every selected target role, then projects the highest role score while retaining all per-role reasons. Frontend, Backend Engineering, AI/ML, and Sales/Customer Success add versioned calibrated title/skill evidence; every other role keeps the same universal title, confirmed-skill, sector, seniority, location/work, employment, salary, and freshness dimensions. Missing calibrated skills lower evidence points but never discard a job. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` preserves the original CSV learning workflow. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
+`findJobsJob` is the normal user flow: independent discovery for every confirmed source/market profile, including safe Greenhouse and Lever board enrichment when direct official URLs are exposed; normalization; skills; exact/fuzzy duplicate analysis; and workspace candidate scoring in six ordered steps. The `universal-v1` policy evaluates each job against every selected target role, then projects the highest role score while retaining all per-role reasons. Frontend, Backend Engineering, AI/ML, and Sales/Customer Success add versioned calibrated title/skill evidence; every other role keeps the same universal title, confirmed-skill, sector, seniority, location/work, employment, salary, and freshness dimensions. Missing calibrated skills lower evidence points but never discard a job. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` remains the legacy/operator CSV import. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
 Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
 
@@ -148,7 +156,8 @@ redacted; credentials and provider response bodies are not retained in run error
 
 ## Operator CSV import
 
-This is the original Spring Batch learning path, not the first-time browser workflow. Swagger endpoint: `POST /api/batch/search-profiles/import`.
+This is the legacy/operator CSV import path, not the first-time browser workflow. Swagger endpoint:
+`POST /api/batch/search-profiles/import`.
 
 `inputFile` is the readable CSV path seen by the application. `businessDate` is the ISO date used to identify this logical run. `failOnRow` is optional and only for restart testing; value `3` intentionally fails on data row 3. A normal example is:
 
@@ -425,14 +434,19 @@ If PostgreSQL authentication fails, ensure Compose and the app use the same `JOB
 7. Show restartability with `/api/batch/executions` and the Batch metadata SQL queries above.
 8. Tear down with `docker compose down` (add `-v` only when intentionally deleting local database data).
 
-## Optional future extensions
+## Startup readiness gaps
 
-The anonymous, manual-use product flow is complete. These are separate product choices, not unfinished parts of the current workflow:
+The current product flow is a prototype baseline, not a completed public product. The authoritative
+status matrix and launch gates are in [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md). Major gaps
+include authenticated ownership/RBAC, shared provider-budgeted ingestion, product-level asynchronous
+run control and live progress, secure résumé storage and privacy workflows, production delivery and
+observability, HA/backups/restore evidence, load/security testing, and resolution of the open product
+defects recorded in `SESSION_HANDOFF.md`.
 
-- Store original resume bytes through an object-storage adapter; V11 currently stores validated metadata and SHA-256 only.
-- Add optional schedules/notifications after the manual one-click workflow is proven useful.
+- Store original resume bytes through an encrypted, scanned object-storage lifecycle; V11 currently stores validated metadata and SHA-256 only.
+- Add notification delivery only with user preferences, quiet hours, retries, and idempotency.
 - Add more legitimate source adapters only when a candidate-facing public search API exists or a commercial agreement explicitly authorizes this use. The current LinkedIn and SEEK/JobStreet APIs are partner/hirer integrations for posting and applications, not public candidate-job discovery; dashboard links provide direct searches instead. LinkedIn and Indeed scraping remain prohibited.
-- Add login/account recovery only if anonymous browser-cookie workspaces need cross-device persistence.
+- Replace anonymous cookie ownership with authenticated accounts, recovery, authorization, and audited support access before public launch.
 - Complete M3.3 Job Explorer filtering/keyset pagination, then collect private Fit/Maybe/Not-fit labels
   in M3.4 to measure Precision@10 and revise the initial deterministic overlay signals from evidence.
 

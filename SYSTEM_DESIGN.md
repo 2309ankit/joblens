@@ -1,247 +1,257 @@
-# JobLens System Design Baseline (D0)
+# JobLens Startup System Design Baseline
 
-Status: baseline v1, recorded after M2.7 and updated through M3.2. This is the design contract for the
-current personal-scale modular monolith. Values labelled **target** are design objectives, not
-load-test claims.
+Status: **architecture baseline v2**, recorded on 2026-09-04. This replaces the former
+personal-machine operating envelope. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) is the
+authoritative product and launch-readiness baseline; this document describes how the system should
+evolve from the verified prototype without pretending missing production capabilities already exist.
 
-## 1. Problem and boundary
+## 1. System boundary
 
-JobLens helps one job seeker turn a reviewed resume and job preferences into an explainable stream
-of public job opportunities, then track applications and follow-ups. It is not a recruiting system,
-an employer ATS, a portal scraper, or an autonomous application bot.
+JobLens is a multi-user job-seeker intelligence SaaS. It accepts reviewed candidate intent, acquires
+jobs from legitimate sources, preserves raw evidence, normalizes and deduplicates a shared job corpus,
+ranks candidate-visible jobs privately, and supports application/follow-up workflows.
 
-Primary actor: a job seeker using one browser workspace. Secondary actor: an operator importing
-taxonomies, inspecting Batch runs, or launching lower-level jobs.
+It is not an employer ATS, automatic application bot, portal credential vault, or unauthorized
+scraper. “Real-time” means immediate command acknowledgement, observable asynchronous progress, and
+incrementally fresh committed results. It does not mean holding an HTTP request open while public
+providers are crawled.
 
-### Prioritized functional requirements
+## 2. Current versus target architecture
 
-1. A job seeker can upload, review, version, and activate a candidate profile.
-2. The system can discover legitimate public postings, preserve raw provider evidence, normalize,
-   deduplicate, and rank them for that profile.
-3. The job seeker can inspect results and run evidence, then track applications and follow-ups.
-
-Supporting functions include CSV import, taxonomy import, weekly market aggregation, Swagger, and
-outbound portal search links. They are not primary product requirements.
-
-### Non-goals
-
-- LinkedIn, Indeed, JobStreet, SEEK, or Google scraping
-- Automatic job applications or portal credential storage
-- Proprietary ATS reproduction or opaque candidate-quality scoring
-- Employer/end-client inference without evidence
-- Microservices, Kafka, or distributed execution without measured need
-
-## 2. Operating envelope and parameters
-
-The current deployment is a single Spring Boot process and one PostgreSQL database on a personal
-machine. It favors correctness, auditability, and restartability over concurrency.
-
-| Dimension | Current limit/default | Baseline decision |
-| --- | --- | --- |
-| Active human usage | One primary operator | Personal deployment, best-effort availability |
-| Identity | One anonymous cookie per workspace | No recovery or cross-device guarantee |
-| Resume upload | PDF/DOC/DOCX, 5 MB, at least 80 readable characters | Synchronous API operation |
-| Search markets | Maximum 10 per profile | Independent provider profile/checkpoint per market |
-| Search intent | One primary plus up to two additional target roles | Ordered and explicitly selected by the user |
-| User-selected pages | 1-20 | Provider/global caps still apply |
-| Adzuna fetch cap | Default 5 pages × 20 results/profile | 100 results/profile/run before provider count termination |
-| Adzuna freshness | 30 days | Old landed Adzuna rows excluded from user results |
-| External timeout/retry | Usually 10 seconds, 3 attempts, 250 ms initial backoff | Bounded failure, no unbounded HTTP wait |
-| Intelligence chunk | 20 records | One transaction per committed chunk |
-| ESCO import | 250 records/page, 30-second timeout, 3 attempts | Explicit restartable operator job |
-| Fuzzy thresholds | 75 possible, 90 likely | Heuristics pending reviewed calibration |
-| Resume readability | 0-100 `readability-v1` | Parser readability only; review severity requires acknowledgement |
-| Job ranking | 0-100 `universal-v1` per selected role | Four initial versioned overlays add evidence without excluding other roles |
-| Storage retention | Indefinite until workspace/data deletion | Known policy gap; not a durability promise |
-
-Design targets for the current envelope:
-
-- At most one logical Find-jobs JobInstance for the same workspace and identifying parameters.
-- Interactive reads should remain below 500 ms at 10,000 candidate-visible jobs (**target; not load
-  tested**).
-- A default Find-jobs run should normally complete within five minutes when providers respond
-  (**target; provider latency and quota can dominate**).
-- Recovery point is the last committed PostgreSQL transaction or Batch chunk. Recovery is manual
-  restart; there is no high-availability or automated failover target.
-- No committed profile, application transition, or completed chunk should be silently lost.
-
-Capacity estimates are performed only when they affect a decision:
-
-```text
-provider requests/run ≈ active provider profiles × pages attempted
-raw rows/day          ≈ workspaces × runs/day × profiles/run × results/profile
-fuzzy candidates      ≈ blocked pairs, not all N² pairs after cheap blocking
-```
-
-Provider quota is expected to become the first constraint. Database volume and fuzzy-pair memory are
-the next likely constraints; neither justifies distributed infrastructure at the current envelope.
-
-## 3. Core entities and ownership
-
-```text
-Workspace
-  └─ Resume metadata
-      └─ Profile Version
-          ├─ Readiness Assessment / Findings
-          ├─ Skill and Role Suggestions
-          ├─ Reviewed Skills / Roles / Preferences
-          └─ Search Targets
-              └─ Provider Search Profiles
-                  └─ Source Fetch Runs
-                      └─ Raw Job Postings
-                          └─ Normalized Jobs
-                              ├─ Duplicate Evidence
-                              ├─ Workspace Sightings
-                              └─ Candidate Scores
-                                  ├─ Best-role projection / reasons
-                                  └─ Per-target-role scores / reasons
-
-Candidate Profile + Normalized Job
-  └─ Application
-      ├─ Transition History
-      └─ Follow-up
-```
-
-Workspace-owned state: profile versions, private taxonomy additions, preferences, targets, sightings,
-scores, views, applications, and follow-ups. Shared state: normalized provider postings, global
-taxonomy, exact/fuzzy evidence, and weekly market projections. Every user-facing shared row is reached
-through a workspace-owned sighting or candidate ownership check.
-
-## 4. Interfaces: API versus Batch
-
-The API is the command/query boundary. Batch is the durable execution mechanism for bulk,
-multi-step, replayable work.
-
-| Operation | Interface | Execution model | Reason |
+| Concern | Verified current implementation | Startup target | State |
 | --- | --- | --- | --- |
-| Upload/review profile | MVC/REST | Synchronous transaction | One bounded document and draft |
-| Readiness acknowledgement | MVC/REST | Synchronous transaction | One owned assessment |
-| Select role intent / preview queries | MVC/REST | Synchronous transaction | At most three roles and ten markets |
-| Save preferences/application/view | MVC/REST | Synchronous transaction | Small resource mutation |
-| Find and rank jobs | API launch/status | Spring Batch | External failures, multiple steps, checkpoints |
-| Recalculate intelligence | API/operator launch | Spring Batch | Bulk deterministic replay |
-| CSV/ESCO import | Operator REST launch | Spring Batch | Paginated/chunked restartable ingestion |
-| Reconcile all follow-ups | UI/API launch | Spring Batch | Bulk idempotent reconciliation |
-| Generate one follow-up | Could be synchronous | Existing Batch use is educational/operational | Revisit before scale work |
-| Weekly aggregation | Operator launch | Batch tasklet | Rerun/history value, not computational necessity |
+| Deployment | One Dockerized Spring Boot process plus one PostgreSQL container | Stateless API replicas and independently scalable worker replicas from one codebase | PARTIAL |
+| Identity | Opaque anonymous workspace UUID cookie | Recoverable authenticated account, secure session, RBAC, audited support access | MISSING |
+| Tenancy | Workspace IDs and ownership joins on user data | Authenticated account-to-workspace ownership on every command/query, isolation tests and defense in depth | PARTIAL |
+| Interactive API | MVC/REST/Thymeleaf, synchronous reads and small writes | SLO-backed API behind TLS/load balancer with rate limiting and safe errors | PARTIAL |
+| Long work | Spring Batch launched directly from web flows | Durable product command, admission control, queued execution, cancellation/recovery, worker capacity | PARTIAL |
+| Live progress | Dashboard refresh and persisted run inspection | SSE within five seconds of committed changes, polling fallback | MISSING |
+| Job acquisition | Per-workspace source profiles and sequential discovery | Shared query-fingerprint cache/corpus, per-provider budgets, incremental ingestion | PARTIAL |
+| Intelligence | Deterministic normalized pipeline, duplicates, skills, role-aware scoring | Same algorithms at scale with reviewed calibration, partitioning, backfills and version governance | PARTIAL |
+| Data | Local PostgreSQL volume, Flyway | Managed HA PostgreSQL, pooled connections, PITR, restore tests, retention/partitioning | PARTIAL |
+| Résumé storage | Metadata/hash only; original bytes discarded | Encrypted object storage, malware scan, retention, export/deletion | MISSING |
+| Operations | Actuator health, Batch metadata, source-run rows | Metrics, traces, centralized logs, alerts, SLOs, admin console, incident runbooks | PARTIAL |
+| Delivery | Local Maven and Docker commands | CI/CD, staging/production, immutable image, security gates, progressive rollout | MISSING |
 
-An ordinary API implementation of Find Jobs would still need progress state, step history,
-transactions, checkpoints, retry policy, idempotency, and restart logic. Spring Batch supplies this
-execution model; it does not replace HTTP.
+The modular monolith remains the correct starting architecture. “Monolith” describes the code and
+transaction boundary, not a requirement to run exactly one process. API and worker runtime roles can
+scale independently while sharing versioned modules and PostgreSQL.
 
-## 5. High-level architecture and data flow
+## 3. Planning workload
+
+The year-one planning target is 50,000 registered accounts, 5,000 DAU, 750 peak active sessions,
+10,000 discovery commands/day, 200 peak API requests/second, five peak accepted discovery
+commands/second, two million shared normalized jobs, and up to 25 million candidate sightings/score
+projections. These are design assumptions, not load-test results.
+
+With a median two roles × three markets × three pages, the current per-user model implies 18 provider
+page calls per discovery command or roughly 180,000/day at the year-one target before retries. This is
+not an acceptable quota or cost model. Shared acquisition is therefore a functional architecture
+requirement, not a later performance optimization.
+
+Current local evidence—14 workspaces, about 1,500 jobs, 22 search runs, 47 Batch executions, and a
+36 MB database—validates behavior only.
+
+## 4. Target logical architecture
 
 ```text
-Browser / REST client
-        │ workspace cookie
+Browser / mobile web
+        │ HTTPS, authenticated session
         ▼
-Spring MVC controllers ── ownership checks ── synchronous application services
+CDN / WAF / load balancer
+        │
+        ▼
+Stateless JobLens API replicas ───────────────┐
+  profile, explorer, applications             │ SSE / polling
+  commands, authorization, rate limits        │
         │                                      │
-        │ launch/status                        └─ profile/application PostgreSQL transactions
-        ▼
-Spring Batch JobRepository + JobOperator
-        ▼
-findJobsJob orchestration
-  discovery ── provider adapters ── public APIs
-      │
-      ▼
-raw JSONB landing → normalization → skills → duplicates → candidate scoring
-      │                                                   │
-      └──────────────── PostgreSQL/Flyway ────────────────┘
-                              │
-                              ▼
-                   dashboard / REST inspection
+        ├─ synchronous transactions            │
+        └─ durable command + outbox ───────────┘
+                       │
+                       ▼
+              JobLens worker replicas
+              Spring Batch / bounded tasks
+                       │
+          ┌────────────┴────────────┐
+          ▼                         ▼
+ provider adapters          deterministic intelligence
+          │                         │
+          ▼                         ▼
+ raw landing → shared normalized job corpus → private sightings/ranking
+          │                         │
+          └──────── PostgreSQL ─────┘
+                       │
+           object storage for résumé objects
+
+Metrics / traces / logs / alerts observe API, workers, database, outbox and providers.
 ```
 
-Find Jobs data flow:
+The first production deployment should remain one repository and one versioned application artifact
+with runtime profiles:
 
-1. Resolve the workspace, active candidate, ordered target roles, and versioned per-market query
-   profiles.
-2. Fetch provider pages outside uncontrolled database transactions.
-3. Persist untouched provider JSON, source URL, payload hash, and immutable run evidence.
-4. Normalize new/changed raw rows in chunks.
-5. derive skills, exact clusters, fuzzy suggestions, scores, and reasons deterministically.
-6. Expose only workspace-sighted, active-occupation, current-market results.
+- **API role:** accepts authenticated commands, serves explorer/profile/application reads and writes,
+  and streams authorized progress. It does not perform uncontrolled provider calls.
+- **Worker role:** claims admitted work, runs provider and intelligence steps with bounded concurrency,
+  and publishes transactional state changes.
+- **Operator role:** explicit restricted endpoints/commands for taxonomy, backfill, pack activation,
+  recovery, and support actions. It is not exposed as the normal user API.
 
-## 6. Consistency, transactions, and idempotency
+## 5. Shared ingestion and private ranking
 
-- PostgreSQL is the system of record and Flyway is the sole schema owner.
-- Profile review and activation are separate states. Activation copies one reviewed version into the
-  runnable candidate projection transactionally.
-- Résumé role suggestions remain evidence; one to three user-selected target roles are stored as
-  ordered intent. `role-intent-v1` query plans are persisted separately from both, so an advanced
-  provider override cannot silently rewrite what role the user selected.
-- `universal-v1` evaluates every posting independently against each selected role. Frontend, Backend
-  Engineering, AI/ML, and Sales/Customer Success can add versioned calibrated title/skill evidence;
-  an unmapped role uses the same universal dimensions without an overlay. The highest result is the
-  compatibility projection, while every per-role score and reason remains candidate-private and
-  reproducible. Missing signals contribute zero points and never act as hidden filters.
-- A `REVIEW_REQUIRED` resume assessment must be acknowledged before activation.
-- Raw identity is `(source, external_job_id)`; changed payload hashes reset derived processing.
-- Chunk writers update derived state and source status in the same transaction.
-- Exact duplicates are evidence-backed clusters. Fuzzy results are review suggestions, not merges.
-- Job parameters identify logical Batch work; JobExecution records attempts and ExecutionContext
-  stores checkpoints. Restart does not replay completed steps unnecessarily.
-- Provider failures retain committed earlier results. JobLens may display `PARTIAL`, while Spring
-  Batch truthfully records `FAILED` until restart succeeds.
+The target separates reusable provider facts from candidate-private decisions.
 
-## 7. Failure and security model
+```text
+User intent
+  → normalized query fingerprint (source, market, terms, filters, version)
+  → fresh shared result exists? ─ yes → attach candidate sighting
+                              └ no  → admit provider work within budget
+                                       → raw immutable evidence
+                                       → shared normalized/deduplicated job
+  → private candidate role scores and reasons
+  → private feedback/application state
+```
 
-Expected failures: missing provider credentials, quota/rate limits, transient HTTP failures, malformed
-provider payloads, unreadable uploads, invalid profile values, database failures, and process restart.
-They must be bounded, sanitized, persisted where appropriate, and visible to the user/operator.
+Shared data includes provider identity, raw payload/hash, normalized posting, extracted global skills,
+duplicate evidence, source freshness, and public market aggregates. Private data includes account,
+résumé/profile, selected intent, custom taxonomy values, search history, sightings, candidate scores,
+feedback, views, applications, and follow-ups.
 
-Security boundary today:
+Equivalent provider queries need a persisted fingerprint, freshness window, lease, request budget,
+and subscriber list so concurrent users do not trigger duplicate crawls. Cache reuse must remain
+observable: the run should state whether data was fetched, refreshed, or reused. Candidate ranking
+must never become shared merely because ingestion is shared.
 
-- An opaque browser cookie resolves workspace identity; resource IDs alone never grant ownership.
-- Credentials come from environment variables and are not logged or returned.
-- Original resume bytes and full extracted text are not retained.
-- Workspace-private taxonomy additions are never part of another workspace's catalogue.
-- This is not an authenticated multi-user boundary. Cookie theft, browser loss, cross-device recovery,
-  export/deletion policy, malware scanning, and account security remain explicit future work.
+## 6. API, Batch and real-time boundaries
 
-## 8. Observability and scale-up triggers
+| Operation | Interface | Execution model |
+| --- | --- | --- |
+| Register/login/logout/recover | Auth API | Synchronous security transaction plus provider flow |
+| Upload résumé | API | Stream validation and object quarantine; asynchronous scan/parse when needed |
+| Review/activate profile | API | Synchronous owned transaction |
+| Filter/sort/page jobs | API | Indexed PostgreSQL query with stable keyset cursor |
+| Start discovery | Command API | Persist command/idempotency key and return run ID in under two seconds |
+| Provider acquisition | Worker/Batch | Bounded asynchronous work outside uncontrolled DB transactions |
+| Normalize/deduplicate/extract/rank | Worker/Batch | Chunked, restartable, versioned and idempotent |
+| Progress | SSE, polling fallback | Publish only after state transaction commits |
+| Save/view/apply/feedback | API | Synchronous owned transaction and outbox event where needed |
+| Taxonomy/backfill/aggregates | Operator Batch | Explicit, audited, restartable |
+| Notification delivery | Worker | Outbox-driven, retryable, idempotent |
 
-Current evidence: Batch metadata, step counts, immutable per-source run summaries, sanitized failures,
-Actuator health, REST run history, and dashboard partial-result reporting.
+Product run states must be stable and framework-neutral, for example `QUEUED`, `RUNNING`, `PARTIAL`,
+`COMPLETED`, `FAILED`, `CANCELLING`, and `CANCELLED`. Spring Batch JobInstance, JobExecution and
+StepExecution IDs remain operator evidence; they are not user-facing error text.
 
-Change the architecture only when measured evidence crosses a trigger:
+SSE is the initial push mechanism because progress is server-to-client and HTTP-friendly. Polling is
+the compatibility fallback. WebSocket adoption requires a genuine bidirectional interaction need.
 
-- Partition/parallelize discovery when normal runs exceed the five-minute target and provider quotas
-  permit concurrency.
-- Move fuzzy blocking into indexed SQL when its step exceeds two minutes or consumes more than 25% of
-  the application heap in a representative run.
-- Add query/index work when candidate-visible read p95 exceeds 500 ms at the declared 10,000-job
-  target.
-- Add scheduling/backpressure only after per-workspace frequency, timezone, quiet hours, and provider
-  request budgets are decided.
-- Add object storage only with an explicit retention, encryption, authorization, and deletion policy.
-- Add login/recovery before claiming multi-user or cross-device security.
+## 7. Consistency and idempotency
 
-Redis, Kafka, sharding, Elasticsearch, and microservices are not current milestones. PostgreSQL and a
-single deployable remain adequate until a measured trigger says otherwise.
+- PostgreSQL is the transactional system of record; Flyway remains the sole schema owner.
+- User commands accept an idempotency key. Repeated delivery returns the original command/run rather
+  than launching duplicate work.
+- Provider request leases prevent equivalent active fetches. Lease expiry and takeover are explicit
+  and observable.
+- Raw identity remains provider source plus external job ID. Payload hashes distinguish unchanged and
+  changed content.
+- A transaction writes domain state and an outbox event atomically. Consumers are idempotent and keep
+  delivery checkpoints.
+- Batch chunks commit raw/derived state and checkpoint consistently. Restart never assumes an
+  uncommitted external request succeeded; provider identities and hashes make replay safe.
+- Candidate score identity includes candidate, job, policy version, role and pack version. Best-score
+  projections remain rebuildable from per-role evidence.
+- Results may be eventually consistent while a run progresses. APIs never expose uncommitted data and
+  report the result snapshot/freshness version used.
 
-## 9. Design risks and next decisions
+## 8. Data model and indexing direction
 
-1. M3.1 provides explicit role intent and reproducible provider queries. M3.2 provides universal
-   role-aware ranking plus four initial overlays. Job Explorer and reviewed relevance labels remain
-   M3.3–M3.4 work; the overlay seeds are transparent starting rules, not measured accuracy claims.
-2. SQL resource paths are runtime strings; M2.8 will add typed startup validation without changing
-   JDBC behavior.
-3. Retention is indefinite and anonymous workspaces are unrecoverable.
-4. Discovery is sequential and fuzzy pair enumeration is in memory.
-5. The HTTP launch path and global concurrency policy need explicit load verification before
-   scheduling or multi-user use.
-6. Original resume storage, notifications, login, and React remain separate decisions.
+Preserve the current entity chain but replace anonymous identity with account ownership:
 
-## 10. Milestone mapping
+```text
+Account ── owns ── Workspace
+  └─ Profile versions / résumé objects / target roles / markets
+      └─ Search commands and subscriptions
+          └─ Workspace sightings / private role scores / feedback
+              └─ Applications / transitions / follow-ups
 
-- M2.7 improves requirement 1: readable documents receive transparent guidance and acknowledgement.
-- M2.8 reduces persistence operability risk; it does not add a product feature.
-- M3 establishes a measurable ranking-quality feedback loop for requirement 2.
-- M4 decides source-document durability and privacy.
-- M5 adds automation only after request budgets and delivery policy exist.
-- M6 replaces the anonymous-cookie boundary with recoverable identity.
+Provider query fingerprint
+  └─ Source fetch executions
+      └─ Raw postings
+          └─ Shared normalized jobs / skills / duplicate evidence
+```
 
-This baseline must be revised when an operating assumption, ownership boundary, external contract,
-or scale trigger changes—not after every small implementation detail.
+Before year-one scale, add indexes based on actual explorer predicates and query plans, time-based
+retention for raw/run/event data, and partitioning only for measured large append-heavy tables such as
+raw postings, sightings, score history, audit events, and outbox deliveries. Do not introduce a search
+engine until PostgreSQL full-text/indexed queries fail the declared relevance or latency target under
+representative load.
+
+## 9. Security and privacy architecture
+
+The anonymous UUID cookie is a prototype convenience, not authentication. Production requires:
+
+- externalized or standards-based identity, secure server-side session/token validation, rotation,
+  logout/revocation and account recovery;
+- RBAC for user/support/admin and explicit ownership checks at service/repository boundaries;
+- HTTPS-only Secure/HttpOnly/SameSite cookies, CSRF protection, security headers, CORS policy, rate
+  limiting and abuse controls;
+- secret-manager credentials with rotation; no `.env` in production;
+- encrypted object storage with quarantine, malware scan, content validation and authorized access;
+- encryption at rest/in transit, minimal PII in logs, audit events and redaction;
+- export, deletion, retention and backup-expiry workflows;
+- dependency/image scanning, SBOM, threat model, penetration/security testing and incident response.
+
+PostgreSQL row-level security is a possible defense-in-depth layer after account/tenant semantics are
+fixed. It does not replace application authorization or ownership tests.
+
+## 10. Reliability and operations
+
+Year-one design objectives:
+
+- authenticated API/dashboard availability: 99.9% monthly;
+- read p95 below 300 ms and mutation p95 below 500 ms at 200 requests/second;
+- discovery command acknowledgement below two seconds and progress age below five seconds;
+- admitted default runs terminal within ten minutes at p95 when providers respond;
+- RPO at most five minutes and RTO at most sixty minutes.
+
+Required production controls are managed HA PostgreSQL, PITR backups, restore drills, connection-pool
+limits, multi-replica health/readiness, graceful shutdown, worker leases, queue-depth autoscaling,
+provider circuit breakers/budgets, structured logs, correlation IDs, metrics, traces, SLO dashboards,
+alerts, on-call ownership and incident runbooks.
+
+The existing Actuator health endpoint, Batch metadata and source-run tables are useful signals but do
+not satisfy this operating model by themselves.
+
+## 11. Scale path and service-extraction triggers
+
+Scale the modular monolith in this order:
+
+1. Index and measure PostgreSQL queries; add keyset pagination.
+2. Split the same artifact into API and worker runtime roles.
+3. Add provider admission control, shared query reuse, leases and an outbox.
+4. Scale API and worker replicas independently.
+5. Add table partitioning/retention when measured write volume or maintenance requires it.
+6. Add a broker when outbox polling cannot meet throughput/isolation SLOs.
+7. Add a search engine only when PostgreSQL cannot meet measured search needs.
+8. Extract a microservice only when one module has a distinct scaling bottleneck, fault boundary,
+   data ownership, deployment cadence, or owning team.
+
+Potential future extraction candidates are provider acquisition, notification delivery, and search
+indexing. None is authorized merely by the estimated user count.
+
+## 12. Delivery sequence
+
+The verified M3.2 code remains the implementation baseline. Startup work should be selected in small
+evidence-backed milestones:
+
+1. approve this requirements baseline, threat-model scope and provider-economic assumptions;
+2. repair the recorded P0 onboarding, zero-result, cross-role ranking and active-run UX defects;
+3. implement authenticated account ownership, RBAC and migration from anonymous workspaces;
+4. introduce product-level run commands, admission control, safe concurrency/recovery and SSE status;
+5. build shared query-fingerprint ingestion and provider budgets;
+6. complete Job Explorer backend pagination/filtering and feedback calibration;
+7. add secure résumé object lifecycle and user export/deletion;
+8. establish CI/CD, production-like staging, managed data services, observability, backups and restore
+   evidence;
+9. run load, soak, security and failure tests against the declared beta gate.
+
+These steps are sequencing guidance, not authorization to implement multiple milestones at once.
