@@ -1,8 +1,9 @@
 # JobLens Product Requirements Baseline
 
-Status: **startup baseline v1**, recorded on 2026-09-04. This document is authoritative for product
+Status: **JobLens V1 startup baseline**, recorded on 2026-09-04. This document is authoritative for product
 scope and launch readiness. `SYSTEM_DESIGN.md` translates these requirements into architecture;
-`BUILD_PROGRESS.md` remains historical implementation evidence.
+`ENGINEERING_STANDARDS.md` defines mandatory development/review gates; `BUILD_PROGRESS.md` remains
+historical implementation evidence.
 
 ## 1. Product definition
 
@@ -12,8 +13,8 @@ legitimate public sources.
 
 The product is not primarily a Spring Batch learning exercise and must not be described as a
 personal-only finished application. Spring Batch is one implementation tool for durable ingestion and
-reprocessing. The current repository is a functionally rich prototype and architecture foundation,
-not a launch-ready corporate-grade service.
+reprocessing. The current repository is **JobLens V1 under development**: it has a functionally rich
+architecture foundation, but it is not yet a launch-ready corporate-grade service.
 
 “Corporate-grade” means authenticated multi-user operation, privacy and security controls, reliable
 asynchronous execution, measurable service levels, support/admin tooling, deployability, backups,
@@ -27,7 +28,7 @@ CRM. That would be a separate product decision.
 | Job seeker | Maintain a profile, discover and rank jobs, understand evidence, track applications | Required |
 | Support operator | Inspect sanitized user/run state, help recover failed work, process deletion requests | Required |
 | Platform administrator | Manage providers, quotas, taxonomy/ranking versions, incidents, and feature rollout | Required |
-| Anonymous visitor | View marketing/help content and begin registration | Required outside the current prototype UI |
+| Anonymous visitor | View marketing/help content and begin registration | Required outside the current V1 application UI |
 | Employer/recruiter | Publish or manage vacancies | Not in scope unless separately approved |
 
 One authenticated account owns one private candidate workspace at launch. The data model may later
@@ -73,7 +74,7 @@ The baseline fixes the engineering planning envelope; it does not invent unresol
 
 | Decision | Why it matters | Current state |
 | --- | --- | --- |
-| Initial launch countries and languages | Provider contracts, localization, support hours and data quality | Ten provider-capable markets exist in the prototype; launch subset not selected |
+| Initial launch countries and languages | Provider contracts, localization, support hours and data quality | Ten provider-capable markets exist in the V1 implementation; launch subset not selected |
 | Free, subscription, employer-sponsored or mixed model | Request budgets, billing, entitlements and unit economics | Not selected |
 | Identity provider and login methods | Account migration, recovery, MFA and operating cost | Not selected |
 | Provider commercial agreements and per-user budgets | Legal access, quota, refresh frequency and cost | Not validated for startup volume |
@@ -110,7 +111,7 @@ Initial product measures, with targets finalized after beta instrumentation:
 
 ## 5. Functional requirements and current status
 
-Status meanings: **FIXED** means implemented and verified for the current prototype scope;
+Status meanings: **FIXED** means implemented and verified for the current V1 scope;
 **PARTIAL** means useful implementation exists but launch requirements are incomplete; **MISSING**
 means no adequate implementation exists. Fixed does not imply year-one load validation.
 

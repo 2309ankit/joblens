@@ -1,9 +1,11 @@
-# JobLens Startup System Design Baseline
+# JobLens V1 System Design Baseline
 
-Status: **architecture baseline v2**, recorded on 2026-09-04. This replaces the former
+Status: **JobLens V1 architecture baseline**, recorded on 2026-09-04. This replaces the former
 personal-machine operating envelope. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) is the
-authoritative product and launch-readiness baseline; this document describes how the system should
-evolve from the verified prototype without pretending missing production capabilities already exist.
+authoritative product and launch-readiness baseline;
+[ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) defines its design and review gates. This
+document describes how the system should evolve from its verified development baseline without
+pretending missing production capabilities already exist.
 
 ## 1. System boundary
 
@@ -187,7 +189,7 @@ representative load.
 
 ## 9. Security and privacy architecture
 
-The anonymous UUID cookie is a prototype convenience, not authentication. Production requires:
+The anonymous UUID cookie is a V1 development convenience, not authentication. Production requires:
 
 - externalized or standards-based identity, secure server-side session/token validation, rotation,
   logout/revocation and account recovery;

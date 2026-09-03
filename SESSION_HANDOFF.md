@@ -3,7 +3,8 @@
 Use this file to resume work quickly. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) is the
 authoritative startup product/launch contract, [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) is the target
 architecture, [BUILD_PROGRESS.md](BUILD_PROGRESS.md) is historical evidence, [README.md](README.md)
-is the local operator guide, and [NEXT_MILESTONES.md](NEXT_MILESTONES.md) indexes selectable work.
+is the local operator guide, [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) is the mandatory
+development/review contract, and [NEXT_MILESTONES.md](NEXT_MILESTONES.md) indexes selectable work.
 
 ## 1. Resume checkpoint
 
@@ -13,6 +14,7 @@ Branch: main
 Implementation baseline: M3.2 Role-Aware Ranking
 M3.2 implementation commit: 2885c84 (feat(ranking): add role-aware calibration)
 Product baseline: D1 Startup Requirements and Architecture
+Engineering baseline: D2 JobLens V1 Engineering Standards
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
@@ -31,15 +33,15 @@ git status --short
 docker compose ps
 ```
 
-Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md), and
-[SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), then select exactly one milestone from
+Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md),
+[SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), and [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
 ## 2. D1 startup requirements re-baseline
 
 The earlier “personal learning application” boundary is superseded. JobLens is a multi-user SaaS
 startup for job seekers. Spring Batch remains a useful durable execution mechanism, but it is not the
-product purpose. The current anonymous Compose application is a verified prototype foundation and
+product purpose. The current anonymous Compose application is the verified JobLens V1 development foundation and
 must not be called production-ready, corporate-ready, or complete.
 
 Planning assumptions—not demand forecasts or load-test claims—are:
@@ -74,7 +76,7 @@ fault-isolation, deployment, data-ownership, or team-ownership pressure.
 | --- | --- | --- |
 | PostgreSQL/Flyway and modular codebase | FIXED foundation | Incremental schema, explicit SQL, transactional boundaries |
 | Raw landing and deterministic Batch processing | FIXED foundation | Bounded source calls, restart, checkpoints, normalization, skills and duplicate evidence |
-| Profile/intent/market/ranking/application flows | PARTIAL | Functional prototype, but open correctness/UX defects and no authenticated ownership |
+| Profile/intent/market/ranking/application flows | PARTIAL | Functional V1 implementation, but open correctness/UX defects and no authenticated ownership |
 | Source ecosystem | PARTIAL | Legitimate adapters exist; provider contracts, quotas, shared acquisition and sustainable costs are unresolved |
 | Job Explorer and ranking quality | PARTIAL | Explainable scores exist; filters/keyset paging, feedback calibration and cross-role accuracy remain |
 | Identity/RBAC/account recovery | MISSING launch blocker | Anonymous UUID cookie is not authentication |
@@ -392,7 +394,7 @@ applications, and follow-ups. The browser cookie is the current identity boundar
 
 ## 5. Current implementation architecture
 
-The current prototype is a batch-first modular monolith: one Spring Boot application, one PostgreSQL
+The current V1 implementation is a batch-first modular monolith: one Spring Boot application, one PostgreSQL
 database, and one deployable image. The target keeps the modular codebase while allowing separately
 scaled API and worker runtime roles.
 
@@ -541,7 +543,7 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Greenhouse enrichment activates only when a legitimate source exposes a direct official board URL.
 - Lever enrichment activates only for a direct global `jobs.lever.co` URL; tracking redirects and the
   separate EU host are deliberately unsupported.
-- Discovery is sequential and unpartitioned in the current prototype; it does not meet the startup
+- Discovery is sequential and unpartitioned in the current V1 implementation; it does not meet the startup
   provider-budget or concurrency target.
 - Fuzzy thresholds and the initial role-overlay signals still need reviewed real-world calibration;
   M3.4 owns feedback and Precision@10 rather than automatic self-training.

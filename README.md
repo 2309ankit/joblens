@@ -1,7 +1,7 @@
 # JobLens
 
-JobLens is a production SaaS startup for explainable job-market intelligence. The current repository
-is a batch-first modular-monolith prototype: an anonymous browser workspace can upload and validate a
+JobLens V1 is a production SaaS product under development for explainable job-market intelligence.
+The current repository is a batch-first modular-monolith implementation: an anonymous browser workspace can upload and validate a
 resume, review skill/title evidence, select search intent, discover legitimate public postings, rank
 candidate-visible jobs, and track applications. Anonymous identity and the local Compose topology are
 verified development foundations, not the target production boundary.
@@ -10,7 +10,8 @@ The authoritative startup requirements and fixed/not-fixed assessment are in
 [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md). New sessions start with
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), architecture decisions are in
 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), selectable work is in
-[NEXT_MILESTONES.md](NEXT_MILESTONES.md), and historical evidence remains in
+[NEXT_MILESTONES.md](NEXT_MILESTONES.md), mandatory development and review gates are in
+[ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), and historical evidence remains in
 [BUILD_PROGRESS.md](BUILD_PROGRESS.md).
 
 ## Architecture
@@ -423,7 +424,7 @@ Focused suites:
 
 If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, activate the setup profile and click **Find and rank jobs**. If a document is rejected as not being a resume, upload the candidate's actual career resume with contact details and normal resume sections rather than a vacancy or interview specification. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. To enable Jooble, set its regional `JOOBLE_API_KEY` and matching `JOOBLE_COUNTRY_CODE`, recreate/restart the app, then activate the profile again. Greenhouse and Lever GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
 
-## Interview/demo runbook
+## V1 development review runbook
 
 1. Start the stack: `docker compose up -d` and confirm `docker compose ps` reports both services healthy/running.
 2. Open `/setup`, upload a resume, then review and activate skills and preferences with the single combined action.
@@ -436,7 +437,7 @@ If PostgreSQL authentication fails, ensure Compose and the app use the same `JOB
 
 ## Startup readiness gaps
 
-The current product flow is a prototype baseline, not a completed public product. The authoritative
+The current product flow is the verified JobLens V1 development baseline, not a completed public product. The authoritative
 status matrix and launch gates are in [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md). Major gaps
 include authenticated ownership/RBAC, shared provider-budgeted ingestion, product-level asynchronous
 run control and live progress, secure résumé storage and privacy workflows, production delivery and

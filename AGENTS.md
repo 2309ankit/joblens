@@ -2,8 +2,8 @@
 
 ## Project Objective
 
-JobLens is a production SaaS startup for multi-user, explainable job-market intelligence. The
-repository began as a Spring Batch learning build, but learning/demo value is no longer the product
+JobLens V1 is a production SaaS product under development for multi-user, explainable job-market intelligence. The
+repository began as a Spring Batch learning build, but learning value is no longer the product
 boundary or an acceptable reason to treat production capabilities as optional. Spring Batch remains
 an implementation tool for durable, restartable ingestion and reprocessing.
 
@@ -22,6 +22,8 @@ CSV search profiles
 
 This remains a guided incremental build. Do not attempt to implement the entire startup architecture
 at once, and do not claim launch readiness until the gates in `PRODUCT_REQUIREMENTS.md` have evidence.
+Always call the current application **JobLens V1 under development** and state its verified and
+incomplete capabilities precisely; do not reduce the product to an experimental label.
 
 ## Current Technology Baseline
 
@@ -50,11 +52,12 @@ Treat this as a deliberate recorded deviation and validate compatibility increme
 Before changing code:
 
 1. Read this file.
-2. Read `BUILD_PROGRESS.md` if it exists.
-3. Inspect the actual existing files related to the requested change.
-4. Preserve existing user-created work.
-5. Implement only the requested/current milestone.
-6. Do not silently advance into future milestones.
+2. Read `ENGINEERING_STANDARDS.md` and `BUILD_PROGRESS.md` if they exist.
+3. Identify the requirement/bug ID, acceptance criteria, and required review evidence.
+4. Inspect the actual existing files related to the requested change.
+5. Preserve existing user-created work.
+6. Implement only the requested/current milestone.
+7. Do not silently advance into future milestones.
 
 After changes:
 
@@ -63,6 +66,7 @@ After changes:
 3. Run appropriate compilation/tests.
 4. Report actual failures instead of hiding them.
 5. Update `BUILD_PROGRESS.md` only when observable evidence supports progress.
+6. Apply the review gates and Definition of Done in `ENGINEERING_STANDARDS.md`.
 
 Do not claim something works unless verified through command output, tests, database queries, HTTP responses, or another observable result.
 
@@ -97,7 +101,7 @@ The repository currently has these verified working slices:
 * Thymeleaf application lifecycle and candidate-scoped follow-up controls
 * universal role-aware scoring with versioned Frontend, Backend, AI/ML, and Sales/Customer Success overlays and per-role evidence
 
-The current anonymous flow is a verified prototype baseline, not a production-ready startup. Identity,
+The current anonymous flow is a verified JobLens V1 development baseline, not a launch-ready service. Identity,
 authorization, shared/provider-budgeted ingestion, real-time run control, secure résumé storage,
 privacy workflows, observability, HA/backups, and delivery infrastructure remain launch gaps. Do not
 silently implement all gaps together; select and verify one approved milestone at a time. Unsupported
@@ -105,7 +109,7 @@ portal scraping remains prohibited, and microservices still require an explicit 
 
 Read `PRODUCT_REQUIREMENTS.md` for the product/launch contract, `SYSTEM_DESIGN.md` for the startup
 architecture, `SESSION_HANDOFF.md` for the resume point, `NEXT_MILESTONES.md` for selectable work,
-`README.md` for the local operator runbook, and `BUILD_PROGRESS.md` for historical evidence before
+`ENGINEERING_STANDARDS.md` for mandatory development/review gates, `README.md` for the local operator runbook, and `BUILD_PROGRESS.md` for historical evidence before
 beginning a new session.
 
 ## Build Commands

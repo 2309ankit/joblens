@@ -4,6 +4,9 @@ This is the short decision index for future work. The startup product contract i
 [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md); [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the
 historical evidence log. Select one milestone at a time.
 
+Every selected milestone must follow the requirement, design, verification, review, and Definition
+of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
+
 ## Selection rules
 
 1. Agree on one milestone and its acceptance criteria before coding.

@@ -4,8 +4,11 @@
 
 **JobLens**
 
-Production SaaS startup for explainable job-market intelligence. Spring Batch is retained for durable
-ingestion and reprocessing; it is not the product boundary.
+JobLens V1 is a production SaaS product under development for explainable job-market intelligence.
+Spring Batch is retained for durable ingestion and reprocessing; it is not the product boundary.
+
+The mandatory engineering lifecycle and review gates are defined in
+`ENGINEERING_STANDARDS.md`. “V1” identifies the release target; it does not claim launch readiness.
 
 ## Current Environment
 
@@ -235,7 +238,9 @@ No external job-source integrations have been implemented.
 
 ## Current Milestone
 
-D1 **Startup Requirements and Architecture Baseline** replaces the earlier personal/learning
+D2 **JobLens V1 Engineering Standards** establishes the mandatory requirement, design, development,
+verification, review, and release-evidence lifecycle. It does not alter runtime behavior or declare
+launch readiness. D1 **Startup Requirements and Architecture Baseline** replaces the earlier personal/learning
 operating assumptions. M2.7 and D0 remain completed history. M3.1 intent/generated queries and M3.2
 role-aware ranking are implemented; M3.3 has not started. No startup implementation tranche was
 silently started during D1. Flyway V21 adds profile-version-owned
@@ -275,6 +280,7 @@ errors, and 0 skipped.
 
 Documentation navigation is split by purpose: `PRODUCT_REQUIREMENTS.md` is the product/launch
 contract, `SYSTEM_DESIGN.md` is the startup architecture, `SESSION_HANDOFF.md` is the resume point,
+`ENGINEERING_STANDARDS.md` is the mandatory V1 engineering/review contract,
 `NEXT_MILESTONES.md` is the selection index, `README.md` is the local operator runbook, and this file
 remains the detailed evidence history.
 
@@ -282,11 +288,23 @@ remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-D1 documentation is complete after repository and local-data inspection. The next implementation
+D1 and the D2 engineering-governance documentation are complete. The next implementation
 checkpoint must be explicitly selected from S0–S6 in `NEXT_MILESTONES.md`; recommended first is S0
 **Critical defect reproduction and run safety** because the current open bugs undermine onboarding,
 discovery and ranking evidence. M3.3, M2.8, authentication, storage, real-time delivery, infrastructure,
 and service extraction remain unstarted unless selected as their own milestone.
+
+## D2 JobLens V1 Engineering Standards Evidence
+
+`ENGINEERING_STANDARDS.md` now defines the required trace from requirement or defect through design,
+implementation, verification, review, and release decision. It records explicit standards for Java
+and module ownership, PostgreSQL/Flyway, Spring Batch/asynchronous work, API/UI contracts,
+security/privacy, dependencies, and evidence appropriate to each change type.
+
+The standard also defines product, architecture, data/security, code, test, operability, and release
+review gates; a V1 Definition of Done; and blocker/major/minor review severity. It makes clear that V1
+is the release target, not an API-versioning decision or a claim of launch readiness. This was a
+documentation/process milestone; no source code, schema, dependency, or runtime topology changed.
 
 ## D1 Startup Requirements and Architecture Evidence
 
