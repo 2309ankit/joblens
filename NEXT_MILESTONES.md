@@ -24,13 +24,75 @@ of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
 | Priority | Milestone | Why now | External dependency |
 | --- | --- | --- | --- |
 | D1 | Startup requirements and architecture baseline — COMPLETE | Replaces the personal/learning boundary with users, SLOs, real-time semantics, launch gates, and a fixed/not-fixed assessment | Product assumptions require owner review |
-| S0 | Critical defect reproduction and run safety | Locate the first failing stage for the recorded zero-result, extraction, location, cross-role ranking, and already-running defects | Redacted fixtures and provider access for controlled tests |
+| D2 | V1 engineering standards — COMPLETE | Defines requirement, design, implementation, verification, review, and release gates | None |
+| S0 | V1 correctness stabilization — SELECTED | Reproduce and repair recorded defects in three bounded checkpoints before adding more product surface | Redacted fixtures and controlled provider access where required |
 | S1 | Authenticated account ownership and RBAC | Anonymous UUID cookies cannot protect a public multi-user product | Identity-provider and account-linking decision |
 | S2 | Product run commands and live progress | Add admission control, idempotency, safe concurrency/recovery, cancellation, and SSE/polling status | S1 ownership contract |
 | S3 | Shared ingestion and provider budgets | Prevent equivalent user searches from multiplying external requests and cost | Provider quotas/contracts and freshness policy |
 | S4 | Job Explorer and reviewed ranking quality | Add backend filters/sorts/keyset paging plus private feedback and Precision@10 | Stable run/corpus identity |
 | S5 | Résumé object lifecycle and privacy workflows | Add encrypted/scanned storage, retention, export, and deletion | Storage/retention/security decisions |
 | S6 | Production platform gate | CI/CD, staging/production, managed HA data, observability, backups/restore, load/security/failure testing | Deployment platform and operating ownership |
+
+## Current selected milestone — S0.1 Discovery execution safety
+
+Status: **SELECTED FOR IMPLEMENTATION; NOT STARTED**.
+
+Requirement trace: `BUG-M3-001`, `BUG-M3-005`, `FR-04`, and the run-safety portion of `FR-10`.
+
+Goal: make one Find Jobs command diagnosable from generated query through scored results and make a
+repeated command safe and understandable. The milestone must locate and repair the first proven
+failure behind the reported zero-result AI Engineer run; it must not guess that the source, query,
+normalizer, or ranker is at fault.
+
+Observed starting boundary: the page controller catches `JobExecutionException`/`RuntimeException`
+and flashes `exception.getMessage()`; the REST exception handler also returns raw Batch exception
+messages. `FindJobsService` calls `JobOperator.start(...)` before recording the workspace run, so an
+already-running exception may occur before the current execution is projected into the product run
+table. These are inspection facts, not a completed diagnosis or fix.
+
+### S0.1 scope
+
+- Create a redacted AI Engineer regression fixture plus a broad-role control using the same market.
+- Trace selected intent and generated provider query into active source profiles and per-market run
+  records.
+- Reconcile requested, received, raw, normalized, sighted, and scored counts so the first zero stage
+  is explicit.
+- Preserve a sanitized provider request/response diagnostic without credentials or résumé data.
+- Distinguish active, completed, failed, and stale Find Jobs executions at the product boundary.
+- Return an existing active run or a stable product error/status when a duplicate command is made;
+  never expose Spring Batch identifiers or exception text to a normal user.
+- Implement only the correction supported by reproduction evidence and protect it with regression
+  tests.
+
+### S0.1 acceptance criteria
+
+1. A deterministic test proves that selected AI Engineer intent produces the expected persisted
+   query and enabled market source profile; a control role proves the same route independently.
+2. Provider mock/contract tests cover a non-empty response and a legitimate empty response. Run
+   counters identify the first stage at which results become zero and reconcile with persisted rows.
+3. If the reported zero-result behavior is caused inside JobLens, the proven defect is fixed and a
+   regression test fails without that fix. If the provider legitimately returns zero, the UI/API
+   says so with market/query/source context and does not claim an internal success with missing data.
+4. Two near-simultaneous commands for the same workspace/search identity create at most one active
+   execution. The second request receives the existing product run state or a stable safe response.
+5. A stale or failed execution is distinguishable from active work and has a documented recovery
+   path. Full cancellation, queueing, leases, and SSE remain owned by S2.
+6. Normal UI/API responses contain no `JobInstance`, `JobExecution`, internal job name, stack trace,
+   SQL, or provider credential details. Operator inspection retains sufficient correlated evidence.
+7. PostgreSQL Testcontainers covers persistence/concurrency/restart behavior; provider behavior uses
+   controlled mock HTTP tests; controller tests cover safe messages; the full Maven test suite and
+   `git diff --check` pass.
+
+### S0 follow-on checkpoints — queued, not selected
+
+| Checkpoint | Recorded items | Boundary |
+| --- | --- | --- |
+| S0.2 — Onboarding correctness | `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004` | Role evidence deduplication/section parsing, sector control design, and optional city/region |
+| S0.3 — Cross-role ranking correctness | `BUG-M3-006` | Reproduce high .NET scoring, correct the proven generic/skill/baseline defect, and preserve universal-policy behavior |
+
+S0.1 does not include résumé suggestion changes, sector taxonomy, country/location redesign,
+ranking-weight changes, Job Explorer pagination, feedback calibration, authentication, a new source,
+shared ingestion, scheduling, live SSE, or service extraction.
 
 The following table is the earlier feature-build order retained for history. Its incomplete entries
 do not override the startup sequence above.
@@ -290,9 +352,9 @@ React migration, ranking calibration, or moving to another module without explic
 
 ## M3 — General Role Intent, Job Explorer, and Ranking Calibration
 
-Status: approved and started on 2026-09-02. M2.8 Typed SQL Resource Registry is deliberately
-deferred, not cancelled. M3.1 completed on 2026-09-02 and M3.2 completed on 2026-09-03. M3.3 is the
-next checkpoint and has not started.
+Status: historical feature program. M2.8 Typed SQL Resource Registry is deliberately deferred, not
+cancelled. M3.1 completed on 2026-09-02 and M3.2 completed on 2026-09-03. The former M3.3 and M3.4
+scope is now consolidated under S4 and is not the current checkpoint.
 
 Goal: turn user-selected job-search directions into explainable provider queries, role-aware ranking,
 and an inspectable job explorer. The architecture supports every catalogue or workspace-private role.
@@ -369,10 +431,11 @@ does not alter the stored résumé evidence. Manually added roles are search int
 2. **M3.2 — Role-aware ranking — COMPLETE:** apply one universal policy to every role, add four
    curated overlays, persist per-role score evidence, and select the best-matching target role without
    dropping jobs merely for missing a signal.
-3. **M3.3 — Job Explorer:** move filters, stable sorting, country grouping, and 20-row keyset Load more
-   to backend SQL/API while keeping lightweight browser rendering.
-4. **M3.4 — Feedback and calibration:** add workspace-private Fit/Maybe/Not-fit reviews, reason codes,
-   and sample-qualified Precision@10 reporting by role pack, market, and scoring version.
+3. **M3.3 — Job Explorer — MAPPED TO S4:** move filters, stable sorting, country grouping, and 20-row
+   keyset Load more to backend SQL/API while keeping lightweight browser rendering.
+4. **M3.4 — Feedback and calibration — MAPPED TO S4:** add workspace-private Fit/Maybe/Not-fit
+   reviews, reason codes, and sample-qualified Precision@10 reporting by role pack, market, and
+   scoring version.
 
 Each checkpoint must pass focused tests and preserve the existing one-click Batch flow before the next
 checkpoint begins. Weekly market insights remain hidden with a clear empty state until their Batch job
@@ -444,7 +507,7 @@ work; it is superseded by S1 and is required before a public multi-user launch.
 Use this request format:
 
 ```text
-Read AGENTS.md, PRODUCT_REQUIREMENTS.md, SYSTEM_DESIGN.md, SESSION_HANDOFF.md, README.md,
-BUILD_PROGRESS.md, and NEXT_MILESTONES.md. Preserve the current worktree. Select exactly one startup
-milestone from S0–S6; do not infer permission to implement the remaining launch gaps together.
+Read AGENTS.md, ENGINEERING_STANDARDS.md, PRODUCT_REQUIREMENTS.md, SYSTEM_DESIGN.md,
+SESSION_HANDOFF.md, README.md, BUILD_PROGRESS.md, and NEXT_MILESTONES.md. Preserve the current
+worktree. Resume only S0.1; do not infer permission to implement S0.2, S0.3, or later launch gaps.
 ```

@@ -445,11 +445,16 @@ run control and live progress, secure résumé storage and privacy workflows, pr
 observability, HA/backups/restore evidence, load/security testing, and resolution of the open product
 defects recorded in `SESSION_HANDOFF.md`.
 
+The selected next implementation milestone is **S0.1 Discovery Execution Safety**. It is limited to
+the reported AI Engineer zero-result path and safe repeated Find Jobs behavior; its exact acceptance
+criteria are in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
+
 - Store original resume bytes through an encrypted, scanned object-storage lifecycle; V11 currently stores validated metadata and SHA-256 only.
 - Add notification delivery only with user preferences, quiet hours, retries, and idempotency.
 - Add more legitimate source adapters only when a candidate-facing public search API exists or a commercial agreement explicitly authorizes this use. The current LinkedIn and SEEK/JobStreet APIs are partner/hirer integrations for posting and applications, not public candidate-job discovery; dashboard links provide direct searches instead. LinkedIn and Indeed scraping remain prohibited.
 - Replace anonymous cookie ownership with authenticated accounts, recovery, authorization, and audited support access before public launch.
-- Complete M3.3 Job Explorer filtering/keyset pagination, then collect private Fit/Maybe/Not-fit labels
-  in M3.4 to measure Precision@10 and revise the initial deterministic overlay signals from evidence.
+- Complete S4 Job Explorer filtering/keyset pagination, then collect private Fit/Maybe/Not-fit labels
+  to measure Precision@10 and revise the initial deterministic overlay signals from evidence. The
+  former M3.3/M3.4 labels are retained only as history.
 
 The latest full verification evidence is recorded in `BUILD_PROGRESS.md`.

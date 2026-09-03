@@ -245,8 +245,11 @@ indexing. None is authorized merely by the estimated user count.
 The verified M3.2 code remains the implementation baseline. Startup work should be selected in small
 evidence-backed milestones:
 
-1. approve this requirements baseline, threat-model scope and provider-economic assumptions;
-2. repair the recorded P0 onboarding, zero-result, cross-role ranking and active-run UX defects;
+1. maintain the requirements/architecture baseline and complete the remaining G0 threat-model,
+   provider-economic, data-classification, and owner-decision evidence before environment promotion;
+2. repair the recorded V1 defects through S0.1 discovery execution safety, S0.2 onboarding
+   correctness, and S0.3 cross-role ranking correctness; defect stabilization may proceed while G0
+   approval evidence is completed;
 3. implement authenticated account ownership, RBAC and migration from anonymous workspaces;
 4. introduce product-level run commands, admission control, safe concurrency/recovery and SSE status;
 5. build shared query-fingerprint ingestion and provider budgets;

@@ -16,6 +16,7 @@ M3.2 implementation commit: 2885c84 (feat(ranking): add role-aware calibration)
 Product baseline: D1 Startup Requirements and Architecture
 Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
+Selected milestone: S0.1 Discovery Execution Safety — NOT STARTED
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
@@ -89,10 +90,9 @@ Current local scale is only 14 anonymous workspaces, 1,528 raw jobs, 1,527 norma
 runs, 47 Batch executions, two applications, and a 36 MB database. This is evidence of behavior, not
 capacity.
 
-Startup delivery is now indexed as D1 followed by selectable S0–S6 milestones. The recommended first
-implementation checkpoint is S0 critical defect reproduction and run safety because the recorded
-onboarding, zero-result, location, cross-role ranking, and active-run defects undermine product
-evidence. No S0–S6 runtime work was performed during this documentation re-baseline.
+Startup delivery is indexed as D1/D2 followed by S0–S6. S0.1 Discovery Execution Safety is now the
+selected next implementation checkpoint because the zero-result and active-run defects share the
+Find Jobs execution boundary and undermine product evidence. No S0 runtime work has started.
 
 ## 3. M3.2 completed slice — exact handoff
 
@@ -106,10 +106,10 @@ still receives the full universal policy using its selected title, aliases, conf
 skills, sectors, seniority, markets, work arrangement, employment type, salary availability, and
 freshness.
 
-The overlays are transparent starter rules, not a claim of measured ranking accuracy. M3.4 must use
-user-reviewed Fit/Maybe/Not-fit examples and sample-qualified Precision@10 before changing weights or
-claiming improvement. There is no LLM, automatic self-training, forced role classification, or hidden
-job rejection.
+The overlays are transparent starter rules, not a claim of measured ranking accuracy. The S4
+calibration checkpoint must use user-reviewed Fit/Maybe/Not-fit examples and sample-qualified
+Precision@10 before changing weights or claiming improvement. There is no LLM, automatic
+self-training, forced role classification, or hidden job rejection.
 
 ### Deterministic scoring contract
 
@@ -199,15 +199,17 @@ business date. This preserves migration safety and keeps recalculation an explic
 
 ### Deliberately not included in M3.2
 
-M3.3 Job Explorer has not started. It owns backend SQL/API filtering by country/search market, source,
-freshness, work mode, and saved state; Recommended/Newest sorting; country grouping; and stable
-20-row keyset **Load more** pagination that preserves filter/sort state. These operations should be
-performed in PostgreSQL, with the browser limited to rendering and interaction.
+The former M3.3 Job Explorer scope has not started and is now part of S4. It owns backend SQL/API
+filtering by country/search market, source, freshness, work mode, and saved state;
+Recommended/Newest sorting; country grouping; and stable 20-row keyset **Load more** pagination that
+preserves filter/sort state. These operations should be performed in PostgreSQL, with the browser
+limited to rendering and interaction.
 
-M3.4 has not started. It owns workspace-private Fit/Maybe/Not-fit feedback, optional reason codes,
-auditability, reviewed fixture samples, false-positive analysis, and Precision@10 reporting by role
-pack, market, and scoring version. M2.8 Typed SQL Resource Registry remains deferred while M3 is
-active. Do not start any of these without an explicit user checkpoint.
+The former M3.4 scope has not started and is now part of S4. It owns workspace-private
+Fit/Maybe/Not-fit feedback, optional reason codes, auditability, reviewed fixture samples,
+false-positive analysis, and Precision@10 reporting by role pack, market, and scoring version. M2.8
+Typed SQL Resource Registry remains separately deferred. Do not start any of these without an
+explicit user checkpoint.
 
 ### Open observed bugs and UX gaps
 
@@ -304,7 +306,7 @@ stored ISO country code user-editable.
 
 #### BUG-M3-005 — Find Jobs leaks a raw Spring Batch already-running error
 
-Status: **OPEN and not investigated**.
+Status: **OPEN; launch boundary inspected, runtime symptom not yet reproduced or fixed**.
 
 Observed user-facing message when trying to run Find Jobs again:
 
@@ -320,6 +322,12 @@ description, workspace run projection, and restart/abandon rules before changing
 The eventual user experience should distinguish an active search from a recoverable failed/stale run
 and provide the appropriate status or recovery action without leaking framework internals. Retain
 detailed Batch identity only in operator/admin inspection.
+
+Read-only inspection on 2026-09-04 confirmed two direct leak paths: `FindJobsPageController` flashes
+`exception.getMessage()`, and `BatchApiExceptionHandler` places raw Batch exception messages in the
+REST error body. `FindJobsService` records `workspace_search_run` only after `JobOperator.start(...)`
+returns, so a launch conflict can happen before the active execution is projected for the user. This
+narrows the S0.1 design problem but does not establish why execution 36 remained active.
 
 #### BUG-M3-006 — .NET Engineer ranks highly for Java Backend and unrelated Frontend profiles
 
@@ -547,7 +555,7 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
 - Discovery is sequential and unpartitioned in the current V1 implementation; it does not meet the startup
   provider-budget or concurrency target.
 - Fuzzy thresholds and the initial role-overlay signals still need reviewed real-world calibration;
-  M3.4 owns feedback and Precision@10 rather than automatic self-training.
+  S4 owns feedback and Precision@10 rather than automatic self-training.
 - Original resume storage, schedules, and external notifications are not implemented.
 - Market insights are shared market-level projections rather than private workspace projections.
 - The inclusive taxonomy is a curated starter set, with optional versioned ESCO skill/occupation
@@ -569,7 +577,10 @@ old personal/learning requirement boundary. The startup delivery index is:
 
 ```text
 D1 Startup requirements and architecture — COMPLETE
-S0 Critical defect reproduction and run safety — RECOMMENDED NEXT, NOT STARTED
+D2 V1 engineering standards — COMPLETE
+S0.1 Discovery execution safety — SELECTED, NOT STARTED
+S0.2 Onboarding correctness — QUEUED, NOT STARTED
+S0.3 Cross-role ranking correctness — QUEUED, NOT STARTED
 S1 Authenticated account ownership and RBAC — NOT STARTED
 S2 Product run commands, safe concurrency/recovery and live progress — NOT STARTED
 S3 Shared ingestion and provider budgets — NOT STARTED
@@ -578,9 +589,11 @@ S5 Résumé object lifecycle and privacy workflows — NOT STARTED
 S6 Production platform gate — NOT STARTED
 ```
 
-M3.3 and M2.8 remain unstarted historical-track options and do not override S0–S6. Do not combine the
+Former M3.3/M3.4 scope is consolidated under S4. M2.8 remains an unstarted historical-track option
+and does not override S0–S6. Do not combine the
 startup modules or silently advance. At each boundary, finish tests, evidence, documentation, and a
 conventional commit, then obtain explicit user direction before starting another module.
 
-The implementation baseline is M3.2 and the product baseline is D1. Do not start S0–S6, M3.3, M2.8,
-React migration, or a microservice split without the next explicit checkpoint decision.
+The implementation baseline is M3.2, the product baseline is D1, and the engineering baseline is D2.
+The next implementation boundary is S0.1 only. Do not include S0.2, S0.3, S1–S6, M2.8, React
+migration, or a microservice split without a later explicit checkpoint decision.

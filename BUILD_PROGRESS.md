@@ -61,6 +61,16 @@ The generated project currently contains:
 * Spring Boot DevTools
 * Spring Boot test starters for the selected components
 
+## Current Verification Summary
+
+- Implementation baseline: M3.2 Role-Aware Ranking, commit `2885c84`.
+- Latest full behavioral suite: `./mvnw clean test`, 111 tests, 0 failures, 0 errors, 0
+  skipped, recorded on 2026-09-03.
+- Database baseline: PostgreSQL 17 with Flyway V23 verified from a clean Testcontainer.
+- Release metadata: JobLens V1 development artifact `1.0.0-SNAPSHOT`; Maven packaging and Docker
+  image construction verified on 2026-09-04.
+- S0.1 is selected but has no implementation or test evidence yet.
+
 ## Required Build Milestones
 
 | #  | Milestone                                        | Status      |
@@ -185,7 +195,7 @@ Initial baseline commit:
 
 This commit represents the generated application plus `AGENTS.md` before application configuration work begins.
 
-## Latest Test Result
+## Early CSV Milestone Test Evidence
 
 The following command was executed against the local PostgreSQL container:
 
@@ -203,9 +213,9 @@ The application was also started with `./mvnw spring-boot:run`. Tomcat listened 
 {"groups":["liveness","readiness"],"status":"UP"}
 ```
 
-## Current Repository State
+## Early Repository State Snapshot
 
-Important existing files include:
+Files present at that checkpoint included:
 
 ```text
 AGENTS.md
@@ -221,7 +231,7 @@ src/main/resources/application.properties
 src/test/java/com/ankit/joblens/JoblensApplicationTests.java
 ```
 
-Current `application.properties` contains:
+At that checkpoint, `application.properties` contained:
 
 ```properties
 spring.application.name=joblens
@@ -231,20 +241,23 @@ spring.datasource.password=${JOBLENS_DB_PASSWORD:}
 spring.batch.job.enabled=false
 ```
 
-The application now contains `searchProfileImportJob` and `searchProfileImportStep`.
+The application then contained `searchProfileImportJob` and `searchProfileImportStep`.
 
-Flyway migrations V1 and V2 are applied. V2 owns the `search_profile` and `search_profile_rejection` business tables.
+Flyway migrations V1 and V2 were applied. V2 owned the `search_profile` and
+`search_profile_rejection` business tables.
 
-No external job-source integrations have been implemented.
+No external job-source integration had been implemented at that early checkpoint.
 
 ## Current Milestone
 
-D2 **JobLens V1 Engineering Standards** establishes the mandatory requirement, design, development,
-verification, review, and release-evidence lifecycle. It does not alter runtime behavior or declare
-launch readiness. D1 **Startup Requirements and Architecture Baseline** replaces the earlier personal/learning
-operating assumptions. M2.7 and D0 remain completed history. M3.1 intent/generated queries and M3.2
-role-aware ranking are implemented; M3.3 has not started. No startup implementation tranche was
-silently started during D1. Flyway V21 adds profile-version-owned
+S0.1 **Discovery Execution Safety** is selected and not started. It is intentionally limited to
+`BUG-M3-001` (AI Engineer zero integrated results) and `BUG-M3-005` (unsafe repeated-run handling and
+raw Batch error leakage). S0.2 owns onboarding correctness; S0.3 owns cross-role ranking correctness;
+S4 owns the former M3.3/M3.4 Job Explorer and feedback/calibration scope.
+
+D2 **JobLens V1 Engineering Standards** and D1 **Startup Requirements and Architecture Baseline** are
+complete documentation baselines. M2.7 and D0 remain completed history. M3.1 intent/generated queries
+and M3.2 role-aware ranking are implemented. Flyway V21 adds profile-version-owned
 readability assessments, stable findings, acknowledgement state, and workspace-safe inspection.
 `PRODUCT_REQUIREMENTS.md` now owns startup users, demand estimates, functional/non-functional
 requirements, launch gates, and the implemented/partial/missing assessment. `SYSTEM_DESIGN.md`
@@ -289,11 +302,10 @@ remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-D1 and the D2 engineering-governance documentation are complete. The next implementation
-checkpoint must be explicitly selected from S0–S6 in `NEXT_MILESTONES.md`; recommended first is S0
-**Critical defect reproduction and run safety** because the current open bugs undermine onboarding,
-discovery and ranking evidence. M3.3, M2.8, authentication, storage, real-time delivery, infrastructure,
-and service extraction remain unstarted unless selected as their own milestone.
+Implement S0.1 only after its requirement, design, and acceptance review. The observable result is a
+diagnosable query-to-score path for the reported AI Engineer search and safe repeated Find Jobs
+behavior without framework-detail leakage. S0.2, S0.3, S1–S6, M2.8, authentication, storage,
+real-time delivery, infrastructure, and service extraction remain outside this checkpoint.
 
 ## D2 JobLens V1 Engineering Standards Evidence
 
@@ -313,6 +325,21 @@ uses the stable local path `target/joblens.jar` so Docker does not encode every 
 `./mvnw -q -DskipTests package` succeeded; its manifest reports `Implementation-Title: JobLens` and
 `Implementation-Version: 1.0.0-SNAPSHOT`. `docker compose build app` also completed successfully
 using the renamed artifact. No behavioral-test claim is made for this metadata-only change.
+
+## V1 Documentation Consistency Review
+
+The 2026-09-04 review found four documentation issues and corrected only those issues:
+
+- the first CSV milestone's 12-test result and V1/V2 repository inventory were incorrectly headed as
+  the latest/current state; they are now explicitly early historical snapshots;
+- D2 was missing from the startup-order table despite being complete;
+- the historical M3.3/M3.4 path competed with S0–S6; its remaining explorer/calibration scope is now
+  mapped to S4 rather than presented as a second next milestone;
+- the original S0 grouped unrelated discovery, onboarding, location, and ranking defects. It is now
+  split into S0.1, S0.2, and S0.3, with only S0.1 selected.
+
+This review changed milestone documentation only. S0.1 implementation has not started, and no bug is
+claimed fixed by the review.
 
 ## D1 Startup Requirements and Architecture Evidence
 

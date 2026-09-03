@@ -266,6 +266,8 @@ exists for the relevant gate.
 4. **G3 — Year-one scale:** shared ingestion effectiveness, database/query SLOs, retention and
    partitioning, worker autoscaling, cost controls, and disaster-recovery evidence.
 
-The next implementation milestone must be selected from the startup gaps after G0 review. Requirement
-documentation alone does not authorize authentication, storage, infrastructure, or service-splitting
-changes.
+Delivery gates control environment promotion; they do not prevent evidence-backed correction of
+known defects. S0.1 Discovery Execution Safety is the selected defect milestone. G0 remains open
+until its threat-model, provider-economics, data-classification, and owner-decision evidence is
+approved. Requirement documentation alone does not authorize authentication, storage,
+infrastructure, or service-splitting changes.
