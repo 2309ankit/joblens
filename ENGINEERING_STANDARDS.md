@@ -2,7 +2,8 @@
 
 Status: **mandatory V1 development and review standard**, adopted on 2026-09-04.
 
-This document defines how a JobLens V1 change moves from requirement to release evidence. It does
+JobLens is the product name and V1 is the current release line. This document defines how a V1 change
+moves from requirement to release evidence. It does
 not declare the application launch-ready. `PRODUCT_REQUIREMENTS.md` owns
 product scope and launch gates; `SYSTEM_DESIGN.md` owns the architecture baseline;
 `BUILD_PROGRESS.md` records observed implementation evidence.
@@ -124,7 +125,7 @@ observed constraint and a reviewed decision record.
 - APIs define request validation, ownership, idempotency, pagination, sorting, filtering, status,
   and a stable error envelope before being treated as public contracts.
 - Current endpoints remain V1-internal and unversioned until the public API strategy is approved.
-  “JobLens V1” does not automatically mean `/v1` URLs.
+  The V1 product release does not automatically mean `/v1` URLs.
 - Collection endpoints use bounded page sizes and deterministic ordering. Large result navigation is
   server-side and keyset-based; client-side filtering is reserved for already bounded data.
 - UI controls must expose the user’s mental model, preserve selections, handle empty/loading/error/

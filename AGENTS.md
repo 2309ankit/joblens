@@ -2,7 +2,8 @@
 
 ## Project Objective
 
-JobLens V1 is a production SaaS product for multi-user, explainable job-market intelligence. The
+JobLens is a production SaaS product for multi-user, explainable job-market intelligence. V1 is the
+current release line and `1.0.0-SNAPSHOT` is its development artifact version. The
 repository began as a Spring Batch learning build, but learning value is no longer the product
 boundary or an acceptable reason to treat production capabilities as optional. Spring Batch remains
 an implementation tool for durable, restartable ingestion and reprocessing.
@@ -22,8 +23,9 @@ CSV search profiles
 
 This remains a guided incremental build. Do not attempt to implement the entire startup architecture
 at once, and do not claim launch readiness until the gates in `PRODUCT_REQUIREMENTS.md` have evidence.
-Always call the product **JobLens V1**. Describe release readiness separately by stating its verified
-and incomplete capabilities precisely; do not turn delivery status into part of the product label.
+Always call the product **JobLens** and identify **V1** as its current release line when version
+context matters. Describe release readiness separately by stating its verified and incomplete
+capabilities precisely; do not turn delivery status into part of the product name.
 
 ## Current Technology Baseline
 

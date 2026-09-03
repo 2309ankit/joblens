@@ -4,11 +4,12 @@
 
 **JobLens**
 
-JobLens V1 is a production SaaS product for explainable job-market intelligence.
+JobLens is a production SaaS product for explainable job-market intelligence. V1 is the first release
+line; `1.0.0-SNAPSHOT` is the current development artifact version.
 Spring Batch is retained for durable ingestion and reprocessing; it is not the product boundary.
 
 The mandatory engineering lifecycle and review gates are defined in
-`ENGINEERING_STANDARDS.md`. “V1” identifies the release target; it does not claim launch readiness.
+`ENGINEERING_STANDARDS.md`. V1 identifies the release line; it does not claim launch readiness.
 
 ## Current Environment
 
@@ -305,6 +306,13 @@ The standard also defines product, architecture, data/security, code, test, oper
 review gates; a V1 Definition of Done; and blocker/major/minor review severity. It makes clear that V1
 is the release target, not an API-versioning decision or a claim of launch readiness. This was a
 documentation/process milestone; no source code, schema, dependency, or runtime topology changed.
+
+The product/version convention is now explicit: **JobLens** is the product name, **V1** is the first
+release line, and Maven `1.0.0-SNAPSHOT` is the development artifact version. The packaged executable
+uses the stable local path `target/joblens.jar` so Docker does not encode every maintenance version.
+`./mvnw -q -DskipTests package` succeeded; its manifest reports `Implementation-Title: JobLens` and
+`Implementation-Version: 1.0.0-SNAPSHOT`. `docker compose build app` also completed successfully
+using the renamed artifact. No behavioral-test claim is made for this metadata-only change.
 
 ## D1 Startup Requirements and Architecture Evidence
 

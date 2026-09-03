@@ -1,6 +1,7 @@
 # JobLens Product Requirements Baseline
 
-Status: **JobLens V1 startup baseline**, recorded on 2026-09-04. This document is authoritative for product
+Status: **JobLens V1 startup baseline**, recorded on 2026-09-04. JobLens is the product name; V1 is
+the first release line. This document is authoritative for product
 scope and launch readiness. `SYSTEM_DESIGN.md` translates these requirements into architecture;
 `ENGINEERING_STANDARDS.md` defines mandatory development/review gates; `BUILD_PROGRESS.md` remains
 historical implementation evidence.
@@ -13,7 +14,7 @@ legitimate public sources.
 
 The product is not primarily a Spring Batch learning exercise and must not be described as a
 personal-only finished application. Spring Batch is one implementation tool for durable ingestion and
-reprocessing. The current repository contains the **JobLens V1** implementation. It has a functionally
+reprocessing. The current repository contains the **JobLens V1** release implementation. It has a functionally
 rich architecture foundation, but it is not yet a launch-ready corporate-grade service.
 
 “Corporate-grade” means authenticated multi-user operation, privacy and security controls, reliable

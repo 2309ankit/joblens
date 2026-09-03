@@ -15,6 +15,7 @@ Implementation baseline: M3.2 Role-Aware Ranking
 M3.2 implementation commit: 2885c84 (feat(ranking): add role-aware calibration)
 Product baseline: D1 Startup Requirements and Architecture
 Engineering baseline: D2 JobLens V1 Engineering Standards
+Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
