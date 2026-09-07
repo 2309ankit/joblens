@@ -25,4 +25,13 @@ public class WorkspaceCandidateProfileService {
         .findFirst()
         .orElseThrow(WorkspaceNotReadyException::new);
   }
+
+  /** A dashboard is available only after setup has activated and linked a candidate profile. */
+  public boolean hasCandidateProfile(UUID workspaceId) {
+    return !jdbc.queryForList(
+            load("sql/workspace/find-candidate-profile.sql"),
+            Map.of("workspaceId", workspaceId),
+            Long.class)
+        .isEmpty();
+  }
 }

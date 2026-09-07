@@ -285,6 +285,16 @@ schema behavior. `./mvnw clean test`, `./mvnw -DskipTests package`, JAR asset in
 HTML loaded but its JavaScript and CSS returned 404. The Vite base is explicitly `\`/app/\`` so the
 generated bundle resolves to the published path; this is a packaging-path fix only.
 
+`BUG-R1-003` corrected initial routing and browser-cache behavior. A new anonymous browser formerly
+loaded the dashboard bundle before its API request discovered that onboarding was incomplete. The
+server now resolves the workspace and redirects `/` or `/dashboard` to `/setup` unless a confirmed
+candidate profile is linked to that workspace; confirmed workspaces still receive the React bundle.
+The bundle entry routes are `Cache-Control: no-store`, while only content-hashed `/app/assets/*`
+responses are public and immutable for one year. Focused route/cache tests, package inspection, and
+local Docker HTTP checks observed the fresh-workspace `302 /setup`, entry `200 no-store`, and asset
+`200 max-age=31536000, public, immutable` on 2026-09-07. The final clean
+`./mvnw clean test` passed with 118 Java tests.
+
 The next React-only visual iteration uses an original streaming-style browsing pattern: a featured
 ranked role and keyboard/scroll-operable horizontal rails of the remaining role cards. It does not
 use Netflix branding, imagery, or assets, and it preserves the existing workspace data, listing

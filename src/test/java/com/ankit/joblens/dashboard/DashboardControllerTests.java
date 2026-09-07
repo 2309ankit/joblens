@@ -26,8 +26,33 @@ import org.springframework.mock.web.MockHttpServletResponse;
 class DashboardControllerTests {
 
   @Test
-  void forwardsTheExistingDashboardRouteToTheReactBundle() {
-    assertThat(new DashboardController().dashboard()).isEqualTo("forward:/app/index.html");
+  void redirectsAnUnconfiguredWorkspaceToSetup() {
+    UUID workspaceId = UUID.randomUUID();
+    WorkspaceContext workspaceContext = mock(WorkspaceContext.class);
+    WorkspaceCandidateProfileService candidateProfiles =
+        mock(WorkspaceCandidateProfileService.class);
+    when(workspaceContext.resolve(any(), any())).thenReturn(workspaceId);
+    when(candidateProfiles.hasCandidateProfile(workspaceId)).thenReturn(false);
+
+    assertThat(
+            new DashboardController(workspaceContext, candidateProfiles)
+                .dashboard(new MockHttpServletRequest(), new MockHttpServletResponse()))
+        .isEqualTo("redirect:/setup");
+  }
+
+  @Test
+  void forwardsAnActivatedWorkspaceToTheReactBundle() {
+    UUID workspaceId = UUID.randomUUID();
+    WorkspaceContext workspaceContext = mock(WorkspaceContext.class);
+    WorkspaceCandidateProfileService candidateProfiles =
+        mock(WorkspaceCandidateProfileService.class);
+    when(workspaceContext.resolve(any(), any())).thenReturn(workspaceId);
+    when(candidateProfiles.hasCandidateProfile(workspaceId)).thenReturn(true);
+
+    assertThat(
+            new DashboardController(workspaceContext, candidateProfiles)
+                .dashboard(new MockHttpServletRequest(), new MockHttpServletResponse()))
+        .isEqualTo("forward:/app/index.html");
   }
 
   @Test
@@ -35,7 +60,8 @@ class DashboardControllerTests {
     UUID workspaceId = UUID.randomUUID();
     NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
     WorkspaceContext workspaceContext = mock(WorkspaceContext.class);
-    WorkspaceCandidateProfileService candidateProfiles = mock(WorkspaceCandidateProfileService.class);
+    WorkspaceCandidateProfileService candidateProfiles =
+        mock(WorkspaceCandidateProfileService.class);
     OnboardingService onboarding = mock(OnboardingService.class);
     FindJobsService findJobs = mock(FindJobsService.class);
     when(workspaceContext.resolve(any(), any())).thenReturn(workspaceId);
@@ -53,10 +79,10 @@ class DashboardControllerTests {
             onboarding,
             mock(PortalSearchLinkFactory.class),
             findJobs,
-            new AdzunaProperties("", "", "https://example.test", Duration.ofSeconds(1), 1, 1, 30, 1, Duration.ZERO));
+            new AdzunaProperties(
+                "", "", "https://example.test", Duration.ofSeconds(1), 1, 1, 30, 1, Duration.ZERO));
 
-    var result =
-        controller.dashboard(new MockHttpServletRequest(), new MockHttpServletResponse());
+    var result = controller.dashboard(new MockHttpServletRequest(), new MockHttpServletResponse());
 
     assertThat(result.jobs()).isEmpty();
     assertThat(result.applicationCount()).isEqualTo(3);

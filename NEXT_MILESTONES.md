@@ -80,6 +80,11 @@ UI polish follow-up: pinned `lucide-react` 1.42.0 provides consistent, labelled 
 These frontend-only dependencies are lockfile-backed and do not alter the dashboard API, data model,
 Batch processing, source behavior, identity, or privacy scope.
 
+Follow-up defects `BUG-R1-002` and `BUG-R1-003`: Vite now emits the published `/app/` asset base,
+and server-side routing sends a workspace without a confirmed candidate profile directly to `/setup`.
+The HTML entry is not cached; content-hashed assets are immutable for one year. This prevents stale
+dashboard bundles without weakening the workspace ownership boundary.
+
 ## Deferred shipping milestone — S0.1 Discovery execution safety
 
 Status: **SELECTED FOR IMPLEMENTATION; NOT STARTED**.
