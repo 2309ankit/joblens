@@ -75,6 +75,11 @@ fallback and produced blank portal-query cards. The query planner now returns no
 state, the link factory returns no links, and the React portal section is omitted. Focused planner
 and link-factory regression tests plus the clean full suite pass.
 
+UI polish follow-up: pinned `lucide-react` 1.42.0 provides consistent, labelled action icons and
+`sonner` 2.0.8 replaces the custom sticky status pop-down with dismissible dark-mode notifications.
+These frontend-only dependencies are lockfile-backed and do not alter the dashboard API, data model,
+Batch processing, source behavior, identity, or privacy scope.
+
 ## Deferred shipping milestone — S0.1 Discovery execution safety
 
 Status: **SELECTED FOR IMPLEMENTATION; NOT STARTED**.

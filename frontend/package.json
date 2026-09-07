@@ -9,8 +9,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "lucide-react": "1.42.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sonner": "2.0.8"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "6.1.1",
