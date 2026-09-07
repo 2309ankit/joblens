@@ -280,6 +280,12 @@ Both are frontend-only, lockfile-backed dependencies with no data, identity, pro
 schema behavior. `./mvnw clean test`, `./mvnw -DskipTests package`, JAR asset inspection, and
 `git diff --check` passed on 2026-09-07.
 
+The next React-only visual iteration uses an original streaming-style browsing pattern: a featured
+ranked role and keyboard/scroll-operable horizontal rails of the remaining role cards. It does not
+use Netflix branding, imagery, or assets, and it preserves the existing workspace data, listing
+links, save action, and explainable score. `./mvnw -DskipTests package`, `./mvnw test`, and
+`git diff --check` passed on 2026-09-07.
+
 S0.1 **Discovery Execution Safety** is selected and not started. It is intentionally limited to
 `BUG-M3-001` (AI Engineer zero integrated results) and `BUG-M3-005` (unsafe repeated-run handling and
 raw Batch error leakage). S0.2 owns onboarding correctness; S0.3 owns cross-role ranking correctness;
