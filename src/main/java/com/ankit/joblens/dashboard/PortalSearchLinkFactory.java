@@ -19,6 +19,9 @@ public class PortalSearchLinkFactory {
   public List<PortalSearchLink> create(
       SearchPreferences preferences, List<String> candidateSkills) {
     List<PortalSearchQuery> queries = planner.plan(preferences, candidateSkills);
+    if (queries.isEmpty()) {
+      return List.of();
+    }
     var links = new ArrayList<PortalSearchLink>();
     for (SearchTarget target : preferences.targets()) {
       queries.forEach(

@@ -15,9 +15,16 @@ public class PortalSearchQueryPlanner {
 
   public List<PortalSearchQuery> plan(SearchPreferences preferences, List<String> candidateSkills) {
     List<String> roles =
-        csv(preferences.targetRoles()).stream().map(SearchKeywordNormalizer::normalize).toList();
+        csv(preferences.targetRoles()).stream()
+            .map(SearchKeywordNormalizer::normalize)
+            .filter(role -> !role.isBlank())
+            .toList();
     if (roles.isEmpty()) {
-      roles = List.of(SearchKeywordNormalizer.normalize(preferences.keywords()));
+      String keywordFallback = SearchKeywordNormalizer.normalize(preferences.keywords());
+      roles = keywordFallback.isBlank() ? List.of() : List.of(keywordFallback);
+    }
+    if (roles.isEmpty()) {
+      return List.of();
     }
     List<String> sectors = csv(preferences.targetDomains());
     List<String> technologies = technologies(preferences.keywords(), candidateSkills);
@@ -69,7 +76,10 @@ public class PortalSearchQueryPlanner {
       candidateSkills.stream().limit(2).forEach(selected::add);
     }
     if (selected.isEmpty()) {
-      selected.add(SearchKeywordNormalizer.normalize(keywords));
+      String keywordFallback = SearchKeywordNormalizer.normalize(keywords);
+      if (!keywordFallback.isBlank()) {
+        selected.add(keywordFallback);
+      }
     }
     return List.copyOf(selected);
   }

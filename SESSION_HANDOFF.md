@@ -16,7 +16,8 @@ M3.2 implementation commit: 2885c84 (feat(ranking): add role-aware calibration)
 Product baseline: D1 Startup Requirements and Architecture
 Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
-Selected milestone: S0.1 Discovery Execution Safety — NOT STARTED
+React dashboard checkpoint: R1 — COMPLETE (2026-09-07)
+Next shipping milestone: S0.1 Discovery Execution Safety — NOT STARTED
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
@@ -39,7 +40,17 @@ Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md),
 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), and [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
-## 2. D1 startup requirements re-baseline
+## 2. React dashboard checkpoint — R1
+
+The owner selected and completed a bounded React migration for `/` and `/dashboard`. A Vite-built
+React dashboard is embedded in the Spring Boot JAR and reads one workspace-owned `/api/dashboard`
+projection while retaining existing workspace-scoped command endpoints. Setup and applications remain
+Thymeleaf routes. Maven provides pinned project-local Node tooling and a committed lockfile; no
+global Node installation is required. Verification on 2026-09-07: React/Vitest, two dashboard
+controller tests, `./mvnw clean test` (113 Java tests), JAR asset inspection, and `git diff --check`
+passed. This does not alter the launch-gap assessment or select a replacement for S0.1.
+
+## 3. D1 startup requirements re-baseline
 
 The earlier “personal learning application” boundary is superseded. JobLens is a multi-user SaaS
 startup for job seekers. Spring Batch remains a useful durable execution mechanism, but it is not the
@@ -595,5 +606,5 @@ startup modules or silently advance. At each boundary, finish tests, evidence, d
 conventional commit, then obtain explicit user direction before starting another module.
 
 The implementation baseline is M3.2, the product baseline is D1, and the engineering baseline is D2.
-The next implementation boundary is S0.1 only. Do not include S0.2, S0.3, S1–S6, M2.8, React
-migration, or a microservice split without a later explicit checkpoint decision.
+The next implementation boundary is S0.1 only. Do not include S0.2, S0.3, S1–S6, M2.8, setup or
+application React migration, or a microservice split without a later explicit checkpoint decision.

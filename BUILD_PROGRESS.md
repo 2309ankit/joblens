@@ -69,7 +69,8 @@ The generated project currently contains:
 - Database baseline: PostgreSQL 17 with Flyway V23 verified from a clean Testcontainer.
 - Release metadata: JobLens V1 development artifact `1.0.0-SNAPSHOT`; Maven packaging and Docker
   image construction verified on 2026-09-04.
-- S0.1 is selected but has no implementation or test evidence yet.
+- R1 React dashboard migration is complete; S0.1 is selected next and has no implementation or test
+  evidence yet.
 
 ## Required Build Milestones
 
@@ -249,6 +250,29 @@ Flyway migrations V1 and V2 were applied. V2 owned the `search_profile` and
 No external job-source integration had been implemented at that early checkpoint.
 
 ## Current Milestone
+
+R1 **React dashboard migration** is complete. The owner-selected checkpoint replaces the Thymeleaf
+dashboard route with a React bundle compiled into the Spring Boot artifact while retaining the
+verified Thymeleaf setup and application-lifecycle routes. `GET /api/dashboard` supplies one
+workspace-owned dashboard read model; React uses the existing workspace-scoped Find Jobs, restart,
+job view, and application commands. It handles loading, empty, recoverable-error, and disabled
+command states and translates error codes into safe product messages rather than displaying server
+framework details. Maven downloads a pinned project-local Node runtime and uses the committed
+`frontend/package-lock.json`, then runs the Vite build and Vitest suite as part of the normal build.
+
+Observed evidence on 2026-09-07: `./mvnw clean test` passed with 115 Java tests and the React/Vitest
+suite; clean PostgreSQL Testcontainers applied Flyway V1–V23. `./mvnw -DskipTests package` produced
+`target/joblens.jar`, and `jar tf` confirmed `BOOT-INF/classes/static/app/index.html` plus hashed
+JavaScript and CSS assets. `git diff --check` passed. No Flyway migration or processing behavior was
+changed. This is a verified UI migration checkpoint, not evidence that JobLens V1 is launch-ready.
+
+`BUG-R1-001` was fixed in the same checkpoint: profiles with no selected role and no keyword
+override no longer produce empty outbound-search cards. `PortalSearchQueryPlanner` now emits no
+query plan for absent intent and `PortalSearchLinkFactory` emits no links, so React omits the portal
+section entirely. Regression tests cover the empty planner and link-factory paths. The React
+dashboard was also redesigned as a responsive opportunity cockpit with visual job, source-run,
+portal, market-insight, loading, error, and empty states; no provider, Batch, schema, or ranking
+behavior changed. A clean `./mvnw clean test` passed on 2026-09-07 after this follow-up.
 
 S0.1 **Discovery Execution Safety** is selected and not started. It is intentionally limited to
 `BUG-M3-001` (AI Engineer zero integrated results) and `BUG-M3-005` (unsafe repeated-run handling and

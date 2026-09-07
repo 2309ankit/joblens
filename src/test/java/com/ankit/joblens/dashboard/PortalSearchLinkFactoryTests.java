@@ -31,6 +31,14 @@ class PortalSearchLinkFactoryTests {
         .isEqualTo("https://www.seek.com.au/senior-java-developer-banking-payments-jobs");
   }
 
+  @Test
+  void omitsPortalLinksWhenNoSearchIntentExists() {
+    var preferences =
+        new SearchPreferences("", "", "Singapore", "", "SG | Singapore", 2, "ANY", "HYBRID");
+
+    assertThat(factory.create(preferences, List.of())).isEmpty();
+  }
+
   private static SearchPreferences preferences() {
     return new SearchPreferences(
         "Senior Java Developer, Senior Backend Engineer",

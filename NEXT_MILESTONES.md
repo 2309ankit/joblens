@@ -33,7 +33,49 @@ of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
 | S5 | Résumé object lifecycle and privacy workflows | Add encrypted/scanned storage, retention, export, and deletion | Storage/retention/security decisions |
 | S6 | Production platform gate | CI/CD, staging/production, managed HA data, observability, backups/restore, load/security/failure testing | Deployment platform and operating ownership |
 
-## Current selected milestone — S0.1 Discovery execution safety
+## React dashboard migration checkpoint — R1
+
+Status: **COMPLETE on 2026-09-07; selected directly by the product owner.**
+
+Requirement trace: `R1-REACT-DASHBOARD`. A React migration is a delivery-enabling UI change, not a
+public-launch gate. It must not displace the product correctness, identity, privacy, run-control, or
+operability requirements in the startup delivery order.
+
+Actor: an active anonymous development workspace user viewing the dashboard.
+
+Acceptance criteria:
+
+1. `/` and `/dashboard` serve a production-built React dashboard from the same Spring Boot artifact;
+   no global Node installation is required to build it.
+2. The React dashboard preserves the workspace-owned dashboard read model, ranked-job actions,
+   Find Jobs launch/restart controls, source diagnostics, portal link-outs, aggregate counts, and
+   weekly insights.
+3. The browser sends its same-origin workspace cookie. A workspace without an active profile is
+   redirected to `/setup`; it never receives another workspace's data.
+4. The dashboard has loading, empty, recoverable-error, and keyboard-operable action states. It
+   renders product-safe error text instead of framework or Batch exception messages.
+5. The existing `/setup` and `/applications` Thymeleaf flows stay available. This checkpoint does
+   not change Batch, database, scoring, source, identity, or privacy behavior.
+6. React unit tests, controller tests, clean Maven/PostgreSQL tests, artifact inspection, and diff
+   checks pass.
+
+Design: React is compiled by Maven with a pinned project-local Node runtime and dependency lockfile
+to `target/classes/static/app`; Spring MVC forwards the established dashboard routes to that bundle.
+`GET /api/dashboard` is the sole composite dashboard read model and applies the existing workspace
+ownership predicate before querying jobs, applications, links, run status, or insights. Mutations
+continue through existing workspace-scoped REST endpoints. Rollback is a source-only route change
+back to the existing `dashboard.html`; no data migration is involved.
+
+Explicit exclusions: migrating setup or applications, React Router, client-side paging/filtering,
+authentication, changing S0.1 failure semantics, and any provider or scoring change.
+
+Follow-up defect `BUG-R1-001` — empty outbound-search cards: **FIXED on 2026-09-07.** A legacy or
+incomplete profile with neither a selected role nor a keyword override previously normalized an empty
+fallback and produced blank portal-query cards. The query planner now returns no queries for that
+state, the link factory returns no links, and the React portal section is omitted. Focused planner
+and link-factory regression tests plus the clean full suite pass.
+
+## Deferred shipping milestone — S0.1 Discovery execution safety
 
 Status: **SELECTED FOR IMPLEMENTATION; NOT STARTED**.
 

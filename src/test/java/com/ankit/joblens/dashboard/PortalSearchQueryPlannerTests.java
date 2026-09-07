@@ -49,6 +49,14 @@ class PortalSearchQueryPlannerTests {
   }
 
   @Test
+  void doesNotCreateBlankSearchCardsWhenThereIsNoRoleOrKeywordFallback() {
+    var preferences =
+        new SearchPreferences("", "", "Singapore", "", "SG | Singapore", 2, "ANY", "HYBRID");
+
+    assertThat(planner.plan(preferences, List.of())).isEmpty();
+  }
+
+  @Test
   void removesEscoIctQualifierFromPortalQueries() {
     var preferences =
         new SearchPreferences(

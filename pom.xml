@@ -28,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<frontend.node.version>v24.11.0</frontend.node.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -146,6 +147,41 @@
 	<build>
 		<finalName>joblens</finalName>
 		<plugins>
+			<plugin>
+				<groupId>com.github.eirslett</groupId>
+				<artifactId>frontend-maven-plugin</artifactId>
+				<version>2.0.1</version>
+				<configuration>
+					<workingDirectory>frontend</workingDirectory>
+					<installDirectory>target</installDirectory>
+				</configuration>
+				<executions>
+					<execution>
+						<id>install-node</id>
+						<phase>generate-resources</phase>
+						<goals><goal>install-node-and-npm</goal></goals>
+						<configuration><nodeVersion>${frontend.node.version}</nodeVersion></configuration>
+					</execution>
+					<execution>
+						<id>install-dashboard-dependencies</id>
+						<phase>generate-resources</phase>
+						<goals><goal>npm</goal></goals>
+						<configuration><arguments>ci</arguments></configuration>
+					</execution>
+					<execution>
+						<id>build-dashboard</id>
+						<phase>generate-resources</phase>
+						<goals><goal>npm</goal></goals>
+						<configuration><arguments>run build</arguments></configuration>
+					</execution>
+					<execution>
+						<id>test-dashboard</id>
+						<phase>test</phase>
+						<goals><goal>npm</goal></goals>
+						<configuration><arguments>run test</arguments></configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>
 				<artifactId>spotless-maven-plugin</artifactId>

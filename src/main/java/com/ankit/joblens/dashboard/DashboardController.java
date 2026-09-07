@@ -1,111 +1,14 @@
 package com.ankit.joblens.dashboard;
 
-import static com.ankit.joblens.jdbc.ClasspathSql.load;
-
-import com.ankit.joblens.discovery.AdzunaProperties;
-import com.ankit.joblens.discovery.FindJobsService;
-import com.ankit.joblens.onboarding.OnboardingService;
-import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
-import com.ankit.joblens.workspace.WorkspaceContext;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+/** Routes the established dashboard URL to the React production bundle. */
 @Controller
 public class DashboardController {
-  private final NamedParameterJdbcTemplate jdbc;
-  private final WorkspaceContext workspaceContext;
-  private final WorkspaceCandidateProfileService candidateProfiles;
-  private final OnboardingService onboarding;
-  private final PortalSearchLinkFactory portalSearchLinks;
-  private final FindJobsService findJobs;
-  private final AdzunaProperties adzunaProperties;
-
-  public DashboardController(
-      NamedParameterJdbcTemplate jdbc,
-      WorkspaceContext workspaceContext,
-      WorkspaceCandidateProfileService candidateProfiles,
-      OnboardingService onboarding,
-      PortalSearchLinkFactory portalSearchLinks,
-      FindJobsService findJobs,
-      AdzunaProperties adzunaProperties) {
-    this.jdbc = jdbc;
-    this.workspaceContext = workspaceContext;
-    this.candidateProfiles = candidateProfiles;
-    this.onboarding = onboarding;
-    this.portalSearchLinks = portalSearchLinks;
-    this.findJobs = findJobs;
-    this.adzunaProperties = adzunaProperties;
-  }
 
   @GetMapping({"/", "/dashboard"})
-  public String dashboard(Model model, HttpServletRequest request, HttpServletResponse response) {
-    long candidateProfileId;
-    java.util.UUID workspaceId = workspaceContext.resolve(request, response);
-    try {
-      candidateProfileId = candidateProfiles.requireCandidateProfile(workspaceId);
-    } catch (IllegalStateException exception) {
-      return "redirect:/setup";
-    }
-    Map<String, Object> parameters =
-        Map.of(
-            "candidateProfileId",
-            candidateProfileId,
-            "workspaceId",
-            workspaceId,
-            "maxDaysOld",
-            adzunaProperties.maxDaysOld());
-    model.addAttribute("businessDate", java.time.LocalDate.now());
-    findJobs.latest(workspaceId).ifPresent(run -> model.addAttribute("latestSearchRun", run));
-    onboarding
-        .preferences(workspaceId)
-        .ifPresent(
-            preferences ->
-                model.addAttribute(
-                    "portalSearchLinks",
-                    portalSearchLinks.create(
-                        preferences,
-                        onboarding
-                            .latest(workspaceId)
-                            .map(profile -> profile.skills())
-                            .orElseGet(java.util.List::of))));
-    model.addAttribute(
-        "jobs",
-        jdbc.query(
-            load("sql/dashboard/list-ranked-jobs.sql"),
-            parameters,
-            (resultSet, rowNumber) -> {
-              var row = new LinkedHashMap<String, Object>();
-              row.put("id", resultSet.getLong("id"));
-              row.put("title", resultSet.getString("title"));
-              row.put("company", resultSet.getString("company"));
-              row.put("location", resultSet.getString("location"));
-              row.put("score", resultSet.getBigDecimal("score"));
-              row.put("bestRole", resultSet.getString("best_target_role_name"));
-              row.put("rankingPolicy", resultSet.getString("ranking_policy_version"));
-              row.put("calibrationPack", resultSet.getString("calibration_pack_code"));
-              row.put("calibrationVersion", resultSet.getString("calibration_pack_version"));
-              row.put("source", resultSet.getString("source"));
-              row.put("viewCount", resultSet.getInt("view_count"));
-              row.put("applicationId", resultSet.getObject("application_id", Long.class));
-              row.put("applicationStatus", resultSet.getString("application_status"));
-              return row;
-            }));
-    model.addAttribute(
-        "applicationCount",
-        jdbc.queryForObject(
-            load("sql/dashboard/count-applications.sql"), parameters, Integer.class));
-    model.addAttribute(
-        "openFollowUpCount",
-        jdbc.queryForObject(
-            load("sql/dashboard/count-open-follow-ups.sql"), parameters, Integer.class));
-    model.addAttribute(
-        "insights", jdbc.queryForList(load("sql/dashboard/list-insights.sql"), Map.of()));
-    return "dashboard";
+  public String dashboard() {
+    return "forward:/app/index.html";
   }
 }
