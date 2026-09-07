@@ -280,6 +280,11 @@ Both are frontend-only, lockfile-backed dependencies with no data, identity, pro
 schema behavior. `./mvnw clean test`, `./mvnw -DskipTests package`, JAR asset inspection, and
 `git diff --check` passed on 2026-09-07.
 
+`BUG-R1-002` was found during local container verification: Vite emitted root-relative asset URLs
+(`\`/assets/...\``) even though Spring publishes the dashboard bundle beneath `\`/app\``. Dashboard
+HTML loaded but its JavaScript and CSS returned 404. The Vite base is explicitly `\`/app/\`` so the
+generated bundle resolves to the published path; this is a packaging-path fix only.
+
 The next React-only visual iteration uses an original streaming-style browsing pattern: a featured
 ranked role and keyboard/scroll-operable horizontal rails of the remaining role cards. It does not
 use Netflix branding, imagery, or assets, and it preserves the existing workspace data, listing
