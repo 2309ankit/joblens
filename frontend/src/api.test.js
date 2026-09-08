@@ -12,7 +12,12 @@ describe('request', () => {
   });
 
   it('does not render a framework failure returned by a command endpoint', () => {
-    expect(displayMessage(new ApiError('JobExecution 42 is already running', 409, 'JOB_LAUNCH_CONFLICT')))
+    expect(displayMessage(new ApiError('JobExecution 42 is already running', 409, 'JOB_ACTIVE')))
       .toBe('A Find Jobs run is already in progress. Review the latest source run before trying again.');
+  });
+
+  it('gives a recoverable message for a stale search without rendering internals', () => {
+    expect(displayMessage(new ApiError('JobInstance 42 is stale', 409, 'JOB_STALE')))
+      .toBe('The previous search stopped updating. Restart it from the latest source run.');
   });
 });

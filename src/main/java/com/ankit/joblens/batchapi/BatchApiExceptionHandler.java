@@ -1,5 +1,7 @@
 package com.ankit.joblens.batchapi;
 
+import com.ankit.joblens.discovery.ActiveFindJobsRunException;
+import com.ankit.joblens.discovery.StaleFindJobsRunException;
 import com.ankit.joblens.workspace.WorkspaceNotReadyException;
 import java.time.Instant;
 import java.util.Map;
@@ -24,22 +26,48 @@ public class BatchApiExceptionHandler {
   @ExceptionHandler(JobInstanceAlreadyCompleteException.class)
   ResponseEntity<Map<String, Object>> alreadyComplete(
       JobInstanceAlreadyCompleteException exception) {
-    return error(HttpStatus.CONFLICT, "JOB_INSTANCE_ALREADY_COMPLETE", exception.getMessage());
+    return error(
+        HttpStatus.CONFLICT,
+        "JOB_ALREADY_COMPLETE",
+        "This operation has already completed. Choose new input before running it again.");
   }
 
   @ExceptionHandler({JobExecutionAlreadyRunningException.class, JobRestartException.class})
   ResponseEntity<Map<String, Object>> launchConflict(Exception exception) {
-    return error(HttpStatus.CONFLICT, "JOB_LAUNCH_CONFLICT", exception.getMessage());
+    return error(
+        HttpStatus.CONFLICT,
+        "JOB_ACTIVE",
+        "An operation is already in progress. Check its status and try again when it finishes.");
+  }
+
+  @ExceptionHandler(ActiveFindJobsRunException.class)
+  ResponseEntity<Map<String, Object>> activeFindJobsRun(ActiveFindJobsRunException exception) {
+    return error(
+        HttpStatus.CONFLICT,
+        "JOB_ACTIVE",
+        "A Find Jobs run is already in progress. Check its status before trying again.");
+  }
+
+  @ExceptionHandler(StaleFindJobsRunException.class)
+  ResponseEntity<Map<String, Object>> staleFindJobsRun(StaleFindJobsRunException exception) {
+    return error(
+        HttpStatus.CONFLICT,
+        "JOB_STALE",
+        "The previous search stopped updating. Restart it to resume safely.");
   }
 
   @ExceptionHandler(InvalidJobParametersException.class)
   ResponseEntity<Map<String, Object>> invalidParameters(InvalidJobParametersException exception) {
-    return error(HttpStatus.BAD_REQUEST, "INVALID_JOB_PARAMETERS", exception.getMessage());
+    return error(
+        HttpStatus.BAD_REQUEST, "INVALID_JOB_PARAMETERS", "The search request is invalid.");
   }
 
   @ExceptionHandler(JobExecutionException.class)
   ResponseEntity<Map<String, Object>> launchFailure(JobExecutionException exception) {
-    return error(HttpStatus.INTERNAL_SERVER_ERROR, "JOB_LAUNCH_FAILED", exception.getMessage());
+    return error(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        "JOB_UNAVAILABLE",
+        "The operation could not start. Please try again shortly.");
   }
 
   private static ResponseEntity<Map<String, Object>> error(

@@ -134,7 +134,11 @@ before profile activation rather than producing a knowingly unrunnable source pr
 
 `findJobsJob` is the normal user flow: independent discovery for every confirmed source/market profile, including safe Greenhouse and Lever board enrichment when direct official URLs are exposed; normalization; skills; exact/fuzzy duplicate analysis; and workspace candidate scoring in six ordered steps. The `universal-v1` policy evaluates each job against every selected target role, then projects the highest role score while retaining all per-role reasons. Frontend, Backend Engineering, AI/ML, and Sales/Customer Success add versioned calibrated title/skill evidence; every other role keeps the same universal title, confirmed-skill, sector, seniority, location/work, employment, salary, and freshness dimensions. Missing calibrated skills lower evidence points but never discard a job. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` remains the legacy/operator CSV import. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
-Each batch returns a `jobExecutionId`. `COMPLETED` means the work finished. `FAILED` means inspect the execution and restart it when appropriate. Sending the same identifying parameters again returns a conflict because Spring Batch protects completed JobInstances.
+The normal Find Jobs flow returns a workspace-owned product `runId`, `status`, and `outcome`.
+`ACTIVE` means the same command is already progressing, `FAILED` can be restarted, and `STALE` means
+an orphaned execution crossed the configured recovery threshold. Operator-only batch launches and
+execution history continue to use internal `jobExecutionId` values. Sending the same completed
+identifying parameters again remains protected by Spring Batch.
 
 Find-jobs source health is also available in Swagger or with curl. The detail endpoint accepts only a
 run owned by the current browser workspace cookie:
@@ -144,17 +148,19 @@ curl -c joblens-cookie.txt -b joblens-cookie.txt \
   http://localhost:8080/api/batch/find-jobs/runs
 
 curl -c joblens-cookie.txt -b joblens-cookie.txt \
-  http://localhost:8080/api/batch/find-jobs/runs/{jobExecutionId}
+  http://localhost:8080/api/batch/find-jobs/runs/{runId}
 
 curl -X POST -c joblens-cookie.txt -b joblens-cookie.txt \
-  http://localhost:8080/api/batch/find-jobs/runs/{jobExecutionId}/restart
+  http://localhost:8080/api/batch/find-jobs/runs/{runId}/restart
 ```
 
-`PARTIAL` is a JobLens inspection outcome, not a fake successful Batch status. It means at least one
-source completed or returned an honest empty result before another source failed. The Batch execution
-stays `FAILED`, its committed source results remain visible, and restart resumes the unfinished source
-checkpoint before continuing normalization and scoring. Stored and displayed failures are bounded and
-redacted; credentials and provider response bodies are not retained in run errors.
+`PARTIAL` is a JobLens inspection outcome. It means at least one source completed or returned an
+honest empty result before another source failed. Committed source results remain visible, and a
+restart resumes the unfinished source checkpoint before continuing normalization and scoring. Each
+source summary reports its generated query and reconciled provider/raw/normalized/sighted/scored
+counts; an empty run identifies the first zero stage. Stored and displayed failures are bounded and
+redacted; credentials and provider response bodies are not retained in run errors. The orphan
+threshold defaults to 30 minutes and can be configured with `JOBLENS_FIND_JOBS_STALE_AFTER`.
 
 ## Operator CSV import
 
@@ -445,9 +451,12 @@ run control and live progress, secure résumé storage and privacy workflows, pr
 observability, HA/backups/restore evidence, load/security testing, and resolution of the open product
 defects recorded in `SESSION_HANDOFF.md`.
 
-The selected next implementation milestone is **S0.1 Discovery Execution Safety**. It is limited to
-the reported AI Engineer zero-result path and safe repeated Find Jobs behavior; its exact acceptance
-criteria are in [NEXT_MILESTONES.md](NEXT_MILESTONES.md).
+**S0.1 Discovery Execution Safety completed on 2026-09-08.** Its controlled AI Engineer and broad-role
+evidence, empty-provider diagnostics, safe simultaneous-command behavior and stale-run recovery are
+recorded in [BUILD_PROGRESS.md](BUILD_PROGRESS.md). No later milestone is automatically selected:
+S0.2, S0.3, the approved assisted multi-market onboarding follow-up, and S1–S6 must remain separate
+checkpoint decisions. Authenticated ownership (S1) is still mandatory before private beta or public
+launch.
 
 - Store original resume bytes through an encrypted, scanned object-storage lifecycle; V11 currently stores validated metadata and SHA-256 only.
 - Add notification delivery only with user preferences, quiet hours, retries, and idempotency.

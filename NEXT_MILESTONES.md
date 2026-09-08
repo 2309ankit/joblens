@@ -33,19 +33,21 @@ of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
 | S5 | Résumé object lifecycle and privacy workflows | Add encrypted/scanned storage, retention, export, and deletion | Storage/retention/security decisions |
 | S6 | Production platform gate | CI/CD, staging/production, managed HA data, observability, backups/restore, load/security/failure testing | Deployment platform and operating ownership |
 
-## React dashboard migration checkpoint — R1
+## React surface completion checkpoint — R1.1
 
-Status: **COMPLETE on 2026-09-07; selected directly by the product owner.**
+Status: **COMPLETE on 2026-09-08; selected directly by the product owner.**
 
 Requirement trace: `R1-REACT-DASHBOARD`. A React migration is a delivery-enabling UI change, not a
 public-launch gate. It must not displace the product correctness, identity, privacy, run-control, or
 operability requirements in the startup delivery order.
 
-Actor: an active anonymous development workspace user viewing the dashboard.
+Actor: an active anonymous development workspace user onboarding, viewing the dashboard, or tracking
+applications.
 
 Acceptance criteria:
 
-1. `/` and `/dashboard` serve a production-built React dashboard from the same Spring Boot artifact;
+1. `/`, `/dashboard`, `/setup`, and `/applications` serve their React surfaces from the same Spring
+   Boot artifact;
    no global Node installation is required to build it.
 2. The React dashboard preserves the workspace-owned dashboard read model, ranked-job actions,
    Find Jobs launch/restart controls, source diagnostics, portal link-outs, aggregate counts, and
@@ -54,8 +56,10 @@ Acceptance criteria:
    redirected to `/setup`; it never receives another workspace's data.
 4. The dashboard has loading, empty, recoverable-error, and keyboard-operable action states. It
    renders product-safe error text instead of framework or Batch exception messages.
-5. The existing `/setup` and `/applications` Thymeleaf flows stay available. This checkpoint does
-   not change Batch, database, scoring, source, identity, or privacy behavior.
+5. Setup keeps résumé suggestions user-reviewable and requires explicit acknowledgement for any
+   review-required readability finding. Applications retain server-enforced lifecycle transitions and
+   workspace ownership. This checkpoint does not change Batch, database, scoring, source, identity,
+   or privacy behavior.
 6. React unit tests, controller tests, clean Maven/PostgreSQL tests, artifact inspection, and diff
    checks pass.
 
@@ -66,8 +70,8 @@ ownership predicate before querying jobs, applications, links, run status, or in
 continue through existing workspace-scoped REST endpoints. Rollback is a source-only route change
 back to the existing `dashboard.html`; no data migration is involved.
 
-Explicit exclusions: migrating setup or applications, React Router, client-side paging/filtering,
-authentication, changing S0.1 failure semantics, and any provider or scoring change.
+Explicit exclusions: React Router, client-side paging/filtering, authentication, changing S0.1 failure
+semantics, and any provider or scoring change.
 
 Follow-up defect `BUG-R1-001` — empty outbound-search cards: **FIXED on 2026-09-07.** A legacy or
 incomplete profile with neither a selected role nor a keyword override previously normalized an empty
@@ -85,9 +89,9 @@ and server-side routing sends a workspace without a confirmed candidate profile 
 The HTML entry is not cached; content-hashed assets are immutable for one year. This prevents stale
 dashboard bundles without weakening the workspace ownership boundary.
 
-## Deferred shipping milestone — S0.1 Discovery execution safety
+## Completed shipping milestone — S0.1 Discovery execution safety
 
-Status: **SELECTED FOR IMPLEMENTATION; NOT STARTED**.
+Status: **COMPLETE on 2026-09-08**.
 
 Requirement trace: `BUG-M3-001`, `BUG-M3-005`, `FR-04`, and the run-safety portion of `FR-10`.
 
@@ -134,6 +138,24 @@ table. These are inspection facts, not a completed diagnosis or fix.
 7. PostgreSQL Testcontainers covers persistence/concurrency/restart behavior; provider behavior uses
    controlled mock HTTP tests; controller tests cover safe messages; the full Maven test suite and
    `git diff --check` pass.
+
+### S0.1 observed evidence
+
+- The redacted AI Engineer fixture generated and persisted `AI Engineer Machine Learning Python`
+  for Singapore; the controlled provider response reached one raw, normalized, sighted, and scored
+  row. A Backend Engineer control independently followed the same route.
+- Legitimate empty responses record `PROVIDER_RESPONSE` as the first zero stage. The workspace UI/API
+  exposes the source, market, query, stage counts, and safe empty explanation.
+- A real two-thread integration test produced one provider request, one Batch execution, and one
+  product run. The second command received the existing active execution rather than creating work.
+- A persisted execution with no update for the configurable 30-minute threshold became `STALE` and
+  restarted through Batch 6 recovery on the same JobInstance/checkpoints. The threshold applies to
+  orphaned metadata not owned by the current in-process command guard; distributed leases remain S2.
+- Find Jobs launch/detail/restart responses use product run IDs and `ACTIVE`/`COMPLETED`/`FAILED`/
+  `STALE` states. Safe error tests prove raw instance/execution IDs, internal job names, and framework
+  messages are not returned to normal users; operator metadata APIs remain available separately.
+- `./mvnw clean test` passed with 129 Java tests and 3 React tests; fresh PostgreSQL 17
+  Testcontainers applied Flyway V1–V25. Spotless and `git diff --check` passed.
 
 ### S0 follow-on checkpoints — queued, not selected
 
@@ -561,5 +583,6 @@ Use this request format:
 ```text
 Read AGENTS.md, ENGINEERING_STANDARDS.md, PRODUCT_REQUIREMENTS.md, SYSTEM_DESIGN.md,
 SESSION_HANDOFF.md, README.md, BUILD_PROGRESS.md, and NEXT_MILESTONES.md. Preserve the current
-worktree. Resume only S0.1; do not infer permission to implement S0.2, S0.3, or later launch gaps.
+worktree. S0.1 is complete. Select exactly one next checkpoint; do not combine S0.2, S0.3, the
+approved onboarding UX follow-up, or later launch gaps.
 ```

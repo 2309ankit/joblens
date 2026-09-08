@@ -38,7 +38,7 @@ public class WorkspaceSearchRunRepository {
   }
 
   @Transactional
-  public void record(
+  public long record(
       UUID workspaceId, long candidateProfileId, LocalDate businessDate, JobExecution execution) {
     Long runId =
         jdbc.queryForObject(
@@ -50,7 +50,11 @@ public class WorkspaceSearchRunRepository {
                 .addValue("jobInstanceId", execution.getJobInstanceId())
                 .addValue("jobExecutionId", execution.getId())
                 .addValue("status", execution.getStatus().name())
-                .addValue("startedAt", execution.getStartTime())
+                .addValue(
+                    "startedAt",
+                    execution.getStartTime() == null
+                        ? execution.getCreateTime()
+                        : execution.getStartTime())
                 .addValue("completedAt", execution.getEndTime())
                 .addValue(
                     "failureReason",
@@ -65,6 +69,14 @@ public class WorkspaceSearchRunRepository {
             .addValue("workspaceId", workspaceId)
             .addValue("candidateProfileId", candidateProfileId)
             .addValue("jobInstanceId", execution.getJobInstanceId()));
+    return runId;
+  }
+
+  /** Marks only an owned, still-running product projection stale; Batch recovery stays explicit. */
+  public void markStale(UUID workspaceId, long jobExecutionId) {
+    jdbc.update(
+        load("sql/find-jobs/mark-stale-run.sql"),
+        Map.of("workspaceId", workspaceId, "jobExecutionId", jobExecutionId));
   }
 
   public List<Map<String, Object>> list(UUID workspaceId) {
@@ -84,7 +96,7 @@ public class WorkspaceSearchRunRepository {
                     resultSet.getObject("business_date", LocalDate.class),
                     resultSet.getLong("job_instance_id"),
                     resultSet.getLong("job_execution_id"),
-                    resultSet.getString("status"),
+                    productStatus(resultSet.getString("status")),
                     "PENDING",
                     instant(resultSet.getTimestamp("started_at")),
                     instant(resultSet.getTimestamp("completed_at")),
@@ -102,6 +114,7 @@ public class WorkspaceSearchRunRepository {
                     resultSet.getString("source"),
                     resultSet.getString("country_code"),
                     resultSet.getString("location"),
+                    resultSet.getString("query_text"),
                     resultSet.getString("status"),
                     resultSet.getInt("pages_attempted"),
                     resultSet.getInt("pages_fetched"),
@@ -113,6 +126,7 @@ public class WorkspaceSearchRunRepository {
                     resultSet.getInt("normalized_records"),
                     resultSet.getInt("sighted_records"),
                     resultSet.getInt("scored_records"),
+                    resultSet.getString("first_zero_stage"),
                     resultSet.getString("failure_reason")));
     FindJobsRunSummary original = run.getFirst();
     FindJobsRunSummary summary =
@@ -122,8 +136,8 @@ public class WorkspaceSearchRunRepository {
             original.businessDate(),
             original.jobInstanceId(),
             original.jobExecutionId(),
-            original.batchStatus(),
-            outcome(sources),
+            original.status(),
+            outcome(original.status(), sources),
             original.startedAt(),
             original.completedAt(),
             original.failureReason());
@@ -139,7 +153,20 @@ public class WorkspaceSearchRunRepository {
     return executions.isEmpty() ? Optional.empty() : find(workspaceId, executions.getFirst());
   }
 
-  private static String outcome(List<SourceRunSummary> sources) {
+  /** Resolves the private Batch execution only after proving ownership of the product run. */
+  public Optional<Long> executionId(UUID workspaceId, long runId) {
+    List<Long> executionIds =
+        jdbc.queryForList(
+            load("sql/find-jobs/find-execution-for-run.sql"),
+            Map.of("workspaceId", workspaceId, "runId", runId),
+            Long.class);
+    return executionIds.stream().findFirst();
+  }
+
+  private static String outcome(String status, List<SourceRunSummary> sources) {
+    if (status.equals("STALE")) {
+      return "STALE";
+    }
     boolean failed = sources.stream().anyMatch(source -> source.status().equals("FAILED"));
     boolean successful =
         sources.stream()
@@ -147,6 +174,12 @@ public class WorkspaceSearchRunRepository {
                 source -> source.status().equals("COMPLETED") || source.status().equals("EMPTY"));
     if (failed) {
       return successful ? "PARTIAL" : "FAILED";
+    }
+    if (status.equals("FAILED")) {
+      return "FAILED";
+    }
+    if (status.equals("ACTIVE")) {
+      return "RUNNING";
     }
     if (sources.stream().anyMatch(source -> source.status().equals("RUNNING"))) {
       return "RUNNING";
@@ -158,6 +191,15 @@ public class WorkspaceSearchRunRepository {
       return "COMPLETED";
     }
     return "PENDING";
+  }
+
+  private static String productStatus(String batchStatus) {
+    return switch (batchStatus) {
+      case "STARTING", "STARTED", "STOPPING" -> "ACTIVE";
+      case "COMPLETED" -> "COMPLETED";
+      case "STALE" -> "STALE";
+      default -> "FAILED";
+    };
   }
 
   private static java.time.Instant instant(Timestamp timestamp) {

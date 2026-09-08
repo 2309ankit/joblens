@@ -5,6 +5,7 @@ public record SourceRunSummary(
     String source,
     String countryCode,
     String location,
+    String queryText,
     String status,
     int pagesAttempted,
     int pagesFetched,
@@ -16,4 +17,5 @@ public record SourceRunSummary(
     int normalizedRecords,
     int sightedRecords,
     int scoredRecords,
+    String firstZeroStage,
     String failureReason) {}

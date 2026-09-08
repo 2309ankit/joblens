@@ -45,24 +45,27 @@ public class FindJobsPageController {
           "message",
           "Find jobs finished with " + execution.getStatus() + ". Rankings are refreshed.");
     } catch (JobExecutionException | RuntimeException exception) {
-      redirectAttributes.addFlashAttribute("error", exception.getMessage());
+      redirectAttributes.addFlashAttribute(
+          "error", "Find Jobs could not start. Please check your search status and try again.");
     }
     return "redirect:/dashboard";
   }
 
-  @PostMapping("/find-jobs/runs/{jobExecutionId}/restart")
+  @PostMapping("/find-jobs/runs/{runId}/restart")
   public String restart(
-      @org.springframework.web.bind.annotation.PathVariable long jobExecutionId,
+      @org.springframework.web.bind.annotation.PathVariable long runId,
       HttpServletRequest request,
       HttpServletResponse response,
       RedirectAttributes redirectAttributes) {
     UUID workspaceId = workspaceContext.resolve(request, response);
     try {
-      var execution = service.restart(workspaceId, jobExecutionId);
+      var execution = service.restartByRunId(workspaceId, runId);
       redirectAttributes.addFlashAttribute(
           "message", "Find jobs restart finished with " + execution.getStatus() + ".");
     } catch (JobExecutionException | RuntimeException exception) {
-      redirectAttributes.addFlashAttribute("error", exception.getMessage());
+      redirectAttributes.addFlashAttribute(
+          "error",
+          "That search cannot be restarted right now. Please refresh its status and try again.");
     }
     return "redirect:/dashboard";
   }

@@ -1,9 +1,9 @@
 WITH profiles AS (
-    SELECT profile_id, source
+    SELECT profile_id, source, search_query_id
     FROM search_profile
     WHERE workspace_id = :workspaceId AND active = TRUE
     UNION
-    SELECT profile.profile_id, profile.source
+    SELECT profile.profile_id, profile.source, profile.search_query_id
     FROM source_fetch_run source_run
     JOIN search_profile profile ON profile.profile_id = source_run.search_profile_id
     WHERE source_run.job_instance_id = :jobInstanceId
@@ -17,7 +17,8 @@ INSERT INTO workspace_search_source_run (
     workspace_search_run_id, search_profile_id, source, status,
     pages_attempted, pages_fetched, records_received,
     new_records, changed_records, unchanged_records,
-    raw_records, normalized_records, sighted_records, scored_records, failure_reason
+    raw_records, normalized_records, sighted_records, scored_records, query_text, first_zero_stage,
+    failure_reason
 )
 SELECT :workspaceSearchRunId, profile.profile_id, profile.source,
        CASE
@@ -32,9 +33,23 @@ SELECT :workspaceSearchRunId, profile.profile_id, profile.source,
        COALESCE(source_run.unchanged_records, 0),
        COALESCE(counts.raw_records, 0), COALESCE(counts.normalized_records, 0),
        COALESCE(counts.sighted_records, 0), COALESCE(counts.scored_records, 0),
+       query.query_text,
+       CASE
+           WHEN source_run.status = 'COMPLETED' AND source_run.records_received = 0
+               THEN 'PROVIDER_RESPONSE'
+           WHEN COALESCE(source_run.new_records, 0) + COALESCE(source_run.changed_records, 0) > 0
+                AND COALESCE(counts.raw_records, 0) = 0 THEN 'RAW_LANDING'
+           WHEN COALESCE(counts.raw_records, 0) > 0
+                AND COALESCE(counts.normalized_records, 0) = 0 THEN 'NORMALIZATION'
+           WHEN COALESCE(counts.normalized_records, 0) > 0
+                AND COALESCE(counts.sighted_records, 0) = 0 THEN 'WORKSPACE_SIGHTING'
+           WHEN COALESCE(counts.sighted_records, 0) > 0
+                AND COALESCE(counts.scored_records, 0) = 0 THEN 'SCORING'
+       END,
        source_run.failure_reason
 FROM profiles profile
 LEFT JOIN fetches source_run ON source_run.search_profile_id = profile.profile_id
+LEFT JOIN workspace_search_query query ON query.id = profile.search_query_id
 LEFT JOIN LATERAL (
     SELECT count(*)::INTEGER AS raw_records,
            count(normalized.id)::INTEGER AS normalized_records,
@@ -52,7 +67,7 @@ LEFT JOIN LATERAL (
 GROUP BY profile.profile_id, profile.source, source_run.id, source_run.status,
          source_run.pages_fetched, source_run.records_received, source_run.new_records,
          source_run.changed_records, source_run.unchanged_records, counts.raw_records,
-         counts.normalized_records, counts.sighted_records, counts.scored_records,
+         counts.normalized_records, counts.sighted_records, counts.scored_records, query.query_text,
          source_run.failure_reason
 ON CONFLICT (workspace_search_run_id, search_profile_id)
 DO UPDATE SET status = EXCLUDED.status,
@@ -66,4 +81,6 @@ DO UPDATE SET status = EXCLUDED.status,
               normalized_records = EXCLUDED.normalized_records,
               sighted_records = EXCLUDED.sighted_records,
               scored_records = EXCLUDED.scored_records,
+              query_text = EXCLUDED.query_text,
+              first_zero_stage = EXCLUDED.first_zero_stage,
               failure_reason = EXCLUDED.failure_reason

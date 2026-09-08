@@ -64,13 +64,13 @@ The generated project currently contains:
 ## Current Verification Summary
 
 - Implementation baseline: M3.2 Role-Aware Ranking, commit `2885c84`.
-- Latest full behavioral suite: `./mvnw clean test`, 111 tests, 0 failures, 0 errors, 0
-  skipped, recorded on 2026-09-03.
-- Database baseline: PostgreSQL 17 with Flyway V23 verified from a clean Testcontainer.
+- Latest full behavioral suite: `./mvnw clean test`, 129 Java tests and 3 React tests, 0 failures,
+  0 errors, 0 skipped, recorded on 2026-09-08.
+- Database baseline: PostgreSQL 17 with Flyway V25 verified from clean Testcontainers.
 - Release metadata: JobLens V1 development artifact `1.0.0-SNAPSHOT`; Maven packaging and Docker
   image construction verified on 2026-09-04.
-- R1 React dashboard migration is complete; S0.1 is selected next and has no implementation or test
-  evidence yet.
+- R1.1 React surface completion and S0.1 Discovery Execution Safety are verified. This does not pass
+  the authenticated private-beta or public-launch gates.
 
 ## Required Build Milestones
 
@@ -251,14 +251,21 @@ No external job-source integration had been implemented at that early checkpoint
 
 ## Current Milestone
 
-R1 **React dashboard migration** is complete. The owner-selected checkpoint replaces the Thymeleaf
-dashboard route with a React bundle compiled into the Spring Boot artifact while retaining the
-verified Thymeleaf setup and application-lifecycle routes. `GET /api/dashboard` supplies one
-workspace-owned dashboard read model; React uses the existing workspace-scoped Find Jobs, restart,
-job view, and application commands. It handles loading, empty, recoverable-error, and disabled
-command states and translates error codes into safe product messages rather than displaying server
-framework details. Maven downloads a pinned project-local Node runtime and uses the committed
-`frontend/package-lock.json`, then runs the Vite build and Vitest suite as part of the normal build.
+R1.1 **React surface completion** is complete. The owner-approved checkpoint now serves the React
+bundle for all three primary workspace routes: `/dashboard`, `/setup`, and `/applications`.
+`/setup` is an assisted activation flow: it reads a résumé, presents editable deterministic
+suggestions, asks for one role and market, and preserves an explicit acknowledgement whenever
+machine-readability review is required. `/applications` uses the existing workspace-scoped lifecycle
+and follow-up APIs, including server-derived allowed next statuses. Legacy POST handlers remain only
+as compatibility paths; their GET routes forward to the React bundle. Maven downloads a pinned
+project-local Node runtime and uses the committed `frontend/package-lock.json`, then runs the Vite
+build and Vitest suite as part of the normal build.
+
+Observed evidence on 2026-09-08: `./mvnw clean test` passed with **120 Java tests** and **2 React/
+Vitest tests**, including fresh PostgreSQL 17 Testcontainers applying Flyway V1–V24. The built artifact
+contains the `/app/` React entry and hashed assets. `./mvnw -q spotless:check` and `git diff --check`
+passed. This completes the UI migration scope; it is not evidence that JobLens V1 is ready for public
+launch.
 
 Observed evidence on 2026-09-07: `./mvnw clean test` passed with 115 Java tests and the React/Vitest
 suite; clean PostgreSQL Testcontainers applied Flyway V1–V23. `./mvnw -DskipTests package` produced
@@ -301,10 +308,23 @@ use Netflix branding, imagery, or assets, and it preserves the existing workspac
 links, save action, and explainable score. `./mvnw -DskipTests package`, `./mvnw test`, and
 `git diff --check` passed on 2026-09-07.
 
-S0.1 **Discovery Execution Safety** is selected and not started. It is intentionally limited to
-`BUG-M3-001` (AI Engineer zero integrated results) and `BUG-M3-005` (unsafe repeated-run handling and
-raw Batch error leakage). S0.2 owns onboarding correctness; S0.3 owns cross-role ranking correctness;
+S0.1 **Discovery Execution Safety** is complete and intentionally limited to `BUG-M3-001` (AI
+Engineer zero integrated results) and `BUG-M3-005` (unsafe repeated-run handling and raw Batch error
+leakage). V24 records the generated query and reconciled received/raw/normalized/sighted/scored
+counts with the first zero stage. V25 adds the `STALE` product-run state. Find Jobs returns only a
+product run ID/status/outcome, reconciles an existing active execution, blocks a same-process launch
+race, and returns stable safe errors rather than framework details. A configurable 30-minute
+no-update threshold identifies orphaned executions after process loss; restart first recovers the
+orphan and then resumes the same checkpoints. Full distributed admission, leases, cancellation, and
+live progress remain S2. S0.2 owns onboarding correctness; S0.3 owns cross-role ranking correctness;
 S4 owns the former M3.3/M3.4 Job Explorer and feedback/calibration scope.
+
+The controlled AI Engineer fixture persisted and requested `AI Engineer Machine Learning Python`
+for Singapore, then reconciled one received, raw, normalized, sighted, and scored result. The Backend
+Engineer control followed the same route. A legitimate empty provider response records
+`PROVIDER_RESPONSE` as the first zero stage, and the React source card shows source, market, query,
+and that empty explanation. This proves the JobLens query-to-score route for controlled input; it
+does not retroactively claim that the earlier unretained ten-market live run was a provider outage.
 
 D2 **JobLens V1 Engineering Standards** and D1 **Startup Requirements and Architecture Baseline** are
 complete documentation baselines. M2.7 and D0 remain completed history. M3.1 intent/generated queries
@@ -353,10 +373,10 @@ remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-Implement S0.1 only after its requirement, design, and acceptance review. The observable result is a
-diagnosable query-to-score path for the reported AI Engineer search and safe repeated Find Jobs
-behavior without framework-detail leakage. S0.2, S0.3, S1–S6, M2.8, authentication, storage,
-real-time delivery, infrastructure, and service extraction remain outside this checkpoint.
+S0.1 is complete. Do not begin another milestone without an explicit checkpoint choice. S0.2 and
+S0.3 remain queued correctness work; the owner-approved assisted multi-market onboarding checkpoint
+is documented in `SESSION_HANDOFF.md`; S1–S6 remain the launch sequence. Authentication, privacy
+storage, distributed run control, infrastructure, and service extraction were outside S0.1.
 
 ## D2 JobLens V1 Engineering Standards Evidence
 
@@ -389,7 +409,7 @@ The 2026-09-04 review found four documentation issues and corrected only those i
 - the original S0 grouped unrelated discovery, onboarding, location, and ranking defects. It is now
   split into S0.1, S0.2, and S0.3, with only S0.1 selected.
 
-This review changed milestone documentation only. S0.1 implementation has not started, and no bug is
+At that earlier review point, S0.1 implementation had not started, and no bug was
 claimed fixed by the review.
 
 ## D1 Startup Requirements and Architecture Evidence
@@ -662,12 +682,13 @@ a later idempotent raw upsert legitimately moves a landing row to its newest fet
 evidence must not change with it. All reusable SQL remains externalized and is executed through
 `NamedParameterJdbcTemplate`.
 
-`GET /api/batch/find-jobs/runs/{jobExecutionId}` exposes source profile, status, attempted and fetched
+`GET /api/batch/find-jobs/runs/{runId}` exposes source profile, status, attempted and fetched
 pages, received/new/changed/unchanged counts, raw/normalized/sighted/scored totals, and bounded redacted
 failure text. The dashboard renders the same latest-run summary and a restart action. A mixed result is
 reported as JobLens outcome `PARTIAL`, while Spring Batch truthfully remains `FAILED`; completed chunks
-and source checkpoints stay committed. `POST /api/batch/find-jobs/runs/{jobExecutionId}/restart`
-requires workspace ownership, rejects non-failed executions, and resumes the same JobInstance.
+and source checkpoints stay committed. `POST /api/batch/find-jobs/runs/{runId}/restart` requires
+workspace ownership, accepts product `FAILED` or `STALE` state, and resumes the same JobInstance.
+Internal Batch IDs remain available to operator history but are not part of the normal workspace API.
 
 Focused MockWebServer and PostgreSQL Testcontainers verification covered successful and empty sources,
 new/changed/unchanged accounting, transient exhaustion, partial failure, immutable inspection,

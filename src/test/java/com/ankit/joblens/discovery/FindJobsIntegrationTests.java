@@ -5,12 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
+import com.ankit.joblens.intelligence.JobScoreCalculator;
 import com.ankit.joblens.onboarding.OnboardingRepository;
 import com.ankit.joblens.onboarding.SearchPreferences;
 import com.ankit.joblens.workspace.WorkspaceRepository;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterAll;
@@ -21,6 +25,8 @@ import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobInstanceAlreadyCompleteException;
 import org.springframework.batch.core.launch.JobOperator;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -91,6 +97,7 @@ class FindJobsIntegrationTests {
   @Autowired private JdbcTemplate jdbc;
   @Autowired private NamedParameterJdbcTemplate namedJdbc;
   @Autowired private JobOperator jobOperator;
+  @Autowired private JobRepository jobRepository;
 
   @Autowired
   @Qualifier("findJobsJob")
@@ -272,7 +279,161 @@ class FindJobsIntegrationTests {
               assertThat(source.pagesFetched()).isEqualTo(1);
               assertThat(source.recordsReceived()).isZero();
               assertThat(source.rawRecords()).isZero();
+              assertThat(source.queryText()).isEqualTo("Java Spring");
+              assertThat(source.firstZeroStage()).isEqualTo("PROVIDER_RESPONSE");
             });
+  }
+
+  @Test
+  void tracesAiEngineerAndBroadRoleQueriesThroughProviderToScoring() throws Exception {
+    drainRequests(ADZUNA);
+    UUID aiWorkspace = UUID.randomUUID();
+    long aiCandidate =
+        confirm(
+            aiWorkspace,
+            "8",
+            "AI Engineer",
+            List.of("Python", "Machine Learning"),
+            "SG | Singapore");
+    ADZUNA.enqueue(
+        responseWithDescription(
+            "AI-TRACE-1", "AI Engineer", "Python machine learning model deployment", "Singapore"));
+
+    JobExecution aiExecution = findJobs.run(aiWorkspace, aiCandidate, LocalDate.of(2060, 1, 9));
+    var aiRequest = ADZUNA.takeRequest(5, TimeUnit.SECONDS);
+    FindJobsRunDetail aiDetail = findJobs.detail(aiWorkspace, aiExecution.getId()).orElseThrow();
+
+    assertThat(aiRequest).isNotNull();
+    assertThat(aiRequest.getRequestUrl().encodedPath()).isEqualTo("/v1/api/jobs/sg/search/1");
+    assertThat(aiRequest.getRequestUrl().queryParameter("what"))
+        .isEqualTo("AI Engineer Machine Learning Python");
+    assertThat(aiRequest.getRequestUrl().queryParameter("where")).isEqualTo("Singapore");
+    assertThat(aiDetail.sources())
+        .singleElement()
+        .satisfies(
+            source -> {
+              assertThat(source.queryText()).isEqualTo("AI Engineer Machine Learning Python");
+              assertThat(source.recordsReceived()).isEqualTo(1);
+              assertThat(source.rawRecords()).isEqualTo(1);
+              assertThat(source.normalizedRecords()).isEqualTo(1);
+              assertThat(source.sightedRecords()).isEqualTo(1);
+              assertThat(source.scoredRecords()).isEqualTo(1);
+              assertThat(source.firstZeroStage()).isNull();
+            });
+    assertActiveProfile(aiWorkspace, "AI Engineer Machine Learning Python");
+
+    UUID controlWorkspace = UUID.randomUUID();
+    long controlCandidate =
+        confirm(
+            controlWorkspace,
+            "9",
+            "Backend Engineer",
+            List.of("Java", "Spring Boot"),
+            "SG | Singapore");
+    ADZUNA.enqueue(
+        responseWithDescription(
+            "CONTROL-TRACE-1",
+            "Backend Engineer",
+            "Java Spring Boot service development",
+            "Singapore"));
+
+    JobExecution controlExecution =
+        findJobs.run(controlWorkspace, controlCandidate, LocalDate.of(2060, 1, 10));
+    var controlRequest = ADZUNA.takeRequest(5, TimeUnit.SECONDS);
+    FindJobsRunDetail controlDetail =
+        findJobs.detail(controlWorkspace, controlExecution.getId()).orElseThrow();
+
+    assertThat(controlRequest).isNotNull();
+    assertThat(controlRequest.getRequestUrl().encodedPath()).isEqualTo("/v1/api/jobs/sg/search/1");
+    assertThat(controlRequest.getRequestUrl().queryParameter("what"))
+        .isEqualTo("Backend Engineer Java Spring Boot");
+    assertThat(controlDetail.sources())
+        .singleElement()
+        .satisfies(
+            source -> {
+              assertThat(source.queryText()).isEqualTo("Backend Engineer Java Spring Boot");
+              assertThat(source.recordsReceived()).isEqualTo(1);
+              assertThat(source.scoredRecords()).isEqualTo(1);
+              assertThat(source.firstZeroStage()).isNull();
+            });
+    assertActiveProfile(controlWorkspace, "Backend Engineer Java Spring Boot");
+  }
+
+  @Test
+  void concurrentCommandsShareOneActiveExecutionAndOneProductRun() throws Exception {
+    drainRequests(ADZUNA);
+    UUID workspaceId = UUID.randomUUID();
+    long candidateProfileId = confirm(workspaceId, "a");
+    ADZUNA.enqueue(response("CONCURRENT-1").setBodyDelay(1, TimeUnit.SECONDS));
+    LocalDate businessDate = LocalDate.of(2060, 1, 11);
+
+    CompletableFuture<JobExecution> first =
+        CompletableFuture.supplyAsync(
+            () -> {
+              try {
+                return findJobs.run(workspaceId, candidateProfileId, businessDate);
+              } catch (Exception exception) {
+                throw new java.util.concurrent.CompletionException(exception);
+              }
+            });
+    assertThat(ADZUNA.takeRequest(5, TimeUnit.SECONDS)).isNotNull();
+
+    JobExecution duplicate = findJobs.run(workspaceId, candidateProfileId, businessDate);
+    JobExecution completed = first.get(10, TimeUnit.SECONDS);
+
+    assertThat(duplicate.getId()).isEqualTo(completed.getId());
+    assertThat(completed.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM workspace_search_run WHERE workspace_id=?",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM batch_job_execution WHERE job_instance_id=?",
+                Integer.class,
+                completed.getJobInstanceId()))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void marksAnOrphanedExecutionStaleThenRecoversAndRestartsIt() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    long candidateProfileId = confirm(workspaceId, "b");
+    LocalDate businessDate = LocalDate.of(2060, 1, 12);
+    var parameters = findJobsParameters(workspaceId, candidateProfileId, businessDate);
+    var instance = jobRepository.createJobInstance(findJobsJob.getName(), parameters);
+    JobExecution orphaned =
+        jobRepository.createJobExecution(instance, parameters, new ExecutionContext());
+    orphaned.setStatus(BatchStatus.STARTED);
+    orphaned.setStartTime(LocalDateTime.now().minusMinutes(31));
+    orphaned.setLastUpdated(LocalDateTime.now().minusMinutes(31));
+    jobRepository.update(orphaned);
+    jdbc.update(
+        "UPDATE batch_job_execution SET start_time=?, last_updated=? WHERE job_execution_id=?",
+        java.sql.Timestamp.valueOf(LocalDateTime.now().minusMinutes(31)),
+        java.sql.Timestamp.valueOf(LocalDateTime.now().minusMinutes(31)),
+        orphaned.getId());
+
+    assertThatThrownBy(() -> findJobs.run(workspaceId, candidateProfileId, businessDate))
+        .isInstanceOf(StaleFindJobsRunException.class);
+    long runId =
+        jdbc.queryForObject(
+            "SELECT id FROM workspace_search_run WHERE workspace_id=?", Long.class, workspaceId);
+    FindJobsRunDetail stale = findJobs.detailByRunId(workspaceId, runId).orElseThrow();
+    assertThat(stale.run().status()).isEqualTo("STALE");
+    assertThat(stale.run().outcome()).isEqualTo("STALE");
+    assertThat(stale.run().failureReason())
+        .isEqualTo(
+            "The search stopped updating before completion. Restart it to resume from the last checkpoint.");
+
+    ADZUNA.enqueue(response("STALE-RECOVERY-1"));
+    JobExecution restarted = findJobs.restartByRunId(workspaceId, runId);
+
+    assertThat(restarted.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(restarted.getJobInstanceId()).isEqualTo(orphaned.getJobInstanceId());
+    assertThat(findJobs.latest(workspaceId).orElseThrow().run().outcome()).isEqualTo("COMPLETED");
   }
 
   @Test
@@ -407,20 +568,41 @@ class FindJobsIntegrationTests {
   }
 
   private long confirm(UUID workspaceId, String suffix, String searchMarkets) {
+    return confirm(
+        workspaceId,
+        suffix,
+        "Java Developer",
+        List.of("Java", "Spring Boot"),
+        searchMarkets,
+        "Java Spring");
+  }
+
+  private long confirm(
+      UUID workspaceId, String suffix, String role, List<String> skills, String searchMarkets) {
+    return confirm(workspaceId, suffix, role, skills, searchMarkets, "");
+  }
+
+  private long confirm(
+      UUID workspaceId,
+      String suffix,
+      String role,
+      List<String> skills,
+      String searchMarkets,
+      String keywordOverride) {
     workspaces.create(workspaceId);
     long resumeId =
         onboarding.saveResume(
             workspaceId, "resume.pdf", "application/pdf", 100, "a".repeat(63) + suffix);
     long profileVersionId = onboarding.createDraft(workspaceId, resumeId, "Java Candidate");
-    onboarding.addSkills(profileVersionId, List.of("Java", "Spring Boot"));
+    onboarding.addSkills(profileVersionId, skills);
     onboarding.savePreferences(
         workspaceId,
         profileVersionId,
         new SearchPreferences(
-            "Java Developer",
+            role,
             "banking",
             "Singapore",
-            "Java Spring",
+            keywordOverride,
             searchMarkets,
             2,
             "PERMANENT",
@@ -428,11 +610,42 @@ class FindJobsIntegrationTests {
     return onboarding.confirm(workspaceId, onboarding.latestProfile(workspaceId).orElseThrow());
   }
 
+  private void assertActiveProfile(UUID workspaceId, String expectedQuery) {
+    assertThat(
+            jdbc.queryForMap(
+                "SELECT source, source_key, location, keywords, active FROM search_profile WHERE workspace_id=?",
+                workspaceId))
+        .containsEntry("source", "ADZUNA")
+        .containsEntry("source_key", "sg")
+        .containsEntry("location", "Singapore")
+        .containsEntry("keywords", expectedQuery)
+        .containsEntry("active", true);
+  }
+
+  private org.springframework.batch.core.job.parameters.JobParameters findJobsParameters(
+      UUID workspaceId, long candidateProfileId, LocalDate businessDate) {
+    return new JobParametersBuilder()
+        .addLocalDate("businessDate", businessDate, true)
+        .addString("workspaceId", workspaceId.toString(), true)
+        .addLong("candidateProfileId", candidateProfileId, true)
+        .addString("searchDefinitionVersion", runs.definitionVersion(workspaceId), true)
+        .addString("normalizationVersion", "v1", true)
+        .addString("duplicateDetectionVersion", "fuzzy-v1", true)
+        .addString("rankingPolicyVersion", JobScoreCalculator.POLICY_VERSION, true)
+        .toJobParameters();
+  }
+
   private int countSightings(UUID workspaceId) {
     return jdbc.queryForObject(
         "SELECT count(*) FROM workspace_job_sighting WHERE workspace_id=?",
         Integer.class,
         workspaceId);
+  }
+
+  private static void drainRequests(MockWebServer server) throws InterruptedException {
+    while (server.takeRequest(1, TimeUnit.MILLISECONDS) != null) {
+      // Requests are retained for inspection; each test that asserts a request starts cleanly.
+    }
   }
 
   private static List<String> stepNames(JobExecution execution) {
@@ -456,6 +669,18 @@ class FindJobsIntegrationTests {
   }
 
   private static MockResponse response(String id, String sourceUrl, String title, String location) {
+    return responseWithDescription(
+        id, title, "Java Spring Boot Kafka payments", location, sourceUrl);
+  }
+
+  private static MockResponse responseWithDescription(
+      String id, String title, String description, String location) {
+    return responseWithDescription(
+        id, title, description, location, "https://example.test/jobs/" + id);
+  }
+
+  private static MockResponse responseWithDescription(
+      String id, String title, String description, String location, String sourceUrl) {
     return new MockResponse()
         .setHeader("Content-Type", "application/json")
         .setBody(
@@ -464,12 +689,12 @@ class FindJobsIntegrationTests {
               "id":"%s","title":"%s",
               "company":{"display_name":"Example Bank"},
               "location":{"display_name":"%s"},
-              "description":"<p>Java Spring Boot Kafka payments</p>",
+              "description":"<p>%s</p>",
               "contract_type":"permanent","created":"2026-08-30T00:00:00Z",
               "redirect_url":"%s"
             }]}
             """
-                .formatted(id, title, location, sourceUrl));
+                .formatted(id, title, location, description, sourceUrl));
   }
 
   private static MockResponse greenhouseResponse() {

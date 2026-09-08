@@ -5,10 +5,13 @@ export function displayMessage(error) {
     if (error.code === 'WORKSPACE_NOT_READY' || error.code === 'PROFILE_NOT_READY') {
       return 'Complete your profile before using the dashboard.';
     }
-    if (error.code === 'JOB_LAUNCH_CONFLICT') {
+    if (error.code === 'JOB_ACTIVE') {
       return 'A Find Jobs run is already in progress. Review the latest source run before trying again.';
     }
-    if (error.code === 'JOB_INSTANCE_ALREADY_COMPLETE') {
+    if (error.code === 'JOB_STALE') {
+      return 'The previous search stopped updating. Restart it from the latest source run.';
+    }
+    if (error.code === 'JOB_ALREADY_COMPLETE') {
       return 'This search has already completed. Change your search settings before running it again.';
     }
   }

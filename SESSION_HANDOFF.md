@@ -16,15 +16,15 @@ M3.2 implementation commit: 2885c84 (feat(ranking): add role-aware calibration)
 Product baseline: D1 Startup Requirements and Architecture
 Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
-React dashboard checkpoint: R1 — COMPLETE (2026-09-07)
-Next shipping milestone: S0.1 Discovery Execution Safety — NOT STARTED
+React surface checkpoint: R1.1 — COMPLETE (2026-09-08)
+Next shipping milestone: S0.1 Discovery Execution Safety — COMPLETE (2026-09-08); select exactly one next checkpoint
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V23
-Latest full test: 111 tests, 0 failures, 0 errors, 0 skipped
-Latest focused check: fresh PostgreSQL 17 through V23; role-aware ranking, intelligence, and Find-jobs integration suites pass
+Latest Flyway migration: V25
+Latest full test: 129 Java tests plus 3 React tests, 0 failures, 0 errors, 0 skipped
+Latest focused check: AI Engineer/control/empty-provider diagnostics, concurrent command reconciliation, and stale-run recovery pass
 Local runtime: Docker app running; PostgreSQL healthy; /actuator/health reports UP
 ```
 
@@ -40,15 +40,57 @@ Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md),
 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), and [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
-## 2. React dashboard checkpoint — R1
+## 2. Owner-approved next UI milestone — assisted multi-market onboarding
 
-The owner selected and completed a bounded React migration for `/` and `/dashboard`. A Vite-built
-React dashboard is embedded in the Spring Boot JAR and reads one workspace-owned `/api/dashboard`
-projection while retaining existing workspace-scoped command endpoints. Setup and applications remain
-Thymeleaf routes. Maven provides pinned project-local Node tooling and a committed lockfile; no
-global Node installation is required. Verification on 2026-09-07: React/Vitest, two dashboard
-controller tests, `./mvnw clean test` (113 Java tests), JAR asset inspection, and `git diff --check`
-passed. This does not alter the launch-gap assessment or select a replacement for S0.1.
+Status: **approved for the next agent; not implemented.** This supersedes the claim that R1.1 is the
+final onboarding UX checkpoint, but does not reopen its route-migration evidence.
+
+Owner feedback after hands-on local review:
+
+- The current `/setup` React page permits only **one** country/location although the backend already
+  supports normalized `searchMarkets`. Users must be able to add, edit, and remove multiple market
+  rows before activation.
+- The setup asks users to select too much manually. Make résumé-derived role/skill suggestions and a
+  sensible market default prefilled and prominent. Users must be able to modify or remove every
+  prefilled value; inferred evidence remains unconfirmed until activation.
+- The opening experience should be résumé-first and visually clean. Start with a single, clear upload
+  action; only reveal the reviewed profile and market refinement after parsing succeeds. Do not show a
+  dense multi-section form before a resume exists.
+- Keep the in-app React navigation shell (Browse / Profile / My list) and make the flow feel like one
+  responsive workspace rather than a sequence of document-like pages. Preserve direct-route refresh,
+  browser Back/Forward, loading/error/empty states, keyboard access, and the workspace ownership
+  boundary.
+
+Required design/acceptance criteria before coding:
+
+1. Confirm the desired default market policy (currently Singapore is hard-coded in `Setup.jsx`):
+   resume location if confidently extracted, browser locale, or Singapore fallback. Never infer a
+   country silently without showing it as editable.
+2. Use the existing `SearchTarget` / `searchMarkets` API contract. The React activation request must
+   submit all rows; validation must reject blank, duplicate, or unsupported rows with product-safe
+   messages.
+3. Keep readiness acknowledgement explicit; no UI may auto-acknowledge it.
+4. Add focused UI/API coverage for multiple rows and the résumé-first state, then run
+   `./mvnw clean test`, Spotless, and `git diff --check`. Perform a real browser/manual check of the
+   responsive layout before calling it complete.
+5. Update `BUILD_PROGRESS.md` only after these observations. This UX milestone does not authorize
+   identity, privacy, deployment, provider, scoring, or S0.1 changes.
+
+Current code landmarks: `frontend/src/Setup.jsx` has the single `country`/`location` state and sends
+one `searchMarkets` row; `ResumeProfileController.ActivationRequest` already accepts a list;
+`SearchTarget` owns backend target validation. Local Docker was refreshed on 2026-09-08 with bundle
+`index--PkvbTx5.js` and Flyway V25; that smoke test is not evidence that the next UX work is done.
+
+## 3. React surface checkpoint — R1.1
+
+The owner selected and completed the React migration for `/dashboard`, `/setup`, and `/applications`.
+A Vite-built React bundle is embedded in the Spring Boot JAR. Setup provides editable resume-derived
+suggestions and explicit readiness acknowledgement; applications uses workspace-scoped lifecycle and
+follow-up APIs. Maven provides pinned project-local Node tooling and a committed lockfile; no global
+Node installation is required. Verification on 2026-09-08: `./mvnw clean test` passed (120 Java tests
+and 2 React/Vitest tests), with fresh PostgreSQL 17 Testcontainers through Flyway V24; Spotless and
+`git diff --check` also passed. At that R1.1 checkpoint S0.1 remained incomplete; its later completion
+evidence is recorded in the resume checkpoint above and in `BUILD_PROGRESS.md`.
 
 ## 3. D1 startup requirements re-baseline
 
@@ -93,7 +135,7 @@ fault-isolation, deployment, data-ownership, or team-ownership pressure.
 | Source ecosystem | PARTIAL | Legitimate adapters exist; provider contracts, quotas, shared acquisition and sustainable costs are unresolved |
 | Job Explorer and ranking quality | PARTIAL | Explainable scores exist; filters/keyset paging, feedback calibration and cross-role accuracy remain |
 | Identity/RBAC/account recovery | MISSING launch blocker | Anonymous UUID cookie is not authentication |
-| Product run queue/concurrency/recovery/live progress | MISSING launch blocker | Batch metadata exists but product abstraction, admission control, cancellation and SSE do not |
+| Product run queue/concurrency/recovery/live progress | PARTIAL launch blocker | Single-process product run IDs, safe concurrency, stale recovery and committed diagnostics exist; distributed admission, cancellation and SSE do not |
 | Privacy/storage/export/deletion | MISSING launch blocker | Original résumé storage, scanning, retention and account workflows do not exist |
 | Production platform | MISSING launch blocker | No CI/CD, production environment, managed HA database, restore evidence, centralized observability or security/load testing |
 
@@ -101,9 +143,12 @@ Current local scale is only 14 anonymous workspaces, 1,528 raw jobs, 1,527 norma
 runs, 47 Batch executions, two applications, and a 36 MB database. This is evidence of behavior, not
 capacity.
 
-Startup delivery is indexed as D1/D2 followed by S0–S6. S0.1 Discovery Execution Safety is now the
-selected next implementation checkpoint because the zero-result and active-run defects share the
-Find Jobs execution boundary and undermine product evidence. No S0 runtime work has started.
+Startup delivery is indexed as D1/D2 followed by S0–S6. S0.1 Discovery Execution Safety completed on
+2026-09-08. V24 records source query/count/first-zero-stage diagnostics, V25 adds the product `STALE`
+state, and the service now projects product run IDs/statuses, reconciles concurrent same-command
+launches, and recovers orphaned executions after the configurable 30-minute threshold. This is a
+single-process safety boundary; distributed admission, leases, cancellation and live progress remain
+in S2.
 
 ## 3. M3.2 completed slice — exact handoff
 
@@ -226,8 +271,9 @@ explicit user checkpoint.
 
 #### BUG-M3-001 — AI Engineer returns no integrated results
 
-Status: **OPEN and not investigated**, recorded from user observation on 2026-09-03. Do not claim a
-cause or a fix without reproducing it and collecting evidence.
+Status: **DIAGNOSED FOR S0.1 on 2026-09-08**. The original live ten-market execution was not retained,
+so its provider-side cause remains unknown and must not be guessed. The controlled execution path and
+the diagnostic evidence required for any recurrence are now verified.
 
 Reproduction reported by the user:
 
@@ -242,7 +288,17 @@ expected string; it does not yet prove which terms, country routes, provider pro
 responses, freshness rules, normalization, workspace sightings, or ranking inputs were used by the
 Adzuna/Find-jobs path.
 
-Required evidence for a future diagnosis, without assuming the fault is ranking or Adzuna:
+Verified controlled evidence:
+
+- An AI Engineer Singapore fixture persisted the generated query
+  `AI Engineer Machine Learning Python`, called the expected Adzuna Singapore route, and reconciled
+  one provider result through raw landing, normalization, workspace sighting and scoring.
+- A Backend Engineer control in the same market persisted `Backend Engineer Java Spring Boot` and
+  also reconciled through the complete pipeline.
+- A legitimate empty provider response persists the source, market and query with
+  `firstZeroStage=PROVIDER_RESPONSE`, allowing the UI/API to explain where the run became empty.
+
+Evidence retained for a future live recurrence, without assuming the fault is ranking or Adzuna:
 
 - the active candidate's ordered role intent and persisted generated query rows;
 - all ten active Adzuna source profiles, including country, location, keywords, page limit, and query
@@ -317,7 +373,7 @@ stored ISO country code user-editable.
 
 #### BUG-M3-005 — Find Jobs leaks a raw Spring Batch already-running error
 
-Status: **OPEN; launch boundary inspected, runtime symptom not yet reproduced or fixed**.
+Status: **FIXED for the S0.1 single-process boundary on 2026-09-08**.
 
 Observed user-facing message when trying to run Find Jobs again:
 
@@ -339,6 +395,14 @@ Read-only inspection on 2026-09-04 confirmed two direct leak paths: `FindJobsPag
 REST error body. `FindJobsService` records `workspace_search_run` only after `JobOperator.start(...)`
 returns, so a launch conflict can happen before the active execution is projected for the user. This
 narrows the S0.1 design problem but does not establish why execution 36 remained active.
+
+S0.1 now returns a workspace-owned product `runId`, a product-safe status and bounded outcome; normal
+UI/API responses no longer expose JobInstance/JobExecution IDs, versions or internal job names. A
+real two-thread test verifies that simultaneous identical commands reconcile to one Batch execution
+and one product run. An orphaned execution older than the configurable 30-minute threshold is marked
+`STALE`, recovered and restarted on the same JobInstance so committed checkpoints remain usable.
+The guard is intentionally process-local; cross-node leases/admission and live cancellation remain an
+S2 launch requirement.
 
 #### BUG-M3-006 — .NET Engineer ranks highly for Java Backend and unrelated Frontend profiles
 
@@ -504,8 +568,8 @@ Useful APIs:
 ```text
 POST /find-jobs
 GET  /api/batch/find-jobs/runs
-GET  /api/batch/find-jobs/runs/{jobExecutionId}
-POST /api/batch/find-jobs/runs/{jobExecutionId}/restart
+GET  /api/batch/find-jobs/runs/{runId}
+POST /api/batch/find-jobs/runs/{runId}/restart
 GET  /api/jobs
 GET  /api/jobs/{id}
 GET  /api/duplicates
@@ -534,7 +598,7 @@ src/main/java/com/ankit/joblens/
   dashboard/      Thymeleaf controllers and view tracking
 
 src/main/resources/
-  db/migration/   Flyway V1-V23
+  db/migration/   Flyway V1-V25
   sql/            externalized SQL grouped by feature
   templates/      setup, dashboard, applications
 ```
@@ -589,7 +653,7 @@ old personal/learning requirement boundary. The startup delivery index is:
 ```text
 D1 Startup requirements and architecture — COMPLETE
 D2 V1 engineering standards — COMPLETE
-S0.1 Discovery execution safety — SELECTED, NOT STARTED
+S0.1 Discovery execution safety — COMPLETE (2026-09-08)
 S0.2 Onboarding correctness — QUEUED, NOT STARTED
 S0.3 Cross-role ranking correctness — QUEUED, NOT STARTED
 S1 Authenticated account ownership and RBAC — NOT STARTED
@@ -605,6 +669,7 @@ and does not override S0–S6. Do not combine the
 startup modules or silently advance. At each boundary, finish tests, evidence, documentation, and a
 conventional commit, then obtain explicit user direction before starting another module.
 
-The implementation baseline is M3.2, the product baseline is D1, and the engineering baseline is D2.
-The next implementation boundary is S0.1 only. Do not include S0.2, S0.3, S1–S6, M2.8, setup or
-application React migration, or a microservice split without a later explicit checkpoint decision.
+The implementation baseline is M3.2 plus S0.1, the product baseline is D1, and the engineering
+baseline is D2. Select exactly one next checkpoint before implementation. Do not combine S0.2,
+S0.3, the approved assisted multi-market onboarding follow-up, S1–S6, M2.8, or a microservice split
+without an explicit checkpoint decision.
