@@ -1,8 +1,6 @@
 package com.ankit.joblens.dashboard;
 
-import com.ankit.joblens.lifecycle.ApplicationLifecyclePolicy;
 import com.ankit.joblens.lifecycle.ApplicationLifecycleService;
-import com.ankit.joblens.lifecycle.ApplicationQueryRepository;
 import com.ankit.joblens.lifecycle.ApplicationStatus;
 import com.ankit.joblens.lifecycle.FollowUpJobService;
 import com.ankit.joblens.workspace.WorkspaceCandidateProfileService;
@@ -10,9 +8,6 @@ import com.ankit.joblens.workspace.WorkspaceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.batch.core.job.JobExecutionException;
 import org.springframework.stereotype.Controller;
@@ -28,42 +23,28 @@ public class ApplicationPageController {
   private final WorkspaceContext workspaceContext;
   private final WorkspaceCandidateProfileService candidateProfiles;
   private final ApplicationLifecycleService lifecycle;
-  private final ApplicationLifecyclePolicy policy;
-  private final ApplicationQueryRepository queries;
   private final FollowUpJobService followUpJob;
 
   public ApplicationPageController(
       WorkspaceContext workspaceContext,
       WorkspaceCandidateProfileService candidateProfiles,
       ApplicationLifecycleService lifecycle,
-      ApplicationLifecyclePolicy policy,
-      ApplicationQueryRepository queries,
       FollowUpJobService followUpJob) {
     this.workspaceContext = workspaceContext;
     this.candidateProfiles = candidateProfiles;
     this.lifecycle = lifecycle;
-    this.policy = policy;
-    this.queries = queries;
     this.followUpJob = followUpJob;
   }
 
   @GetMapping("/applications")
   public String applications(
       Model model, HttpServletRequest request, HttpServletResponse response) {
-    WorkspaceCandidate owner;
     try {
-      owner = owner(request, response);
+      owner(request, response);
     } catch (IllegalStateException exception) {
       return "redirect:/setup";
     }
-    List<Map<String, Object>> applications =
-        queries.findApplications(null, owner.candidateProfileId()).stream()
-            .map(this::withAllowedTransitions)
-            .toList();
-    model.addAttribute("applications", applications);
-    model.addAttribute("followUps", queries.findFollowUps(null, null, owner.candidateProfileId()));
-    model.addAttribute("today", LocalDate.now());
-    return "applications";
+    return "forward:/app/index.html";
   }
 
   @PostMapping("/applications/save")
@@ -138,15 +119,6 @@ public class ApplicationPageController {
       redirectAttributes.addFlashAttribute("error", exception.getMessage());
     }
     return "redirect:/applications";
-  }
-
-  private Map<String, Object> withAllowedTransitions(Map<String, Object> application) {
-    var result = new LinkedHashMap<>(application);
-    ApplicationStatus current = ApplicationStatus.valueOf((String) application.get("status"));
-    result.put(
-        "allowedTransitions",
-        policy.allowedTransitions(current).stream().map(ApplicationStatus::name).toList());
-    return result;
   }
 
   private WorkspaceCandidate owner(HttpServletRequest request, HttpServletResponse response) {

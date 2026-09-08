@@ -32,13 +32,37 @@ class ApplicationPageControllerTests {
             throw new WorkspaceNotReadyException();
           }
         };
-    var controller =
-        new ApplicationPageController(workspaceContext, candidateProfiles, null, null, null, null);
+    var controller = new ApplicationPageController(workspaceContext, candidateProfiles, null, null);
 
     String view =
         controller.applications(
             new ConcurrentModel(), new MockHttpServletRequest(), new MockHttpServletResponse());
 
     assertThat(view).isEqualTo("redirect:/setup");
+  }
+
+  @Test
+  void forwardsAReadyWorkspaceToTheReactApplication() {
+    WorkspaceContext workspaceContext =
+        new WorkspaceContext(null) {
+          @Override
+          public UUID resolve(HttpServletRequest request, HttpServletResponse response) {
+            return UUID.randomUUID();
+          }
+        };
+    WorkspaceCandidateProfileService candidateProfiles =
+        new WorkspaceCandidateProfileService(null) {
+          @Override
+          public long requireCandidateProfile(UUID ignored) {
+            return 1L;
+          }
+        };
+    var controller = new ApplicationPageController(workspaceContext, candidateProfiles, null, null);
+
+    String view =
+        controller.applications(
+            new ConcurrentModel(), new MockHttpServletRequest(), new MockHttpServletResponse());
+
+    assertThat(view).isEqualTo("forward:/app/index.html");
   }
 }

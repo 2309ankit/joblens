@@ -4,9 +4,13 @@ import { ArrowRight, BriefcaseBusiness, ExternalLink, Play, RefreshCw, Sparkles 
 import { Toaster, toast } from 'sonner';
 import { ApiError, dashboard, findJobs, restartFindJobs, saveApplication } from './api';
 import { displayMessage } from './messages';
+import { Setup } from './Setup';
+import { Applications } from './Applications';
+import { WorkspaceNavigationContext, useWorkspaceNavigation } from './navigation';
 import './styles.css';
 
 function Dashboard() {
+  const { navigate } = useWorkspaceNavigation();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
@@ -14,10 +18,10 @@ function Dashboard() {
     setError('');
     try { setData(await dashboard()); }
     catch (failure) {
-      if (failure instanceof ApiError && failure.code === 'WORKSPACE_NOT_READY') window.location.assign('/setup');
+      if (failure instanceof ApiError && failure.code === 'WORKSPACE_NOT_READY') navigate('/setup');
       else setError(displayMessage(failure));
     }
-  }, []);
+  }, [navigate]);
   useEffect(() => { refresh(); }, [refresh]);
   async function run(action, success) {
     setWorking(true); setError('');
@@ -53,4 +57,30 @@ function EmptyJobs() { return <div className="empty-jobs"><span><Sparkles size={
 function SourceRuns({ sources }) { return <div className="source-grid">{sources.map((source) => <article className="source-card" key={source.searchProfileId}><div><span className="source-label">{source.source}</span><strong>{source.location || source.countryCode || 'Configured market'}</strong></div><span className={`source-status ${source.status?.toLowerCase()}`}>{source.status}</span><dl><div><dt>Received</dt><dd>{source.recordsReceived}</dd></div><div><dt>Scored</dt><dd>{source.scoredRecords}</dd></div><div><dt>Pages</dt><dd>{source.pagesFetched}/{source.pagesAttempted}</dd></div></dl>{source.failureReason && <p className="source-error">{source.failureReason}</p>}</article>)}</div>; }
 function FeaturedJob({ job, working, onSave }) { return <section className="featured"><div className="featured-art" aria-hidden="true"><span>{job.source}</span><strong>{job.score}</strong><small>match score</small></div><div className="featured-copy"><p className="eyebrow"><Sparkles size={13} aria-hidden="true" /> Featured for you</p><h1>{job.title}</h1><p className="featured-company">{job.company || 'Company not disclosed'} <span>·</span> {job.location || 'Location flexible'}</p><div className="job-meta"><span>{job.best_target_role_name || 'Universal match'}</span>{job.calibration_pack_code && <span>{job.calibration_pack_code}</span>}</div><p className="featured-note">A high-ranking role selected from your latest search. Open it to review the complete listing and score evidence.</p><div className="hero-actions"><a className="button primary" href={`/api/job-views/${job.id}/open`} target="_blank" rel="noreferrer"><Play size={15} fill="currentColor" aria-hidden="true" /> Open role</a>{job.application_id ? <a className="button ghost" href="/applications">In your list <ArrowRight size={15} aria-hidden="true" /></a> : <button className="button ghost" disabled={working} onClick={onSave}>+ My list</button>}</div></div></section>; }
 function JobCard({ job, rank, working, onSave }) { return <article className="job-card"><div className="job-art"><span>{String(rank).padStart(2, '0')}</span><strong>{job.source}</strong><i>{job.score}</i></div><div className="job-main"><span className="source-label">{job.best_target_role_name || 'Recommended role'}</span><h3>{job.title}</h3><p>{job.company || 'Company not disclosed'} <span>·</span> {job.location || 'Location flexible'}</p><div className="job-actions"><a href={`/api/job-views/${job.id}/open`} target="_blank" rel="noreferrer">View role <ExternalLink size={13} aria-hidden="true" /></a>{job.application_id ? <a href="/applications">My list <ArrowRight size={13} aria-hidden="true" /></a> : <button className="text-button" disabled={working} onClick={onSave}>+ Save</button>}</div></div></article>; }
-createRoot(document.getElementById('root')).render(<Dashboard />);
+function WorkspaceApp() {
+  const [path, setPath] = useState(normalizePath(window.location.pathname));
+  const navigate = useCallback(next => {
+    const destination = normalizePath(next);
+    if (destination !== window.location.pathname) window.history.pushState({}, '', destination);
+    setPath(destination);
+  }, []);
+  useEffect(() => {
+    const handlePopState = () => setPath(normalizePath(window.location.pathname));
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+  const interceptWorkspaceLink = event => {
+    const link = event.target.closest('a[href]');
+    if (!link || link.target || link.hasAttribute('download') || event.defaultPrevented) return;
+    const url = new URL(link.href, window.location.origin);
+    if (url.origin !== window.location.origin || !['/', '/dashboard', '/setup', '/applications'].includes(url.pathname)) return;
+    event.preventDefault();
+    navigate(url.pathname);
+  };
+  const screen = path === '/setup' ? <Setup /> : path === '/applications' ? <Applications /> : <Dashboard />;
+  return <WorkspaceNavigationContext.Provider value={{ navigate }}><div onClickCapture={interceptWorkspaceLink}>{screen}</div></WorkspaceNavigationContext.Provider>;
+}
+
+function normalizePath(path) { return path === '/' ? '/dashboard' : path; }
+
+createRoot(document.getElementById('root')).render(<WorkspaceApp />);

@@ -7,7 +7,6 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -28,52 +27,9 @@ public class OnboardingController {
   }
 
   @GetMapping("/setup")
-  public String setup(HttpServletRequest request, HttpServletResponse response, Model model) {
-    UUID workspaceId = workspaceContext.resolve(request, response);
-    model.addAttribute("workspaceId", workspaceId);
-    OnboardingProfile profile = onboardingService.latest(workspaceId).orElse(null);
-    model.addAttribute("profile", profile);
-    model.addAttribute("skillCatalog", onboardingService.skillOptions(workspaceId, ""));
-    model.addAttribute("roleCatalog", onboardingService.roleOptions(workspaceId, ""));
-    List<IntegratedCountry> countries = onboardingService.countries();
-    model.addAttribute("countries", countries);
-    model.addAttribute(
-        "integratedCountryCodes", countries.stream().map(IntegratedCountry::code).toList());
-    model.addAttribute(
-        "profileIntelligence",
-        profile == null
-            ? new ProfileIntelligence(List.of(), List.of())
-            : onboardingService.intelligence(workspaceId));
-    ResumeReadinessAssessment readiness = null;
-    if (profile != null) {
-      try {
-        readiness = onboardingService.readiness(workspaceId);
-      } catch (IllegalStateException legacyProfileWithoutAssessment) {
-        // Profiles created before the advisor milestone have no retained resume text to reassess.
-      }
-    }
-    model.addAttribute("readiness", readiness);
-    model.addAttribute("providerQueries", onboardingService.providerQueries(workspaceId));
-    if (!model.containsAttribute("preferences")) {
-      model.addAttribute(
-          "preferences",
-          onboardingService
-              .preferences(workspaceId)
-              .orElseGet(
-                  () ->
-                      new SearchPreferences(
-                          "",
-                          "",
-                          "",
-                          "",
-                          "SG | Singapore",
-                          3,
-                          "PERMANENT",
-                          "REMOTE,HYBRID,ONSITE")));
-    }
-    SearchPreferences preferences = (SearchPreferences) model.getAttribute("preferences");
-    model.addAttribute("searchTargets", preferences.targets());
-    return "setup";
+  public String setup(HttpServletRequest request, HttpServletResponse response) {
+    workspaceContext.resolve(request, response);
+    return "forward:/app/index.html";
   }
 
   @PostMapping("/setup/complete")

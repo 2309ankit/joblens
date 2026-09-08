@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ankit.joblens.discovery.JoobleProperties;
@@ -236,9 +237,7 @@ class WorkspaceOnboardingIntegrationTests {
     mvc.perform(
             get("/setup").cookie(new Cookie(WorkspaceContext.COOKIE_NAME, workspaceId.toString())))
         .andExpect(status().isOk())
-        .andExpect(content().string(org.hamcrest.Matchers.containsString("Search or add a skill")))
-        .andExpect(content().string(org.hamcrest.Matchers.containsString("Registered Nurse")))
-        .andExpect(content().string(org.hamcrest.Matchers.containsString("Singapore (SG)")));
+        .andExpect(forwardedUrl("/app/index.html"));
     mvc.perform(get("/v3/api-docs"))
         .andExpect(status().isOk())
         .andExpect(
@@ -374,11 +373,7 @@ class WorkspaceOnboardingIntegrationTests {
     mvc.perform(
             get("/setup").cookie(new Cookie(WorkspaceContext.COOKIE_NAME, workspaceId.toString())))
         .andExpect(status().isOk())
-        .andExpect(
-            content().string(org.hamcrest.Matchers.containsString("Resume machine readability")))
-        .andExpect(
-            content().string(org.hamcrest.Matchers.containsString("DOCUMENT_TYPE_UNCERTAIN")))
-        .andExpect(content().string(org.hamcrest.Matchers.containsString("acknowledgeReadiness")));
+        .andExpect(forwardedUrl("/app/index.html"));
     mvc.perform(get("/v3/api-docs"))
         .andExpect(status().isOk())
         .andExpect(
@@ -739,16 +734,7 @@ class WorkspaceOnboardingIntegrationTests {
     mvc.perform(
             get("/setup").cookie(new Cookie(WorkspaceContext.COOKIE_NAME, workspaceId.toString())))
         .andExpect(status().isOk())
-        .andExpect(
-            content().string(org.hamcrest.Matchers.containsString("Searches JobLens will run")))
-        .andExpect(
-            content()
-                .string(org.hamcrest.Matchers.containsString("Override generated provider query")))
-        .andExpect(
-            content()
-                .string(
-                    org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("Candidate profile " + candidateId))));
+        .andExpect(forwardedUrl("/app/index.html"));
   }
 
   private List<String> candidateSkills(long candidateProfileId) {

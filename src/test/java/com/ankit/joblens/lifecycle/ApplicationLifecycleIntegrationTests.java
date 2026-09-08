@@ -107,6 +107,8 @@ class ApplicationLifecycleIntegrationTests {
             new CreateApplicationRequest(jobId, LocalDate.of(2030, 1, 1), "Saved for review"));
     long applicationId = ((Number) created.get("id")).longValue();
     assertThat(created).containsEntry("status", "SAVED");
+    assertThat(created)
+        .containsEntry("allowedTransitions", java.util.List.of("APPLIED", "WITHDRAWN"));
 
     var applied =
         applicationController.transition(

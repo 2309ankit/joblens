@@ -16,6 +16,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
@@ -179,7 +181,44 @@ public class ResumeProfileController {
     return service.upload(workspaceContext.resolve(request, response), file);
   }
 
+  @PostMapping("/activate")
+  @Operation(
+      summary = "Save the reviewed profile and activate it",
+      description =
+          "Atomically saves visible user-selected skills, target roles, and search preferences for this browser workspace. Resume suggestions remain suggestions until included in this request.")
+  public OnboardingProfile activate(
+      @Valid @RequestBody ActivationRequest activation,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    UUID workspaceId = workspaceContext.resolve(request, response);
+    SearchPreferences preferences =
+        new SearchPreferences(
+            String.join(", ", activation.targetRoles()),
+            activation.targetDomains(),
+            activation.primaryLocation(),
+            activation.keywords(),
+            SearchTarget.format(activation.searchMarkets()),
+            activation.maxPages(),
+            activation.employmentPreference(),
+            activation.workPreference());
+    service.completeSetup(
+        workspaceId, activation.skills(), preferences, activation.acknowledgeReadiness());
+    return service.latest(workspaceId).orElseThrow();
+  }
+
   public record SkillsRequest(@NotEmpty List<@NotBlank String> skills) {}
+
+  public record ActivationRequest(
+      @NotEmpty List<@NotBlank String> skills,
+      @NotEmpty List<@NotBlank String> targetRoles,
+      String targetDomains,
+      @NotBlank String primaryLocation,
+      String keywords,
+      @NotEmpty List<@Valid SearchTarget> searchMarkets,
+      @Min(1) @Max(20) int maxPages,
+      @NotBlank String employmentPreference,
+      @NotBlank String workPreference,
+      boolean acknowledgeReadiness) {}
 
   public record SearchPreferenceView(
       String targetRoles,

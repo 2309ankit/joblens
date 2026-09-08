@@ -25,3 +25,10 @@ export const restartFindJobs = (executionId) => request(`/api/batch/find-jobs/ru
 export const saveApplication = (normalizedJobId) => request('/api/applications', {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ normalizedJobId }),
 });
+export const applications = () => request('/api/applications');
+export const transitionApplication = (id, status, note = '') => request(`/api/applications/${id}/transitions`, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, note }),
+});
+export const followUps = () => request('/api/follow-ups');
+export const completeFollowUp = (id) => request(`/api/follow-ups/${id}/complete`, { method: 'POST' });
+export const refreshFollowUps = () => request(`/api/batch/follow-ups/run?businessDate=${new Date().toISOString().slice(0, 10)}`, { method: 'POST' });

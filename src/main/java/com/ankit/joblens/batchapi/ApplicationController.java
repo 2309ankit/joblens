@@ -1,5 +1,6 @@
 package com.ankit.joblens.batchapi;
 
+import com.ankit.joblens.lifecycle.ApplicationLifecyclePolicy;
 import com.ankit.joblens.lifecycle.ApplicationLifecycleService;
 import com.ankit.joblens.lifecycle.ApplicationQueryRepository;
 import com.ankit.joblens.lifecycle.ApplicationStatus;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,16 +34,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class ApplicationController {
 
   private final ApplicationLifecycleService service;
+  private final ApplicationLifecyclePolicy policy;
   private final ApplicationQueryRepository queries;
   private final WorkspaceContext workspaceContext;
   private final WorkspaceCandidateProfileService candidateProfiles;
 
   public ApplicationController(
       ApplicationLifecycleService service,
+      ApplicationLifecyclePolicy policy,
       ApplicationQueryRepository queries,
       WorkspaceContext workspaceContext,
       WorkspaceCandidateProfileService candidateProfiles) {
     this.service = service;
+    this.policy = policy;
     this.queries = queries;
     this.workspaceContext = workspaceContext;
     this.candidateProfiles = candidateProfiles;
@@ -123,13 +128,19 @@ public class ApplicationController {
       @RequestParam(required = false) String status,
       HttpServletRequest servletRequest,
       HttpServletResponse servletResponse) {
-    return queries.findApplications(
+    return applications(
         status == null ? null : parseStatus(status).name(),
         candidateProfileId(servletRequest, servletResponse));
   }
 
   public List<Map<String, Object>> applications(String status) {
-    return queries.findApplications(status == null ? null : parseStatus(status).name());
+    return applications(status == null ? null : parseStatus(status).name(), null);
+  }
+
+  private List<Map<String, Object>> applications(String status, Long candidateProfileId) {
+    return queries.findApplications(status, candidateProfileId).stream()
+        .map(this::withAllowedTransitions)
+        .toList();
   }
 
   @GetMapping("/{id}")
@@ -153,7 +164,16 @@ public class ApplicationController {
     if (application == null) {
       throw new LifecycleNotFoundException("Application " + id + " was not found");
     }
-    return application;
+    return withAllowedTransitions(application);
+  }
+
+  private Map<String, Object> withAllowedTransitions(Map<String, Object> application) {
+    Map<String, Object> result = new LinkedHashMap<>(application);
+    ApplicationStatus current = ApplicationStatus.valueOf((String) application.get("status"));
+    result.put(
+        "allowedTransitions",
+        policy.allowedTransitions(current).stream().map(ApplicationStatus::name).sorted().toList());
+    return result;
   }
 
   private long candidateProfileId(

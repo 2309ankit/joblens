@@ -131,6 +131,12 @@ observed constraint and a reviewed decision record.
 - UI controls must expose the user’s mental model, preserve selections, handle empty/loading/error/
   partial states, and remain keyboard accessible. Provider-specific technical inputs belong in an
   advanced/admin surface unless the user must decide them.
+- A UI migration must inventory every user-facing route in scope and identify its rendered owner.
+  Do not call a migration complete while a primary route still renders its legacy surface, unless
+  that route is an explicit, reviewed compatibility exception with an owner and removal date.
+- Assisted profile setup may preselect evidence-backed suggestions to reduce effort, but activation
+  must remain a visible user decision. Required readiness acknowledgements, consent, and inferred
+  résumé evidence may never be silently accepted by the client.
 - Country selection must provide normalized names/codes and may not demand redundant city/region
   knowledge. Skills, roles, and sectors use governed searchable vocabularies with a clear private
   custom-value path.
