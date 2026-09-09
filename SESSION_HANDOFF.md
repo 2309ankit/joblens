@@ -11,8 +11,9 @@ development/review contract, and [NEXT_MILESTONES.md](NEXT_MILESTONES.md) indexe
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
-Implementation baseline: M3.2 Role-Aware Ranking
+Implementation baseline: M3.2 Role-Aware Ranking + S0.1 Discovery Safety + assisted multi-market onboarding
 M3.2 implementation commit: 2885c84 (feat(ranking): add role-aware calibration)
+Latest onboarding-fix commit: 482a3b5 (fix(onboarding): support assisted multi-market setup)
 Product baseline: D1 Startup Requirements and Architecture
 Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
