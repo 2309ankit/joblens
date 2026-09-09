@@ -70,7 +70,9 @@ public class AdzunaJobSourceClient implements JobSourceClient {
                         .queryParam("sort_by", "date")
                         .queryParam("max_days_old", properties.maxDaysOld())
                         .queryParamIfPresent(
-                            "where", java.util.Optional.ofNullable(profile.location()))
+                            "where",
+                            java.util.Optional.ofNullable(profile.location())
+                                .filter(location -> !location.isBlank()))
                         .queryParam("content-type", "application/json")
                         .build())
             .accept(MediaType.APPLICATION_JSON)

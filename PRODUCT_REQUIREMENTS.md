@@ -268,8 +268,9 @@ exists for the relevant gate.
    partitioning, worker autoscaling, cost controls, and disaster-recovery evidence.
 
 Delivery gates control environment promotion; they do not prevent evidence-backed correction of
-known defects. S0.1 Discovery Execution Safety completed on 2026-09-08; no subsequent defect or
-launch milestone is automatically selected. G0 remains open until its threat-model,
+known defects. S0.1 Discovery Execution Safety completed on 2026-09-08; the owner selected S0.2
+Onboarding Correctness on 2026-09-09, while no later defect or launch milestone is automatically
+selected. G0 remains open until its threat-model,
 provider-economics, data-classification, and owner-decision evidence is approved. Requirement
 documentation alone does not authorize authentication, storage, infrastructure, or
 service-splitting changes.

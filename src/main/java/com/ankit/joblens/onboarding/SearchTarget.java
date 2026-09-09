@@ -11,9 +11,9 @@ public record SearchTarget(String countryCode, String location) {
     if (!countryCode.matches("[A-Z]{2}")) {
       throw new IllegalArgumentException("Each search market needs a two-letter country code");
     }
-    if (location.isBlank() || location.length() > 150) {
+    if (location.length() > 150 || location.chars().anyMatch(Character::isISOControl)) {
       throw new IllegalArgumentException(
-          "Each search market needs a location up to 150 characters");
+          "A city or region must be plain text up to 150 characters when supplied");
     }
   }
 

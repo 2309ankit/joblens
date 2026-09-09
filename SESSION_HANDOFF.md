@@ -19,16 +19,17 @@ Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
 React surface checkpoint: R1.1 — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
-Next shipping milestone: select exactly one of the still-queued checkpoints; none is currently selected
+Next shipping milestone: S0.2 Onboarding Correctness — SELECTED by owner on 2026-09-09
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V25
-Latest full test: 130 Java tests plus 8 React tests, 0 failures, 0 errors, 0 skipped
-Latest focused check: two-market React/API activation, duplicate/blank validation, browser location policy, and responsive layout pass
-Local runtime: Docker app running with index-DdhNRvf8.js and index-BG1Cp8qN.css; PostgreSQL healthy; /actuator/health reports UP
-Owner-reported next items: role/sector suggestion regression, recommendation-board semantics, and premium résumé intelligence UX; documented but no checkpoint selected
+Latest Flyway migration: V26
+Latest full test: 136 Java tests plus 11 React tests, 0 failures, 0 errors, 0 skipped
+Latest focused check: 38 Java tests plus 11 React tests covering S0.2 extraction, catalogue, market, provider, API, and persistence contracts
+Local runtime: Docker app running with index-B1VRLAyb.js and index-Cyde1RPH.css; PostgreSQL healthy; /actuator/health reports UP
+Owner-reported next items: S0.2 is selected and acceptance-open; the S0.3 recommendation diagnosis
+is recorded below, but its implementation remains queued
 ```
 
 Before making changes:
@@ -43,7 +44,24 @@ Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md),
 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), and [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
-## 2. Assisted multi-market onboarding follow-up — complete
+## 2. S0.2 Onboarding Correctness — selected, implementation verified, acceptance open
+
+The owner selected S0.2 on 2026-09-09. Its requirement and design record is
+[S0_2_ONBOARDING_CORRECTNESS.md](S0_2_ONBOARDING_CORRECTNESS.md). The implemented slice adds
+deterministic résumé contact-noise correction, accurate professional-summary evidence, hyphenated
+Front-end role aliases, searchable skill/role/sector editors, a versioned canonical sector catalogue
+with workspace-private additions, country-wide search markets, progressive evidence review, and
+same-browser-session draft recovery. It does not include S0.3 recommendation/ranking semantics.
+
+The clean suite passed with 136 Java tests and 11 React tests against fresh PostgreSQL V1–V26. A
+focused 38-Java-test suite, provider contract checks, packaging, live Compose health/OpenAPI checks,
+and desktop/mobile headless Chrome inspection also passed. The redacted engineering fixtures measure
+100% recall and precision for 14 expected explicit skills across four professions. S0.2 remains open
+until the owner reviews those fixture expectations, representative PDF/DOC/DOCX files through the
+5 MB boundary establish parsing p95, and final assistive-technology review is recorded. Do not mark
+the checkpoint complete or begin S0.3 before those gates are resolved or explicitly excepted.
+
+## 3. Assisted multi-market onboarding follow-up — complete
 
 Status: **implemented and verified on 2026-09-08.** The change closes `BUG-ONBOARDING-01` and
 `BUG-ONBOARDING-02` without reopening the R1.1 route-migration scope.
@@ -114,7 +132,7 @@ No provider, Batch, scoring, schema, identity, privacy, deployment, or run-contr
 The browser estimate is deliberately advisory and may be wrong for VPNs, travel, generic locales, or
 unmapped time zones; the visible source label and required user review are the compensating control.
 Do not add IP/GPS lookup or résumé-location extraction without a separately reviewed privacy and
-accuracy contract. Select exactly one queued checkpoint before new implementation.
+accuracy contract. S0.2 is now the selected checkpoint; do not combine it with another milestone.
 
 ## 3. React surface checkpoint — R1.1
 
@@ -352,10 +370,10 @@ a milestone.
 
 #### BUG-M3-002 — Résumé title suggestions contain false positives, duplicates, and missed directions
 
-Status: **OPEN and not investigated**, recorded from a user-supplied Senior AI Engineer résumé on
-2026-09-03. The supplied résumé contains personal contact and profile information; those values are
-deliberately not copied into this repository. The minimum redacted evidence needed to reproduce the
-problem is recorded below.
+Status: **IMPLEMENTED AND AUTOMATED-TESTED IN S0.2; owner fixture review remains open**. The original
+report came from a user-supplied Senior AI Engineer résumé on 2026-09-03. The supplied résumé contains
+personal contact and profile information; those values are deliberately not copied into this
+repository. The minimum redacted evidence used to reproduce the problem is recorded below.
 
 Relevant résumé structure:
 
@@ -377,16 +395,16 @@ Observed setup output:
   `R` and `js` extracted from unrelated prose or skill lines. This is noisy and makes the valid AI
   evidence appear contradictory.
 
-Expected product boundary to verify later: contact, social, and blog labels or URL hosts must not
+Implemented boundary: contact, social, and blog labels or URL hosts do not
 become job-title suggestions; identical canonical suggestions should not be repeated; evidence source
 labels should correspond to the actual résumé section; and explicit recent experience should be
 eligible to suggest more than one plausible direction without silently selecting it as search intent.
-Do not change extraction heuristics until the stored suggestion/evidence rows and section parsing for
-this redacted fixture have been inspected.
+Extractor version `esco-deterministic-v4`, the one-row-per-canonical-role key, and focused tests now
+cover these cases. The final owner-reviewed fixture gate remains open.
 
 #### UX-M3-003 — Preferred sectors need a selectable catalogue control
 
-Status: **OPEN product/UX gap; reported again on 2026-09-09; not designed or implemented**.
+Status: **IMPLEMENTED AND AUTOMATED-TESTED IN S0.2; final acceptance remains open**.
 
 The setup form currently makes preferred sectors difficult to enter consistently. The requested
 direction is a searchable dropdown or multi-select backed by normalized sector records, while keeping
@@ -395,20 +413,20 @@ adds a small curated sector catalogue, or permits workspace-private values; that
 must be made before implementation. Preserve selected values across profile versions and ensure the
 same normalized values drive query generation and the optional sector ranking dimension.
 
-Inspection on 2026-09-09 confirms that the React page still renders preferred sectors as one plain
-text input. It has no suggestion source, normalized selectable values, token/chip treatment, keyboard
-listbox, or empty/loading/error state. This is separate from the completed multi-market fix.
+The S0.2 implementation replaces the plain text field with a debounced searchable multi-select backed
+by Flyway V26's versioned `joblens-sector-v1` catalogue, aliases, and workspace-private values. The
+canonical compatibility projection continues to drive existing portal-query and scoring reads.
 
 #### BUG-M3-004 — City/region is mandatory even when country is selected
 
-Status: **OPEN and not investigated**.
+Status: **IMPLEMENTED AND AUTOMATED-TESTED IN S0.2; final acceptance remains open**.
 
-Observed behavior: setup requires a city/region value even when the user has already selected a
+Starting behavior: setup required a city/region value even when the user had already selected a
 supported country. The user expects country-only searches to be valid and city/region to narrow the
-market only when supplied. Before changing validation, verify each provider's behavior for a blank or
-country-level location and how `workspace_search_target`, query generation, source profiles, scoring,
-and portal links represent a country-only target. Do not silently manufacture a city or make the
-stored ISO country code user-editable.
+market only when supplied. V26 and `SearchTarget` now persist blank as country-wide. Adzuna omits its
+optional `where`, while Jooble and outbound links derive the country display name from the validated
+country key because their contract needs a location string. Focused provider, portal, API, and
+PostgreSQL tests cover the boundary without manufacturing a city or exposing the ISO code for edits.
 
 #### BUG-M3-005 — Find Jobs leaks a raw Spring Batch already-running error
 
@@ -445,8 +463,40 @@ S2 launch requirement.
 
 #### BUG-M3-006 — .NET Engineer ranks highly for Java Backend and unrelated Frontend profiles
 
-Status: **OPEN and not investigated**. This is a ranking-quality query, not evidence that a specific
-weight or matcher is already known to be wrong.
+Status: **OPEN and investigated read-only on 2026-09-09; not implemented**. The current local data
+proves the recommendation-presentation defect and reproduces broad-role/baseline scoring risk, but it
+does not retain the exact owner-reported Java Backend and Frontend candidate profiles. This remains a
+ranking-quality query rather than evidence that one isolated weight or matcher is already the fix.
+
+Read-only local evidence from the active candidate and 601 dashboard-eligible jobs:
+
+- Five retained `.NET` listings were dashboard-eligible but ranked only 225–325, so none entered the
+  current 25-row dashboard response. The active candidate targets AI Engineer, Senior AI Engineer,
+  and Software Engineer rather than either exact reported profile; this is not a complete reproduction.
+- `Backend Software Engineer (.NET) - YZ11` scored 43 for Software Engineer: 25 role-title, 5
+  seniority, 5 location, 5 employment, and 3 missing-salary points, with zero confirmed skill,
+  calibrated skill, sector, work-arrangement, and freshness contribution. Its normalized content hash
+  is `152e74b64ab1a76f3589515c310aaf7d5bc8f71b04d61ebadcf6824a339f4c3e`.
+- Other retained `.NET` listings scored 42–46 principally because the exact or alias-level broad
+  `Software Engineer` title earned 23–25 points. A Full Stack `.NET` listing with no role-title match
+  still scored 19 from one confirmed SQL match plus seniority/location/employment/salary baseline.
+- The inspected `job_skill` rows contain Java, JavaScript, Microservices, Angular, CSS, TypeScript,
+  Docker, and SQL where applicable, but no `.NET`, `C#`, or `ASP.NET`. This establishes a taxonomy/
+  extraction coverage gap, not by itself a safe negative-scoring rule.
+- The formula does not reward generic `Engineer` as a fallback token when a distinctive target-role
+  token exists. The observed 25 points come from matching the full broad target phrase `Software
+  Engineer`; a no-role/no-skill result can still receive roughly 30–35 non-fit baseline points under
+  favorable preferences.
+- `list-ranked-jobs.sql` has no recommendation qualifier or threshold and converts missing scores to
+  zero. React always labels row one `Featured for you` and rows one through eight `Top matches`.
+  Therefore the presentation defect is proven even though today's retained `.NET` rows are outside
+  the response limit.
+- Existing tests select the best target-role projection but do not include reviewed `.NET` Fit/Maybe/
+  Not-fit controls, recommendation qualification, Precision@10, or dashboard presentation assertions.
+
+Before implementation, add the missing Java Backend and Frontend comparison fixtures and define a
+versioned qualification decision distinct from raw additive score. Do not derive a threshold from the
+retained active profile or treat the local rank positions as the owner reproduction.
 
 User-reported reproductions:
 
@@ -486,10 +536,10 @@ professions that use the universal-only policy.
 
 #### BUG-ONBOARDING-03 — React role and sector suggestions are no longer searchable
 
-Status: **OPEN and inspected on 2026-09-09; not implemented**. Assign to S0.2 if selected.
+Status: **IMPLEMENTED AND AUTOMATED/BROWSER-TESTED IN S0.2; final acceptance remains open**.
 
-Owner report: role and sector fields have stopped offering useful suggestions. Code inspection
-confirms two distinct gaps:
+Owner report: role and sector fields had stopped offering useful suggestions. Starting code
+inspection confirmed two distinct gaps:
 
 - The backend still exposes `GET /api/candidate-profile/roles/catalog?query=...` and returns up to 100
   shared or workspace-private normalized roles. React `Setup.jsx` never calls it. Its role editor
@@ -553,8 +603,8 @@ Required product contract:
 
 #### UX-ONBOARDING-04 — Premium résumé-first intelligence experience
 
-Status: **OWNER REQUIREMENT recorded on 2026-09-09; not designed or implemented**. Assign to S0.2
-only if explicitly selected.
+Status: **IMPLEMENTED AND AUTOMATED/BROWSER-TESTED IN S0.2; owner fixture, parsing-p95, and final
+assistive-technology acceptance remain open**.
 
 The owner wants the upload and review experience to feel as smooth, calm, and detailed as a premium
 Apple product experience, especially in how it captures the majority of meaningful résumé keywords.
@@ -817,8 +867,8 @@ D1 Startup requirements and architecture — COMPLETE
 D2 V1 engineering standards — COMPLETE
 S0.1 Discovery execution safety — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
-S0.2 Onboarding correctness — QUEUED, NOT STARTED
-S0.3 Cross-role ranking correctness — QUEUED, NOT STARTED
+S0.2 Onboarding correctness — SELECTED, IMPLEMENTATION VERIFIED, ACCEPTANCE OPEN
+S0.3 Cross-role ranking correctness — QUEUED, READ-ONLY INVESTIGATION RECORDED
 S1 Authenticated account ownership and RBAC — NOT STARTED
 S2 Product run commands, safe concurrency/recovery and live progress — NOT STARTED
 S3 Shared ingestion and provider budgets — NOT STARTED
@@ -834,7 +884,7 @@ conventional commit, then obtain explicit user direction before starting another
 
 The implementation baseline is M3.2 plus S0.1 and the completed assisted multi-market onboarding
 follow-up; the product baseline is D1 and the engineering baseline is D2. The 2026-09-09 additions
-extend S0.2 with live role/sector assistance and the premium résumé-review quality gate, and S0.3 with
-the recommendation qualification contract; they do not mark either checkpoint as selected. Select
-exactly one next checkpoint before implementation. Do not combine S0.2, S0.3, S1–S6, M2.8, or a
+extend the owner-selected S0.2 checkpoint with live role/sector assistance and the premium
+résumé-review quality gate, and S0.3 with the recommendation qualification contract. Do not combine
+S0.2 with S0.3, S1–S6, M2.8, or a
 microservice split without an explicit checkpoint decision.

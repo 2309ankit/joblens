@@ -42,7 +42,8 @@ public class CandidateProfileExceptionHandler {
     while (cause != null) {
       if (cause instanceof IllegalArgumentException
           && cause.getMessage() != null
-          && cause.getMessage().startsWith("Each search market needs")) {
+          && (cause.getMessage().startsWith("Each search market needs")
+              || cause.getMessage().startsWith("A city or region must"))) {
         return cause.getMessage();
       }
       cause = cause.getCause();

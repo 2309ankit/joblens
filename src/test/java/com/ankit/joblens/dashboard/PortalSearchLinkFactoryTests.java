@@ -39,6 +39,18 @@ class PortalSearchLinkFactoryTests {
     assertThat(factory.create(preferences, List.of())).isEmpty();
   }
 
+  @Test
+  void usesTheCountryNameForCountryWideOutboundSearches() {
+    var preferences =
+        new SearchPreferences(
+            "Data Analyst", "Technology", "Sydney", "", "AU | ", 2, "ANY", "HYBRID");
+
+    var links = factory.create(preferences, List.of("SQL"));
+
+    assertThat(links.getFirst().region()).isEqualTo("Australia");
+    assertThat(links.getFirst().url()).contains("location=Australia");
+  }
+
   private static SearchPreferences preferences() {
     return new SearchPreferences(
         "Senior Java Developer, Senior Backend Engineer",

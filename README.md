@@ -465,8 +465,8 @@ recorded in `SESSION_HANDOFF.md`.
 
 **S0.1 Discovery Execution Safety completed on 2026-09-08.** Its controlled AI Engineer and broad-role
 evidence, empty-provider diagnostics, safe simultaneous-command behavior and stale-run recovery are
-recorded in [BUILD_PROGRESS.md](BUILD_PROGRESS.md). No later milestone is automatically selected.
-The assisted multi-market onboarding follow-up completed on 2026-09-08. S0.2, S0.3, and S1–S6 must
+recorded in [BUILD_PROGRESS.md](BUILD_PROGRESS.md). The assisted multi-market onboarding follow-up
+completed on 2026-09-08, and S0.2 Onboarding Correctness was selected on 2026-09-09. S0.3 and S1–S6
 remain separate checkpoint decisions. Authenticated ownership (S1) is still mandatory before private
 beta or public launch.
 

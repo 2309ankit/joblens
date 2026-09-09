@@ -108,6 +108,10 @@ public class OnboardingService {
     return intelligenceRepository.roleOptions(workspaceId, query);
   }
 
+  public List<SectorOption> sectorOptions(UUID workspaceId, String query) {
+    return intelligenceRepository.sectorOptions(workspaceId, query);
+  }
+
   public List<IntegratedCountry> countries() {
     return countryCatalog.countries();
   }

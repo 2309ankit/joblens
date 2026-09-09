@@ -24,15 +24,19 @@ public class PortalSearchLinkFactory {
     }
     var links = new ArrayList<PortalSearchLink>();
     for (SearchTarget target : preferences.targets()) {
+      String location =
+          target.location().isBlank()
+              ? Locale.of("", target.countryCode()).getDisplayCountry(Locale.ENGLISH)
+              : target.location();
       queries.forEach(
           query ->
               links.add(
                   new PortalSearchLink(
                       "LinkedIn",
-                      target.location(),
+                      location,
                       query.intent(),
                       query.linkedInQuery(),
-                      linkedInUrl(query.linkedInQuery(), target.location()))));
+                      linkedInUrl(query.linkedInQuery(), location))));
       switch (target.countryCode()) {
         case "SG" ->
             addNaturalLinks(links, queries, "JobStreet", "Singapore", "https://sg.jobstreet.com");

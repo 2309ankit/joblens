@@ -246,7 +246,12 @@ class WorkspaceOnboardingIntegrationTests {
                     org.hamcrest.Matchers.containsString("/api/candidate-profile/intelligence")))
         .andExpect(
             content()
-                .string(org.hamcrest.Matchers.containsString("/api/candidate-profile/countries")));
+                .string(org.hamcrest.Matchers.containsString("/api/candidate-profile/countries")))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.containsString(
+                        "/api/candidate-profile/sectors/catalog")));
 
     onboardingService.completeSetup(
         workspaceId,
@@ -277,6 +282,9 @@ class WorkspaceOnboardingIntegrationTests {
     assertThat(profileIntelligence.skillOptions(otherWorkspaceId, "Clinical Documentation"))
         .isEmpty();
     assertThat(profileIntelligence.roleOptions(otherWorkspaceId, "Clinical Care Lead")).isEmpty();
+    assertThat(profileIntelligence.sectorOptions(otherWorkspaceId, "healthcare"))
+        .extracting(SectorOption::name)
+        .contains("Healthcare");
 
     jdbc.update("DELETE FROM workspace WHERE id=?", workspaceId);
     assertThat(
@@ -598,6 +606,56 @@ class WorkspaceOnboardingIntegrationTests {
                 Integer.class,
                 workspaceId))
         .isEqualTo(3);
+  }
+
+  @Test
+  void normalizesSectorsAndPersistsACountryWideMarketWithoutLeakingPrivateValues() {
+    UUID workspaceId = UUID.randomUUID();
+    UUID otherWorkspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    workspaces.create(otherWorkspaceId);
+    long resumeId =
+        onboarding.saveResume(workspaceId, "resume.pdf", "application/pdf", 100, "9".repeat(64));
+    long profileId = onboarding.createDraft(workspaceId, resumeId, "Country-wide candidate");
+    onboarding.addSkills(profileId, List.of("Java"));
+    SearchPreferences preferences =
+        new SearchPreferences(
+            "Backend Engineer",
+            "banking, Climate Technology",
+            "Melbourne",
+            "",
+            "AU | ",
+            2,
+            "PERMANENT",
+            "HYBRID");
+
+    onboarding.savePreferences(workspaceId, profileId, preferences);
+    onboarding.confirm(workspaceId, onboarding.latestProfile(workspaceId).orElseThrow());
+
+    OnboardingProfile active = onboarding.latestProfile(workspaceId).orElseThrow();
+    assertThat(active.targetDomains()).containsExactly("Financial Services", "Climate Technology");
+    assertThat(onboarding.preferences(workspaceId).orElseThrow().targets())
+        .containsExactly(new SearchTarget("AU", ""));
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT location = '' FROM search_profile WHERE workspace_id=? AND active=true",
+                Boolean.class,
+                workspaceId))
+        .isTrue();
+    assertThat(profileIntelligence.sectorOptions(workspaceId, "bank"))
+        .extracting(SectorOption::name)
+        .containsExactly("Financial Services");
+    assertThat(profileIntelligence.roleOptions(workspaceId, "Front-end Developer"))
+        .extracting(RoleOption::name)
+        .contains("Frontend Engineer");
+    assertThat(profileIntelligence.sectorOptions(workspaceId, "Climate Technology"))
+        .singleElement()
+        .satisfies(
+            option -> {
+              assertThat(option.custom()).isTrue();
+              assertThat(option.taxonomyVersion()).isNull();
+            });
+    assertThat(profileIntelligence.sectorOptions(otherWorkspaceId, "Climate Technology")).isEmpty();
   }
 
   @Test

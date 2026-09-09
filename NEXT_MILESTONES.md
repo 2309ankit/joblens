@@ -157,20 +157,24 @@ table. These are inspection facts, not a completed diagnosis or fix.
 - `./mvnw clean test` passed with 129 Java tests and 3 React tests; fresh PostgreSQL 17
   Testcontainers applied Flyway V1–V25. Spotless and `git diff --check` passed.
 
-### S0 follow-on checkpoints — queued, not selected
+### S0 follow-on checkpoints
 
 | Checkpoint | Recorded items | Boundary |
 | --- | --- | --- |
-| S0.2 — Onboarding correctness | `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004`, `BUG-ONBOARDING-03`, `UX-ONBOARDING-04` | Role evidence and live catalogue suggestions, normalized sector assistance, optional city/region, measured résumé keyword coverage, and a premium progressive upload/review experience |
+| S0.2 — Onboarding correctness — SELECTED; ACCEPTANCE OPEN | `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004`, `BUG-ONBOARDING-03`, `UX-ONBOARDING-04` | Implementation and automated/browser verification complete; owner fixture review, parsing p95, and final assistive-technology acceptance remain |
 | S0.3 — Cross-role ranking correctness | `BUG-M3-006`, `UX-DASHBOARD-01` | Reproduce high .NET scoring, define when a job is qualified as Recommended, correct the proven scoring/presentation defect, and preserve universal-policy behavior |
+
+The selected S0.2 requirement and design record is
+[S0_2_ONBOARDING_CORRECTNESS.md](S0_2_ONBOARDING_CORRECTNESS.md).
 
 S0.1 does not include résumé suggestion changes, sector taxonomy, country/location redesign,
 ranking-weight changes, Job Explorer pagination, feedback calibration, authentication, a new source,
 shared ingestion, scheduling, live SSE, or service extraction.
 
-### Owner additions awaiting checkpoint selection
+### Owner additions assigned to the selected checkpoint
 
-The 2026-09-09 owner review adds two bounded directions without selecting either checkpoint:
+The 2026-09-09 owner review added two bounded directions. The owner subsequently selected S0.2;
+S0.3 remains queued:
 
 - S0.2 must restore searchable role suggestions in React, design a normalized selectable sector
   control, and make résumé upload/review feel calm, immediate, detailed, and progressively disclosed.
@@ -597,6 +601,6 @@ Use this request format:
 ```text
 Read AGENTS.md, ENGINEERING_STANDARDS.md, PRODUCT_REQUIREMENTS.md, SYSTEM_DESIGN.md,
 SESSION_HANDOFF.md, README.md, BUILD_PROGRESS.md, and NEXT_MILESTONES.md. Preserve the current
-worktree. S0.1 is complete. Select exactly one next checkpoint; do not combine S0.2, S0.3, the
-approved onboarding UX follow-up, or later launch gaps.
+worktree. S0.1 is complete and S0.2 is selected. Continue only S0.2; do not combine it with S0.3 or
+later launch gaps.
 ```

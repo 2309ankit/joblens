@@ -9,6 +9,7 @@ import com.ankit.joblens.onboarding.ResumeReadinessAssessment;
 import com.ankit.joblens.onboarding.RoleOption;
 import com.ankit.joblens.onboarding.SearchPreferences;
 import com.ankit.joblens.onboarding.SearchTarget;
+import com.ankit.joblens.onboarding.SectorOption;
 import com.ankit.joblens.onboarding.SkillOption;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -83,6 +84,18 @@ public class ResumeProfileController {
       HttpServletRequest request,
       HttpServletResponse response) {
     return service.roleOptions(workspaceContext.resolve(request, response), query);
+  }
+
+  @GetMapping("/sectors/catalog")
+  @Operation(
+      summary = "Search the sector catalogue",
+      description =
+          "Returns versioned JobLens sectors and workspace-private additions. Aliases search to a canonical sector name used by provider queries and score explanations.")
+  public List<SectorOption> sectorCatalog(
+      @RequestParam(defaultValue = "") String query,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    return service.sectorOptions(workspaceContext.resolve(request, response), query);
   }
 
   @GetMapping("/countries")

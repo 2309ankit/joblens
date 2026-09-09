@@ -17,11 +17,14 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ProfileIntelligenceExtractor {
-  public static final String EXTRACTOR_VERSION = "esco-deterministic-v3";
+  public static final String EXTRACTOR_VERSION = "esco-deterministic-v4";
 
   private static final Pattern EXPLICIT_GROUP_LABEL =
       Pattern.compile("\\b([A-Z][A-Za-z/&-]*(?: [A-Z&][A-Za-z/&-]*){1,5}):");
   private static final Pattern ACRONYM = Pattern.compile("\\b[A-Z][A-Z0-9+.-]{2,}\\b");
+  private static final Pattern CONTACT_NOISE =
+      Pattern.compile(
+          "(?i)(https?://|www\\.|\\b[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}\\b|(?:blog|portfolio|website|linkedin|github|medium|email|phone|mobile)\\s*:|\\.com(?:/|\\b))");
   private static final Set<String> CANDIDATE_STOP_WORDS =
       Set.of("and", "or", "with", "skills", "competencies", "tools", "ecosystems");
 
@@ -121,17 +124,23 @@ public class ProfileIntelligenceExtractor {
         .filter(
             hit -> {
               ResumeDocument.Section section = document.sectionAt(hit.start());
+              if (section == ResumeDocument.Section.CONTACT
+                  && CONTACT_NOISE.matcher(document.evidenceAt(hit.start())).find()) {
+                return false;
+              }
               boolean safe = safeShortTerm(hit, section);
               if (!safe) {
-                rejected.add(
-                    new TermSuggestion(
-                        "SKILL",
-                        hit.surface(),
-                        section.name(),
-                        document.evidenceAt(hit.start()),
-                        new BigDecimal("0.100"),
-                        "REJECTED",
-                        0));
+                if (section.explicitlyListsSkills()) {
+                  rejected.add(
+                      new TermSuggestion(
+                          "SKILL",
+                          hit.surface(),
+                          section.name(),
+                          document.evidenceAt(hit.start()),
+                          new BigDecimal("0.100"),
+                          "REJECTED",
+                          0));
+                }
               }
               return safe;
             })
@@ -186,8 +195,10 @@ public class ProfileIntelligenceExtractor {
     if (section == ResumeDocument.Section.EXPERIENCE) {
       return "RECENT_EXPERIENCE";
     }
-    if ((section == ResumeDocument.Section.CONTACT || section == ResumeDocument.Section.SUMMARY)
-        && document.beforeExperience(start)) {
+    if (section == ResumeDocument.Section.SUMMARY) {
+      return "PROFESSIONAL_SUMMARY";
+    }
+    if (section == ResumeDocument.Section.CONTACT && document.beforeExperience(start)) {
       return "RESUME_HEADLINE";
     }
     return "RESUME_BODY";
@@ -197,14 +208,24 @@ public class ProfileIntelligenceExtractor {
     return switch (source) {
       case "RESUME_HEADLINE" -> new BigDecimal("0.950");
       case "RECENT_EXPERIENCE" -> new BigDecimal("0.900");
+      case "PROFESSIONAL_SUMMARY" -> new BigDecimal("0.800");
       default -> new BigDecimal("0.600");
     };
   }
 
   private static boolean roleContext(ResumeDocument document, TermHit<RoleDefinition> hit) {
     ResumeDocument.Section section = document.sectionAt(hit.start());
-    if (section == ResumeDocument.Section.SUMMARY || section == ResumeDocument.Section.CONTACT) {
+    if (CONTACT_NOISE.matcher(document.evidenceAt(hit.start())).find()) {
+      return false;
+    }
+    if (section == ResumeDocument.Section.SUMMARY) {
       return document.beforeExperience(hit.start());
+    }
+    if (section == ResumeDocument.Section.CONTACT) {
+      String evidence = document.evidenceAt(hit.start());
+      return document.beforeExperience(hit.start())
+          && evidence.length() <= 100
+          && evidence.split("\\s+").length <= 8;
     }
     if (section != ResumeDocument.Section.EXPERIENCE) {
       return false;

@@ -61,6 +61,17 @@ class JoobleJobSourceClientTests {
   }
 
   @Test
+  void sendsTheCountryNameWhenTheUserChoosesACountryWideMarket() throws Exception {
+    server.enqueue(json(200, "{\"totalCount\":0,\"jobs\":[]}"));
+    SearchProfile countryWide =
+        new SearchProfile("SP-JOOBLE-AU", "JOOBLE", "au", "data analyst", "", "", "", "ANY", true);
+
+    client("api-key").search(countryWide, new PageRequest(1, 20));
+
+    assertThat(server.takeRequest().getBody().readUtf8()).contains("\"location\":\"Australia\"");
+  }
+
+  @Test
   void rejectsMalformedResponsesWithoutRetry() {
     server.enqueue(json(200, "{}"));
 

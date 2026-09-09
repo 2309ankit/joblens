@@ -15,6 +15,7 @@ import com.ankit.joblens.onboarding.ResumeReadinessAssessment;
 import com.ankit.joblens.onboarding.RoleOption;
 import com.ankit.joblens.onboarding.SearchPreferences;
 import com.ankit.joblens.onboarding.SearchTarget;
+import com.ankit.joblens.onboarding.SectorOption;
 import com.ankit.joblens.onboarding.SkillOption;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -88,6 +89,10 @@ class ResumeProfileControllerTests {
     mvc.perform(get("/api/candidate-profile/roles/catalog").param("query", "product"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].name").value("Product Manager"));
+    mvc.perform(get("/api/candidate-profile/sectors/catalog").param("query", "bank"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").value("Financial Services"))
+        .andExpect(jsonPath("$[0].taxonomyVersion").value("joblens-sector-v1"));
     mvc.perform(get("/api/candidate-profile/countries"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].code").value("SG"))
@@ -157,11 +162,8 @@ class ResumeProfileControllerTests {
                     request.replace(
                         "{\"countryCode\": \"AU\", \"location\": \"Sydney\"}",
                         "{\"countryCode\": \"AU\", \"location\": \"\"}")))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error").value("INVALID_PROFILE_REQUEST"))
-        .andExpect(
-            jsonPath("$.message")
-                .value("Each search market needs a location up to 150 characters"));
+        .andExpect(status().isOk());
+    assertThat(service.lastPreferences.targets().get(1)).isEqualTo(new SearchTarget("AU", ""));
   }
 
   private static final class StubOnboardingService extends OnboardingService {
@@ -200,6 +202,13 @@ class ResumeProfileControllerTests {
     public List<RoleOption> roleOptions(UUID workspaceId, String query) {
       lastWorkspaceId = workspaceId;
       return List.of(new RoleOption("Product Manager", "PRODUCT", false));
+    }
+
+    @Override
+    public List<SectorOption> sectorOptions(UUID workspaceId, String query) {
+      lastWorkspaceId = workspaceId;
+      return List.of(
+          new SectorOption("Financial Services", "BUSINESS", false, "joblens-sector-v1"));
     }
 
     @Override

@@ -59,6 +59,17 @@ class AdzunaJobSourceClientTests {
     assertThat(request.getHeader("Accept")).contains("application/json");
   }
 
+  @Test
+  void omitsTheCityFilterForACountryWideSearch() throws Exception {
+    server.enqueue(json(200, "{\"count\":0,\"results\":[]}"));
+    SearchProfile countryWide =
+        new SearchProfile("SP002", "ADZUNA", "au", "data analyst", "", "", "", "ANY", true);
+
+    client("id", "key", 1).search(countryWide, new PageRequest(1, 20));
+
+    assertThat(server.takeRequest().getRequestUrl().queryParameter("where")).isNull();
+  }
+
   @ParameterizedTest
   @MethodSource("transientStatuses")
   void retriesTransientStatusThenSucceeds(int status) {

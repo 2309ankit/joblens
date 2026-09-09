@@ -24,7 +24,7 @@ public class ProfileIntelligenceRepository {
   public List<SkillOption> skillOptions(UUID workspaceId, String query) {
     return jdbc.query(
         load("sql/onboarding/list-skill-options.sql"),
-        Map.of("workspaceId", workspaceId, "query", query == null ? "" : query.trim()),
+        Map.of("workspaceId", workspaceId, "query", catalogQuery(query)),
         (resultSet, row) ->
             new SkillOption(
                 resultSet.getString("canonical_name"),
@@ -35,12 +35,24 @@ public class ProfileIntelligenceRepository {
   public List<RoleOption> roleOptions(UUID workspaceId, String query) {
     return jdbc.query(
         load("sql/onboarding/list-role-options.sql"),
-        Map.of("workspaceId", workspaceId, "query", query == null ? "" : query.trim()),
+        Map.of("workspaceId", workspaceId, "query", catalogQuery(query)),
         (resultSet, row) ->
             new RoleOption(
                 resultSet.getString("canonical_name"),
                 resultSet.getString("category"),
                 resultSet.getBoolean("custom")));
+  }
+
+  public List<SectorOption> sectorOptions(UUID workspaceId, String query) {
+    return jdbc.query(
+        load("sql/onboarding/list-sector-options.sql"),
+        Map.of("workspaceId", workspaceId, "query", catalogQuery(query)),
+        (resultSet, row) ->
+            new SectorOption(
+                resultSet.getString("canonical_name"),
+                resultSet.getString("category"),
+                resultSet.getBoolean("custom"),
+                resultSet.getString("taxonomy_version")));
   }
 
   public List<ProfileIntelligenceExtractor.SkillDefinition> skillDefinitions(UUID workspaceId) {
@@ -242,6 +254,19 @@ public class ProfileIntelligenceRepository {
     return List.copyOf(values.values());
   }
 
+  public List<NamedValue> resolveOrCreateSectors(UUID workspaceId, List<String> requestedSectors) {
+    var values = new LinkedHashMap<String, NamedValue>();
+    for (String requested : requestedSectors) {
+      String normalized = normalize(requested, 100, "sector");
+      if (normalized.isBlank()) {
+        continue;
+      }
+      NamedValue value = resolveSector(workspaceId, normalized);
+      values.putIfAbsent(value.name().toLowerCase(Locale.ROOT), value);
+    }
+    return List.copyOf(values.values());
+  }
+
   private NamedValue resolveSkill(UUID workspaceId, String name) {
     if (name.isBlank()) {
       return null;
@@ -256,6 +281,13 @@ public class ProfileIntelligenceRepository {
     List<NamedValue> existing = queryNamed("sql/onboarding/resolve-role.sql", workspaceId, name);
     return existing.isEmpty()
         ? createNamed("sql/onboarding/create-custom-role.sql", workspaceId, name)
+        : existing.getFirst();
+  }
+
+  private NamedValue resolveSector(UUID workspaceId, String name) {
+    List<NamedValue> existing = queryNamed("sql/onboarding/resolve-sector.sql", workspaceId, name);
+    return existing.isEmpty()
+        ? createNamed("sql/onboarding/create-custom-sector.sql", workspaceId, name)
         : existing.getFirst();
   }
 
@@ -284,6 +316,15 @@ public class ProfileIntelligenceRepository {
         || normalized.chars().anyMatch(Character::isISOControl)) {
       throw new IllegalArgumentException(
           "Each " + field + " must be plain text up to " + maximumLength + " characters");
+    }
+    return normalized;
+  }
+
+  private static String catalogQuery(String query) {
+    String normalized = query == null ? "" : query.trim().replaceAll("\\s+", " ");
+    if (normalized.length() > 150 || normalized.chars().anyMatch(Character::isISOControl)) {
+      throw new IllegalArgumentException(
+          "Catalogue search must be plain text up to 150 characters");
     }
     return normalized;
   }

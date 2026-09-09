@@ -7,6 +7,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import org.springframework.http.HttpStatusCode;
@@ -56,7 +57,7 @@ public class JoobleJobSourceClient implements JobSourceClient {
             .bodyValue(
                 Map.of(
                     "keywords", profile.keywords(),
-                    "location", profile.location(),
+                    "location", effectiveLocation(profile),
                     "page", request.page(),
                     "ResultOnPage", request.pageSize()))
             .exchangeToMono(
@@ -142,6 +143,17 @@ public class JoobleJobSourceClient implements JobSourceClient {
 
   private static String text(JsonNode node) {
     return node == null || node.isNull() ? null : node.asString();
+  }
+
+  private static String effectiveLocation(SearchProfile profile) {
+    if (profile.location() != null && !profile.location().isBlank()) {
+      return profile.location();
+    }
+    String sourceKey = profile.sourceKey() == null ? "" : profile.sourceKey().trim();
+    if (!sourceKey.matches("(?i)[a-z]{2}")) {
+      throw new JobSourceException("Jooble country-wide search needs a country source key");
+    }
+    return Locale.of("", sourceKey.toUpperCase(Locale.ROOT)).getDisplayCountry(Locale.ENGLISH);
   }
 
   private static String sha256(String value) {

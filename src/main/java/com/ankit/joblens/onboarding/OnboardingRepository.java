@@ -169,13 +169,21 @@ public class OnboardingRepository {
     }
     List<String> targetRoles =
         roleValues.stream().map(ProfileIntelligenceRepository.NamedValue::name).toList();
+    List<ProfileIntelligenceRepository.NamedValue> sectorValues =
+        profileIntelligenceRepository.resolveOrCreateSectors(
+            workspaceId, csv(preferences.targetDomains()));
+    if (sectorValues.size() > 10) {
+      throw new IllegalArgumentException("Choose no more than 10 preferred sectors");
+    }
+    List<String> targetDomains =
+        sectorValues.stream().map(ProfileIntelligenceRepository.NamedValue::name).toList();
     jdbc.update(
         load("sql/onboarding/update-profile-preferences.sql"),
         new MapSqlParameterSource()
             .addValue("workspaceId", workspaceId)
             .addValue("profileVersionId", profileVersionId)
             .addValue("targetRoles", targetRoles.toArray(String[]::new))
-            .addValue("targetDomains", csv(preferences.targetDomains()).toArray(String[]::new))
+            .addValue("targetDomains", targetDomains.toArray(String[]::new))
             .addValue("primaryLocation", preferences.primaryLocation()));
     jdbc.update(
         load("sql/onboarding/delete-profile-target-roles.sql"),

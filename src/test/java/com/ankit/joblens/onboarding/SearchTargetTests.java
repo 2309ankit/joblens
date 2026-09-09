@@ -8,8 +8,11 @@ import org.junit.jupiter.api.Test;
 class SearchTargetTests {
   @Test
   void parsesAndNormalizesOneMarketPerLine() {
-    assertThat(SearchTarget.parse("sg | Singapore\nAU| Sydney"))
-        .containsExactly(new SearchTarget("SG", "Singapore"), new SearchTarget("AU", "Sydney"));
+    assertThat(SearchTarget.parse("sg | Singapore\nAU| Sydney\nIN|"))
+        .containsExactly(
+            new SearchTarget("SG", "Singapore"),
+            new SearchTarget("AU", "Sydney"),
+            new SearchTarget("IN", ""));
   }
 
   @Test

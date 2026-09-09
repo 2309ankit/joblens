@@ -252,6 +252,40 @@ No external job-source integration had been implemented at that early checkpoint
 
 ## Current Milestone
 
+The owner selected **S0.2 Onboarding Correctness** on 2026-09-09. Its bounded requirement set is
+`BUG-M3-002`, `UX-M3-003`, `BUG-M3-004`, `BUG-ONBOARDING-03`, and `UX-ONBOARDING-04`: correct
+evidence-backed résumé role suggestions, restore live role-catalogue search, add normalized optional
+sector assistance, allow country-only search markets, and provide a progressively disclosed résumé
+upload/review experience with measured deterministic keyword quality. S0.3 ranking semantics and
+S1–S6 launch work remain excluded. Design and implementation evidence is in progress; no S0.2
+completion claim has been made.
+
+S0.2 implementation evidence on 2026-09-09: Flyway V26 adds the versioned
+`joblens-sector-v1` catalogue, aliases, workspace-private additions, and an explicit country-wide
+market representation. Catalogue input now resolves skill/role/sector aliases to canonical values;
+React provides three debounced accessible catalogue editors with explicit custom paths and undo;
+résumé evidence is progressively disclosed; and same-session review edits survive refresh without
+storing file bytes or résumé text. Extractor `esco-deterministic-v4` rejects URL/contact noise,
+records professional-summary evidence accurately, and restores hyphenated Front-end experience.
+Adzuna omits its optional city filter for country-wide searches, while Jooble receives the required
+country name derived from the validated source key.
+
+Observed verification: the focused suite passed with **38 Java tests plus 11 React tests**. The clean
+full suite passed with **136 Java tests plus 11 React/Vitest tests**, 0 failures, 0 errors, and 0
+skipped; fresh PostgreSQL 17 Testcontainers applied Flyway V1–V26. The four-profession redacted
+engineering fixture measured 100% recall and 100% precision for its 14 expected explicit taxonomy
+skills after first exposing and then correcting a contact-host false positive. Headless Chrome at
+1440×1000 and 390×844 observed functional alias-backed role search, three labelled comboboxes,
+collapsed evidence, optional country-wide location, same-session draft persistence, in-viewport
+cards, and no horizontal overflow. The browser check changed temporary browser state only. The
+packaged Compose app started against schema V26, reported `UP`, and exposed the sector endpoint in
+OpenAPI.
+
+S0.2 is not yet marked complete. Product-owner review of the redacted fixture expectations, a
+representative PDF/DOC/DOCX parsing benchmark through the 5 MB boundary to set p95, and final
+assistive-technology review remain required evidence. No ranking, identity, storage, or launch gap
+was silently added.
+
 The owner-approved **assisted multi-market onboarding follow-up** is complete for
 `BUG-ONBOARDING-01` (the React setup submitted only the first configured country) and
 `BUG-ONBOARDING-02` (hard-coded current location and unclear/incomplete advanced preferences).
@@ -403,10 +437,9 @@ remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-S0.1 and the assisted multi-market onboarding follow-up are complete. Do not begin another milestone
-without an explicit checkpoint choice. S0.2 and S0.3 remain queued correctness work; S1–S6 remain the
-launch sequence. Authentication, privacy storage, distributed run control, infrastructure, and
-service extraction were outside this UI follow-up.
+S0.1 and the assisted multi-market onboarding follow-up are complete. S0.2 Onboarding Correctness was
+selected on 2026-09-09; S0.3 and S1–S6 remain queued. Authentication, privacy storage, distributed
+run control, infrastructure, and service extraction remain outside this checkpoint.
 
 Owner review on 2026-09-09 recorded, but did not select, three follow-ups: React role and sector
 suggestions no longer provide the searchable assistance expected from the existing catalogues; the

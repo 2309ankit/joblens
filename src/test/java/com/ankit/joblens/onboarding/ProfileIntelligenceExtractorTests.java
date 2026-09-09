@@ -143,8 +143,58 @@ class ProfileIntelligenceExtractorTests {
             "Retention Strategy")
         .doesNotContain("Retention Strategy.");
     assertThat(result.terms())
-        .filteredOn(term -> List.of("R", "ski", "sing").contains(term.normalizedTerm()))
+        .filteredOn(term -> List.of("ski", "sing").contains(term.normalizedTerm()))
         .allSatisfy(term -> assertThat(term.reviewState()).isEqualTo("REJECTED"));
+    assertThat(result.terms())
+        .extracting(ProfileIntelligenceExtractor.TermSuggestion::normalizedTerm)
+        .doesNotContain("R");
+  }
+
+  @Test
+  void rejectsContactLinksDeduplicatesCanonicalRolesAndFindsHyphenatedExperience() {
+    var result =
+        extractor.extract(
+            """
+            A Candidate
+            Senior AI Engineer
+            Blog: medium.com/@candidate
+            Professional Summary
+            Senior software engineer building production AI systems.
+            Experience
+            AI Engineer — Example Systems, 2024 - Present
+            Front-end Developer — Example Retail, 2021 - 2024
+            Skills
+            Python, TypeScript, React
+            """,
+            List.of(
+                new ProfileIntelligenceExtractor.SkillDefinition(
+                    1, "Python", "DATA", List.of("Python")),
+                new ProfileIntelligenceExtractor.SkillDefinition(2, "AI", "DATA", List.of("AI"))),
+            List.of(
+                new ProfileIntelligenceExtractor.RoleDefinition(
+                    3, "AI Engineer", "DATA", List.of("AI Engineer")),
+                new ProfileIntelligenceExtractor.RoleDefinition(
+                    4, "Frontend Engineer", "FRONTEND", List.of("Front-end Developer")),
+                new ProfileIntelligenceExtractor.RoleDefinition(
+                    5, "Software Engineer", "SOFTWARE_ENGINEERING", List.of("Software Engineer")),
+                new ProfileIntelligenceExtractor.RoleDefinition(
+                    6, "Medium", "OTHER", List.of("medium"))));
+
+    assertThat(result.roles())
+        .extracting(ProfileIntelligenceExtractor.DetectedRole::name)
+        .containsExactly("AI Engineer", "Frontend Engineer", "Software Engineer")
+        .doesNotContain("Medium");
+    assertThat(result.roles())
+        .filteredOn(role -> role.name().equals("AI Engineer"))
+        .singleElement()
+        .satisfies(role -> assertThat(role.evidenceSource()).isEqualTo("RESUME_HEADLINE"));
+    assertThat(result.roles())
+        .filteredOn(role -> role.name().equals("Software Engineer"))
+        .singleElement()
+        .satisfies(role -> assertThat(role.evidenceSource()).isEqualTo("PROFESSIONAL_SUMMARY"));
+    assertThat(result.terms())
+        .extracting(ProfileIntelligenceExtractor.TermSuggestion::normalizedTerm)
+        .doesNotContain("AI");
   }
 
   private static org.assertj.core.groups.Tuple tuple(Object... values) {
