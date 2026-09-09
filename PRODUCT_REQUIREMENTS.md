@@ -118,13 +118,13 @@ means no adequate implementation exists. Fixed does not imply year-one load vali
 
 | ID | Requirement | Status | Current evidence or gap |
 | --- | --- | --- | --- |
-| FR-01 | Versioned résumé/profile onboarding with user review | PARTIAL | PDF/DOC/DOCX parsing, draft activation, readiness findings, skill/role review work; original bytes, malware scanning, authenticated ownership, deletion/export, and open extraction bugs remain |
+| FR-01 | Versioned résumé/profile onboarding with user review | PARTIAL | PDF/DOC/DOCX parsing, draft activation, readiness findings, and basic skill/role review work; searchable React role/sector assistance, measured keyword coverage, a polished progressive review, original bytes, malware scanning, authenticated ownership, and deletion/export remain open |
 | FR-02 | Explicit role intent separate from inferred résumé evidence | FIXED | One to three ordered roles and persisted `role-intent-v1` provider queries |
-| FR-03 | Multi-market preference management | PARTIAL | Normalized targets, provider capability catalogue, and responsive multi-row React management work; authenticated ownership, launch-market selection, and measured market quality remain open |
+| FR-03 | Multi-market preference management | PARTIAL | Normalized targets, provider capability catalogue, and responsive multi-row React management work; normalized sector assistance, authenticated ownership, launch-market selection, and measured market quality remain open |
 | FR-04 | Legitimate job ingestion with untouched raw evidence | PARTIAL | Adzuna, optional Jooble, and bounded Greenhouse/Lever enrichment work; commercial terms, quotas, shared ingestion, and broader reliable coverage are unresolved |
 | FR-05 | Restartable normalization, skill extraction, and duplicate processing | FIXED | PostgreSQL/Flyway/Spring Batch pipeline is deterministic, observable, and tested at functional scale |
 | FR-06 | Explainable role-aware ranking | PARTIAL | Universal policy and four overlays persist per-role evidence; relevance is not yet calibrated and cross-role false positives are open |
-| FR-07 | Search results exploration | PARTIAL | Ranked dashboard/API exist; backend filters, stable sorts, keyset pagination, grouping, and saved-state explorer are missing |
+| FR-07 | Search results exploration | PARTIAL | The dashboard returns up to 25 eligible workspace-sighted jobs ordered by candidate score, but has no minimum recommendation threshold or separate low-confidence/new-results treatment; backend filters, stable user-selected sorts, keyset pagination, grouping, and saved-state explorer are also missing |
 | FR-08 | Application and follow-up lifecycle | PARTIAL | Deterministic lifecycle/history/follow-ups work; reminders, notification delivery, account ownership, and support recovery are incomplete |
 | FR-09 | Market insights | PARTIAL | Weekly aggregate job exists; product definition, tenant/privacy boundary, scheduling, and useful empty-state/data freshness require completion |
 | FR-10 | Live run progress and recovery | MISSING | Source-run records exist, but no supported real-time channel, admission control, safe active-run UX, stale-run recovery, or cancellation contract exists |
@@ -164,6 +164,7 @@ states; normal users must never receive raw `JobInstance`/`JobExecution` errors.
 | NFR-04 | 95% of admitted default discovery commands reach terminal state within 10 minutes when providers respond | UNVERIFIED |
 | NFR-05 | RPO ≤5 minutes and RTO ≤60 minutes for primary regional deployment | MISSING; no managed backup/PITR or recovery drill |
 | NFR-06 | No duplicate external request for an equivalent fresh query fingerprint inside its provider cache window | MISSING |
+| NFR-07 | Resume upload acknowledges the action visually within 100 ms, always shows parsing/success/partial/failure state, and meets a benchmarked completion target on the supported 5 MB limit | PARTIAL; a loading label exists, but staged progress and a representative latency benchmark do not |
 
 ### Security and privacy
 

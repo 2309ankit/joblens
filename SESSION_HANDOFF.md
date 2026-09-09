@@ -28,6 +28,7 @@ Latest Flyway migration: V25
 Latest full test: 130 Java tests plus 8 React tests, 0 failures, 0 errors, 0 skipped
 Latest focused check: two-market React/API activation, duplicate/blank validation, browser location policy, and responsive layout pass
 Local runtime: Docker app running with index-DdhNRvf8.js and index-BG1Cp8qN.css; PostgreSQL healthy; /actuator/health reports UP
+Owner-reported next items: role/sector suggestion regression, recommendation-board semantics, and premium résumé intelligence UX; documented but no checkpoint selected
 ```
 
 Before making changes:
@@ -385,7 +386,7 @@ this redacted fixture have been inspected.
 
 #### UX-M3-003 — Preferred sectors need a selectable catalogue control
 
-Status: **OPEN product/UX gap; not designed or implemented**.
+Status: **OPEN product/UX gap; reported again on 2026-09-09; not designed or implemented**.
 
 The setup form currently makes preferred sectors difficult to enter consistently. The requested
 direction is a searchable dropdown or multi-select backed by normalized sector records, while keeping
@@ -393,6 +394,10 @@ preferred sectors optional. The handoff must not assume whether this reuses an e
 adds a small curated sector catalogue, or permits workspace-private values; that data-model decision
 must be made before implementation. Preserve selected values across profile versions and ensure the
 same normalized values drive query generation and the optional sector ranking dimension.
+
+Inspection on 2026-09-09 confirms that the React page still renders preferred sectors as one plain
+text input. It has no suggestion source, normalized selectable values, token/chip treatment, keyboard
+listbox, or empty/loading/error state. This is separate from the completed multi-market fix.
 
 #### BUG-M3-004 — City/region is mandatory even when country is selected
 
@@ -478,6 +483,122 @@ determine whether the defect is generic-title matching, excessive non-role basel
 negative evidence, absent skill extraction, best-role projection, or presentation/ranking semantics.
 Any scoring change must remain deterministic, explainable, versioned, and tested against unrelated
 professions that use the universal-only policy.
+
+#### BUG-ONBOARDING-03 — React role and sector suggestions are no longer searchable
+
+Status: **OPEN and inspected on 2026-09-09; not implemented**. Assign to S0.2 if selected.
+
+Owner report: role and sector fields have stopped offering useful suggestions. Code inspection
+confirms two distinct gaps:
+
+- The backend still exposes `GET /api/candidate-profile/roles/catalog?query=...` and returns up to 100
+  shared or workspace-private normalized roles. React `Setup.jsx` never calls it. Its role editor
+  shows only the finite `intelligence.roleSuggestions` extracted during the last résumé upload, then
+  accepts typed text as a direct addition. When extraction finds no direction—or the user wants a
+  different direction—the existing catalogue is effectively invisible.
+- Preferred sectors are a plain optional string. There is currently no sector catalogue/API or
+  normalized React selector, matching the already-recorded `UX-M3-003` design gap.
+
+Acceptance criteria before calling this fixed:
+
+1. Typing in Target roles queries the owned role catalogue with bounded/debounced requests and shows
+   deterministic results without replacing résumé-evidence suggestions.
+2. The control supports keyboard navigation, visible focus, loading, no-match, recoverable-error,
+   deduplication, the three-role limit, removal, and an explicit workspace-private custom-role path.
+3. Résumé-derived roles remain labelled as evidence and are never silently confirmed. Catalogue
+   results and extracted evidence must not produce duplicate chips.
+4. Preferred sectors become an optional searchable multi-select only after deciding the normalized
+   source, aliases, workspace-private policy, versioning, and migration compatibility. The same
+   values must feed provider-query generation and sector-score explanations.
+5. Focused React/API/accessibility tests and PostgreSQL profile-version persistence evidence pass;
+   direct-route and responsive behavior remain intact.
+
+#### UX-DASHBOARD-01 — Recommendation board does not define a strong-relevance boundary
+
+Status: **OPEN and inspected on 2026-09-09; not implemented**. Qualification/scoring belongs to S0.3;
+the broader explorer remains S4.
+
+Current logic, based on `DashboardApiController` and `sql/dashboard/list-ranked-jobs.sql`:
+
+1. Resolve the current workspace's active candidate profile.
+2. Keep only jobs sighted by that workspace through an active source profile. Exclude stale Adzuna
+   rows beyond the configured maximum age.
+3. Require at least one meaningful generated-query token to appear in the normalized title, unless
+   that source profile contains no meaningful token after generic seniority/title words are removed.
+4. Left-join the candidate's score, treating an absent score as zero; order by score descending and
+   normalized-job ID; return at most 25 rows.
+5. React presents the first row as **Featured for you** and the first eight as **Top matches**.
+
+Therefore the board currently shows the highest-scoring eligible jobs available to that workspace,
+but “highest available” is not the same as “strongly relevant.” There is no minimum recommendation
+threshold, no requirement for positive role/skill evidence, and no separate low-confidence or newly
+discovered section. A weak or unscored result can still occupy a prominent slot when the set is weak.
+
+Required product contract:
+
+- **Recommended** must mean the job meets a reviewed, versioned qualification rule with meaningful
+  role/title or skill evidence; location, freshness, salary availability, and other baseline points
+  cannot by themselves imply strong fit.
+- If no job qualifies, show an honest no-strong-matches state and optionally a clearly separate
+  **Explore other results** or **Newly discovered** section. Do not feature the least-bad item as a
+  recommendation.
+- Each recommended card must expose the selected best target role and a concise reason, with complete
+  persisted scoring evidence available on inspection.
+- Define whether viewed/saved jobs remain in Recommended, how ties and stale scores behave, and when
+  a changed profile requires rescoring before display.
+- Verify with a reviewed Fit/Maybe/Not-fit fixture set across multiple professions and markets. Track
+  Precision@10 and coverage; do not choose a threshold from one hand-picked résumé.
+- S4 may add Recommended/Newest sorting, filters, grouping, and stable keyset pagination only after
+  this semantic boundary is established.
+
+#### UX-ONBOARDING-04 — Premium résumé-first intelligence experience
+
+Status: **OWNER REQUIREMENT recorded on 2026-09-09; not designed or implemented**. Assign to S0.2
+only if explicitly selected.
+
+The owner wants the upload and review experience to feel as smooth, calm, and detailed as a premium
+Apple product experience, especially in how it captures the majority of meaningful résumé keywords.
+This is a quality and interaction reference, not permission to copy Apple branding, product names,
+assets, text, page composition, animations, or trade dress. JobLens must retain its own identity.
+
+Required experience direction:
+
+- Keep one dominant résumé upload action with generous visual hierarchy and progressive disclosure.
+  Show the selected file name/type/size immediately, allow replacement, and avoid presenting the full
+  review surface until parsing produces a usable result.
+- Acknowledge the upload interaction visually within 100 ms. Show honest stages such as uploading,
+  reading, matching profile evidence, and preparing review; do not fabricate percentage progress
+  when the server cannot supply it. Provide explicit success, partial/readability-warning, invalid,
+  retry, and safe-replacement states.
+- Present a detailed but scannable extraction summary: confirmed/detected skills and tools, role
+  directions, sectors, seniority, locations, and other supported keyword groups. Every suggestion
+  should expose bounded source evidence and confidence/status on demand, while the default view stays
+  calm rather than becoming a dense diagnostics page.
+- Users can accept, edit, remove, search, and add values with undo-safe interactions. Inferred values
+  remain unconfirmed until activation, readiness acknowledgement remains explicit, and unsupported or
+  ambiguous text is accounted for rather than silently disappearing.
+- Respect keyboard and screen-reader operation, visible focus, contrast, reduced-motion preference,
+  responsive layouts, and stable content placement. Motion should clarify state changes, not decorate
+  or delay work.
+- Preserve the current privacy statement: the original file is not retained in this development
+  baseline. Do not add storage, third-party analytics, an LLM, or external résumé processing under
+  this UX requirement.
+
+Quality evidence required before implementation is called complete:
+
+1. Build a redacted, owner-reviewed fixture set spanning several professions and document expected
+   explicit skills/tools, plausible roles, false-positive traps, and ambiguous terms.
+2. Measure precision and recall for explicit active-taxonomy keywords. Initial acceptance target:
+   at least 90% recall and 95% precision across that reviewed set, with every omitted/rejected term
+   inspectable. Reconfirm these thresholds when the fixture set is approved; do not claim résumé
+   understanding from raw keyword count alone.
+3. Benchmark supported files through the 5 MB limit and set a parsing-completion p95 after observing
+   representative PDFs/DOCs/DOCXs. Immediate feedback, cancellation/replacement safety, and no lost
+   review edits are required independently of backend latency.
+4. Test success, empty, partial, warning, failure, retry, replacement, Back/Forward, refresh,
+   desktop/mobile, reduced-motion, keyboard, and screen-reader-labelled paths.
+5. Keep extraction deterministic and versioned unless a later separately approved milestone defines
+   an external/AI trust, privacy, cost, evaluation, and fallback contract.
 
 ## 4. Product flow that works now
 
@@ -672,6 +793,11 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
   workspace-private skills and roles; expanding or governing the shared seed remains deliberate work.
 - Title confidence orders deterministic evidence sources and is not a probability or claim that a
   suggested title is factually correct.
+- React currently exposes only upload-derived role suggestions and a plain-text sector field; it does
+  not use the existing live role-catalogue search or a normalized sector selector.
+- Dashboard ordering is score-descending over at most 25 eligible workspace sightings, but the first
+  row is featured without a minimum recommendation-quality boundary. Treat this as relative ordering,
+  not verified strong relevance.
 - Resume skill review groups catalogue matches by their existing category and evidence order, reveals
   long groups incrementally, rejects short lowercase taxonomy fragments, and keeps preferred sectors
   optional. React setup now preserves all normalized market rows. Search countries are selected by
@@ -707,6 +833,8 @@ startup modules or silently advance. At each boundary, finish tests, evidence, d
 conventional commit, then obtain explicit user direction before starting another module.
 
 The implementation baseline is M3.2 plus S0.1 and the completed assisted multi-market onboarding
-follow-up; the product baseline is D1 and the engineering baseline is D2. Select exactly one next
-checkpoint before implementation. Do not combine S0.2, S0.3, S1–S6, M2.8, or a microservice split
-without an explicit checkpoint decision.
+follow-up; the product baseline is D1 and the engineering baseline is D2. The 2026-09-09 additions
+extend S0.2 with live role/sector assistance and the premium résumé-review quality gate, and S0.3 with
+the recommendation qualification contract; they do not mark either checkpoint as selected. Select
+exactly one next checkpoint before implementation. Do not combine S0.2, S0.3, S1–S6, M2.8, or a
+microservice split without an explicit checkpoint decision.

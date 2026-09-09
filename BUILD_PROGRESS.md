@@ -408,6 +408,15 @@ without an explicit checkpoint choice. S0.2 and S0.3 remain queued correctness w
 launch sequence. Authentication, privacy storage, distributed run control, infrastructure, and
 service extraction were outside this UI follow-up.
 
+Owner review on 2026-09-09 recorded, but did not select, three follow-ups: React role and sector
+suggestions no longer provide the searchable assistance expected from the existing catalogues; the
+dashboard orders its eligible top 25 by score but does not distinguish a qualified recommendation
+from the best item in a weak result set; and résumé upload/review should become a premium,
+progressively disclosed experience with immediate feedback, detailed evidence, and measured keyword
+coverage. These are assigned to S0.2 (`BUG-ONBOARDING-03`, `UX-ONBOARDING-04`) and S0.3/
+S4 (`UX-DASHBOARD-01`) in `SESSION_HANDOFF.md` and `NEXT_MILESTONES.md`. “Apple-like” records a
+quality bar, not permission to copy Apple branding, assets, content, layouts, or trade dress.
+
 ## D2 JobLens V1 Engineering Standards Evidence
 
 `ENGINEERING_STANDARDS.md` now defines the required trace from requirement or defect through design,

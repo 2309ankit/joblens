@@ -161,12 +161,26 @@ table. These are inspection facts, not a completed diagnosis or fix.
 
 | Checkpoint | Recorded items | Boundary |
 | --- | --- | --- |
-| S0.2 — Onboarding correctness | `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004` | Role evidence deduplication/section parsing, sector control design, and optional city/region |
-| S0.3 — Cross-role ranking correctness | `BUG-M3-006` | Reproduce high .NET scoring, correct the proven generic/skill/baseline defect, and preserve universal-policy behavior |
+| S0.2 — Onboarding correctness | `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004`, `BUG-ONBOARDING-03`, `UX-ONBOARDING-04` | Role evidence and live catalogue suggestions, normalized sector assistance, optional city/region, measured résumé keyword coverage, and a premium progressive upload/review experience |
+| S0.3 — Cross-role ranking correctness | `BUG-M3-006`, `UX-DASHBOARD-01` | Reproduce high .NET scoring, define when a job is qualified as Recommended, correct the proven scoring/presentation defect, and preserve universal-policy behavior |
 
 S0.1 does not include résumé suggestion changes, sector taxonomy, country/location redesign,
 ranking-weight changes, Job Explorer pagination, feedback calibration, authentication, a new source,
 shared ingestion, scheduling, live SSE, or service extraction.
+
+### Owner additions awaiting checkpoint selection
+
+The 2026-09-09 owner review adds two bounded directions without selecting either checkpoint:
+
+- S0.2 must restore searchable role suggestions in React, design a normalized selectable sector
+  control, and make résumé upload/review feel calm, immediate, detailed, and progressively disclosed.
+  “Apple-like” means interaction quality and visual restraint; it does not authorize copying Apple
+  branding, assets, text, layouts, or trade dress. Keyword quality must be measured on redacted,
+  reviewed fixtures rather than inferred from one smooth upload.
+- S0.3 must make the dashboard's recommendation promise honest. A top row cannot be presented as a
+  strong recommendation merely because it has the highest score in a weak result set. Define and
+  test qualification evidence and the low-confidence/empty treatment before changing weights. The
+  broader filter/sort/keyset Job Explorer remains S4.
 
 The following table is the earlier feature-build order retained for history. Its incomplete entries
 do not override the startup sequence above.
