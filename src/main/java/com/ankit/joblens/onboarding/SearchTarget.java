@@ -32,8 +32,10 @@ public record SearchTarget(String countryCode, String location) {
             "Use one search market per line in the format SG | Singapore");
       }
       SearchTarget target = new SearchTarget(parts[0], parts[1]);
-      targets.putIfAbsent(
-          target.countryCode() + "|" + target.location().toLowerCase(Locale.ROOT), target);
+      String key = target.countryCode() + "|" + target.location().toLowerCase(Locale.ROOT);
+      if (targets.putIfAbsent(key, target) != null) {
+        throw new IllegalArgumentException("Remove duplicate search markets before activation");
+      }
     }
     if (targets.isEmpty()) {
       throw new IllegalArgumentException("Add at least one search market");

@@ -14,6 +14,9 @@ export function displayMessage(error) {
     if (error.code === 'JOB_ALREADY_COMPLETE') {
       return 'This search has already completed. Change your search settings before running it again.';
     }
+    if (error.code === 'INVALID_PROFILE_REQUEST') {
+      return error.message || 'Review the highlighted profile fields and try again.';
+    }
   }
   return 'JobLens could not complete that request. Try again or review the latest source run.';
 }

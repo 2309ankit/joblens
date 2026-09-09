@@ -20,4 +20,10 @@ describe('request', () => {
     expect(displayMessage(new ApiError('JobInstance 42 is stale', 409, 'JOB_STALE')))
       .toBe('The previous search stopped updating. Restart it from the latest source run.');
   });
+
+  it('shows the product-safe profile validation message', () => {
+    expect(displayMessage(new ApiError(
+      'Remove duplicate search markets before activation', 400, 'INVALID_PROFILE_REQUEST',
+    ))).toBe('Remove duplicate search markets before activation');
+  });
 });

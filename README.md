@@ -95,9 +95,21 @@ Environment variables override these values. Never commit real credentials; `.en
 1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.
 2. (Recommended) import the pinned ESCO release once: `curl -X POST 'http://localhost:8080/api/batch/taxonomy/esco/import?taxonomyVersion=1.2.1'`. The import is a restartable, idempotent Batch job; until it completes, the curated JobLens seed remains the fallback catalogue.
 3. Upload a PDF, DOC, or DOCX resume, maximum 5 MB. Apache Tika extracts text. Unsupported, corrupt, oversized, or unreadable files fail. A readable but unusual resume, job description, or interview-style document is preserved as `REVIEW_REQUIRED` with evidence and must be acknowledged before activation. JobLens stores metadata, hash, assessment measures, and bounded evidence—not the original file bytes or full extracted text.
-4. In **Review and activate**, inspect detected skill chips grouped by catalogue category, title suggestions, and uncatalogued-term review cards. Long skill groups reveal six entries at a time. Each suggestion shows matched text, source section, taxonomy version, and confidence; nothing is silently accepted as fact. Search the catalogues, remove mistakes, or add a private workspace term. Preferred sectors are optional, and search countries are selected by name while ISO codes remain internal.
-5. Choose one to three ordered target roles, preferred sectors, and your current city. Résumé title suggestions remain evidence until you add them; manually added roles are valid intent immediately. Select country names from the integrated-market dropdown; ISO alpha-2 codes remain internal. Each option identifies its supporting source. City/region remains provider-facing text. JobLens generates one bounded provider query per target role using category-relevant confirmed skills. Page count, employment type, work arrangement, and an optional provider-query override are under **Advanced search options**; there is no mandatory technical-keyword field.
-6. Click **Save and activate profile** once. This versions the reviewed skills and preferences together, stores the `role-intent-v1` query plan for inspection, and activates one runnable source profile per generated query and market. Each has its own pagination and restart checkpoint. JobLens searches Adzuna for every supported market and Jooble only for the regional country configured by `JOOBLE_COUNTRY_CODE`. Direct official Greenhouse or Lever URLs are validated and searched without ATS credentials.
+4. After JobLens reads the resume, inspect the suggested skill and role chips. Suggestions remain
+   editable evidence until activation: remove mistakes, add a catalogue or private workspace term,
+   and choose one to three ordered target roles. Preferred sectors are optional.
+5. Review **Where you live now** separately from **Places you want to search**. A new profile starts
+   with a labelled, editable browser time-zone/language estimate and a visible Singapore fallback;
+   **Use browser estimate** can rerun it. Add, edit, or remove up to ten supported country and
+   city/region market rows. ISO alpha-2 codes remain internal and every market runs independently.
+   Page count, employment type, work arrangement, and the optional provider-query override are under
+   **Advanced search preferences**; the displayed defaults work without opening that section.
+6. Click **Activate profile** once. This versions the reviewed skills and preferences together,
+   stores the `role-intent-v1` query plan for inspection, and activates one runnable source profile
+   per generated query and market. Each has its own pagination and restart checkpoint. JobLens
+   searches Adzuna for every supported market and Jooble only for the regional country configured by
+   `JOOBLE_COUNTRY_CODE`. Direct official Greenhouse or Lever URLs are validated and searched without
+   ATS credentials.
 7. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
    The **Latest source run** panel then shows each source's status, attempted/fetched pages, received and
    new/changed/unchanged records, raw/normalized/sighted/scored totals, and any safe failure reason.
@@ -448,15 +460,15 @@ The current product flow is the verified JobLens V1 development baseline, not a 
 status matrix and launch gates are in [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md). Major gaps
 include authenticated ownership/RBAC, shared provider-budgeted ingestion, product-level asynchronous
 run control and live progress, secure résumé storage and privacy workflows, production delivery and
-observability, HA/backups/restore evidence, load/security testing, and resolution of the open product
-defects recorded in `SESSION_HANDOFF.md`.
+observability, HA/backups/restore evidence, load/security testing, and the remaining product defects
+recorded in `SESSION_HANDOFF.md`.
 
 **S0.1 Discovery Execution Safety completed on 2026-09-08.** Its controlled AI Engineer and broad-role
 evidence, empty-provider diagnostics, safe simultaneous-command behavior and stale-run recovery are
-recorded in [BUILD_PROGRESS.md](BUILD_PROGRESS.md). No later milestone is automatically selected:
-S0.2, S0.3, the approved assisted multi-market onboarding follow-up, and S1–S6 must remain separate
-checkpoint decisions. Authenticated ownership (S1) is still mandatory before private beta or public
-launch.
+recorded in [BUILD_PROGRESS.md](BUILD_PROGRESS.md). No later milestone is automatically selected.
+The assisted multi-market onboarding follow-up completed on 2026-09-08. S0.2, S0.3, and S1–S6 must
+remain separate checkpoint decisions. Authenticated ownership (S1) is still mandatory before private
+beta or public launch.
 
 - Store original resume bytes through an encrypted, scanned object-storage lifecycle; V11 currently stores validated metadata and SHA-256 only.
 - Add notification delivery only with user preferences, quiet hours, retries, and idempotency.

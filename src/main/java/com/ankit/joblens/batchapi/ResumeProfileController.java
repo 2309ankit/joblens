@@ -20,6 +20,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.MediaType;
@@ -214,7 +215,9 @@ public class ResumeProfileController {
       String targetDomains,
       @NotBlank String primaryLocation,
       String keywords,
-      @NotEmpty List<@Valid SearchTarget> searchMarkets,
+      @NotEmpty(message = "Add at least one search market")
+          @Size(max = 10, message = "Choose no more than 10 search markets")
+          List<@Valid SearchTarget> searchMarkets,
       @Min(1) @Max(20) int maxPages,
       @NotBlank String employmentPreference,
       @NotBlank String workPreference,

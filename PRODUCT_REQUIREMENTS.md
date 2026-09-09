@@ -120,7 +120,7 @@ means no adequate implementation exists. Fixed does not imply year-one load vali
 | --- | --- | --- | --- |
 | FR-01 | Versioned résumé/profile onboarding with user review | PARTIAL | PDF/DOC/DOCX parsing, draft activation, readiness findings, skill/role review work; original bytes, malware scanning, authenticated ownership, deletion/export, and open extraction bugs remain |
 | FR-02 | Explicit role intent separate from inferred résumé evidence | FIXED | One to three ordered roles and persisted `role-intent-v1` provider queries |
-| FR-03 | Multi-market preference management | PARTIAL | Normalized country targets and provider capability catalogue work; country-only location and sector-control UX are open |
+| FR-03 | Multi-market preference management | PARTIAL | Normalized targets, provider capability catalogue, and responsive multi-row React management work; authenticated ownership, launch-market selection, and measured market quality remain open |
 | FR-04 | Legitimate job ingestion with untouched raw evidence | PARTIAL | Adzuna, optional Jooble, and bounded Greenhouse/Lever enrichment work; commercial terms, quotas, shared ingestion, and broader reliable coverage are unresolved |
 | FR-05 | Restartable normalization, skill extraction, and duplicate processing | FIXED | PostgreSQL/Flyway/Spring Batch pipeline is deterministic, observable, and tested at functional scale |
 | FR-06 | Explainable role-aware ranking | PARTIAL | Universal policy and four overlays persist per-role evidence; relevance is not yet calibrated and cross-role false positives are open |

@@ -17,15 +17,16 @@ Product baseline: D1 Startup Requirements and Architecture
 Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
 React surface checkpoint: R1.1 — COMPLETE (2026-09-08)
-Next shipping milestone: S0.1 Discovery Execution Safety — COMPLETE (2026-09-08); select exactly one next checkpoint
+Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
+Next shipping milestone: select exactly one of the still-queued checkpoints; none is currently selected
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V25
-Latest full test: 129 Java tests plus 3 React tests, 0 failures, 0 errors, 0 skipped
-Latest focused check: AI Engineer/control/empty-provider diagnostics, concurrent command reconciliation, and stale-run recovery pass
-Local runtime: Docker app running; PostgreSQL healthy; /actuator/health reports UP
+Latest full test: 130 Java tests plus 8 React tests, 0 failures, 0 errors, 0 skipped
+Latest focused check: two-market React/API activation, duplicate/blank validation, browser location policy, and responsive layout pass
+Local runtime: Docker app running with index-DdhNRvf8.js and index-BG1Cp8qN.css; PostgreSQL healthy; /actuator/health reports UP
 ```
 
 Before making changes:
@@ -40,46 +41,78 @@ Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md),
 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), and [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
-## 2. Owner-approved next UI milestone — assisted multi-market onboarding
+## 2. Assisted multi-market onboarding follow-up — complete
 
-Status: **approved for the next agent; not implemented.** This supersedes the claim that R1.1 is the
-final onboarding UX checkpoint, but does not reopen its route-migration evidence.
+Status: **implemented and verified on 2026-09-08.** The change closes `BUG-ONBOARDING-01` and
+`BUG-ONBOARDING-02` without reopening the R1.1 route-migration scope.
 
-Owner feedback after hands-on local review:
+### Owner-visible outcomes
 
-- The current `/setup` React page permits only **one** country/location although the backend already
-  supports normalized `searchMarkets`. Users must be able to add, edit, and remove multiple market
-  rows before activation.
-- The setup asks users to select too much manually. Make résumé-derived role/skill suggestions and a
-  sensible market default prefilled and prominent. Users must be able to modify or remove every
-  prefilled value; inferred evidence remains unconfirmed until activation.
-- The opening experience should be résumé-first and visually clean. Start with a single, clear upload
-  action; only reveal the reviewed profile and market refinement after parsing succeeds. Do not show a
-  dense multi-section form before a resume exists.
-- Keep the in-app React navigation shell (Browse / Profile / My list) and make the flow feel like one
-  responsive workspace rather than a sequence of document-like pages. Preserve direct-route refresh,
-  browser Back/Forward, loading/error/empty states, keyboard access, and the workspace ownership
-  boundary.
+- `/setup` no longer truncates `preference.searchMarkets` to its first entry. React owns an array of
+  rows, renders every saved country/location pair, and submits every reviewed row to the existing
+  activation API.
+- Users can add, edit, and remove rows, with one required row and the existing ten-market maximum.
+  Country changes seed that row's editable city/region from the country name and do not alter the
+  user's current location.
+- Client and server validation reject blank, unsupported, over-limit, and case-insensitive duplicate
+  markets with product-safe messages. `SearchTarget.parse` now rejects rather than silently removes a
+  duplicate. Existing normalized persistence, independent provider fan-out, ownership, and restart
+  behavior are unchanged.
+- The initial page remains résumé-first: profile, market, readiness, and advanced controls render only
+  after a profile exists. Deterministic résumé role/skill suggestions remain editable evidence, not
+  silently confirmed intent.
+- A new profile's current location and first market use this visible policy: supported browser time
+  zone, then supported browser language/region, then the labelled Singapore fallback. Browser time
+  zone can provide a city-like estimate such as Sydney; language fallback uses the country name. A
+  **Use browser estimate** action is available, every value remains editable, and the UI names the
+  estimate source. No GPS, IP lookup, external service, or ungrounded résumé-location extraction was
+  introduced.
+- **Where you live now** is separate from **Places you want to search**, with an explicit note that
+  current location is not another search-market filter. Preferred sectors sit with direction.
+  **Advanced search preferences** is explicitly optional and once again exposes provider query
+  override, pages per source, employment type, and work arrangement with sensible defaults and plain
+  explanations.
+- Readiness acknowledgement remains an explicit unchecked user action whenever required. The code
+  does not auto-acknowledge or infer consent.
 
-Required design/acceptance criteria before coding:
+### Code and contract landmarks
 
-1. Confirm the desired default market policy (currently Singapore is hard-coded in `Setup.jsx`):
-   resume location if confidently extracted, browser locale, or Singapore fallback. Never infer a
-   country silently without showing it as editable.
-2. Use the existing `SearchTarget` / `searchMarkets` API contract. The React activation request must
-   submit all rows; validation must reject blank, duplicate, or unsupported rows with product-safe
-   messages.
-3. Keep readiness acknowledgement explicit; no UI may auto-acknowledge it.
-4. Add focused UI/API coverage for multiple rows and the résumé-first state, then run
-   `./mvnw clean test`, Spotless, and `git diff --check`. Perform a real browser/manual check of the
-   responsive layout before calling it complete.
-5. Update `BUILD_PROGRESS.md` only after these observations. This UX milestone does not authorize
-   identity, privacy, deployment, provider, scoring, or S0.1 changes.
+- `frontend/src/Setup.jsx`: market-array state, add/edit/remove component, normalized payload,
+  client validation, browser estimate policy, current/search location separation, and complete
+  advanced controls.
+- `frontend/src/styles.css`: responsive market rows and current-location/advanced-preference layout.
+- `frontend/src/messages.js`: displays the API's safe `INVALID_PROFILE_REQUEST` detail.
+- `src/main/java/com/ankit/joblens/onboarding/SearchTarget.java`: duplicate rejection.
+- `ResumeProfileController.ActivationRequest`: explicit one-to-ten market list validation.
+- `CandidateProfileExceptionHandler`: safe malformed-market JSON response without Jackson/framework
+  details.
+- `frontend/src/Setup.test.jsx`, `frontend/src/api.test.js`, `SearchTargetTests`, and
+  `ResumeProfileControllerTests`: focused UI, location-policy, message, domain, and API coverage.
 
-Current code landmarks: `frontend/src/Setup.jsx` has the single `country`/`location` state and sends
-one `searchMarkets` row; `ResumeProfileController.ActivationRequest` already accepts a list;
-`SearchTarget` owns backend target validation. Local Docker was refreshed on 2026-09-08 with bundle
-`index--PkvbTx5.js` and Flyway V25; that smoke test is not evidence that the next UX work is done.
+### Verification and review evidence
+
+- `./mvnw clean test`: **BUILD SUCCESS**, 130 Java tests and 8 React/Vitest tests, 0 failures,
+  0 errors, 0 skipped. Fresh PostgreSQL 17 Testcontainers applied Flyway V1–V25.
+- Focused Java and frontend runs passed before the full suite. Tests cover two editable/submitted
+  markets, normalization, duplicate and blank rejection, résumé-first rendering, and time-zone →
+  browser-language → Singapore fallback behavior.
+- `./mvnw -q spotless:apply` and `git diff --check` passed. No migration or dependency was added.
+- After `./mvnw -q -DskipTests package`, `docker compose build app` and recreation succeeded. The
+  first build attempt immediately after `clean test` correctly failed because that lifecycle does
+  not produce `target/joblens.jar`; packaging resolved it. The live app reports `UP`, validates
+  Flyway V25, and serves `index-DdhNRvf8.js` plus `index-BG1Cp8qN.css`.
+- A temporary headless Chrome inspection added a second market in client state only. At 1440×1000
+  and 390×844, both rows remained inside the viewport with no horizontal overflow; both remove
+  controls, the add control, distinct current/search labels, and every advanced control were present.
+  It did not submit the form or mutate database data.
+
+### Scope and next-session boundary
+
+No provider, Batch, scoring, schema, identity, privacy, deployment, or run-control behavior changed.
+The browser estimate is deliberately advisory and may be wrong for VPNs, travel, generic locales, or
+unmapped time zones; the visible source label and required user review are the compensating control.
+Do not add IP/GPS lookup or résumé-location extraction without a separately reviewed privacy and
+accuracy contract. Select exactly one queued checkpoint before new implementation.
 
 ## 3. React surface checkpoint — R1.1
 
@@ -640,8 +673,10 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
   suggested title is factually correct.
 - Resume skill review groups catalogue matches by their existing category and evidence order, reveals
   long groups incrementally, rejects short lowercase taxonomy fragments, and keeps preferred sectors
-  optional. Search countries are selected by name and reset the city/region default when changed;
-  unsupported legacy codes must be reviewed rather than silently mapped to another country.
+  optional. React setup now preserves all normalized market rows. Search countries are selected by
+  name and reset only that row's city/region default when changed; unsupported legacy codes must be
+  reviewed rather than silently mapped to another country. Current location remains separate and its
+  browser-derived estimate is always labelled and editable.
 - Java repositories explicitly reference SQL resource paths. SQL is correctly externalized, but
   those string paths are runtime-checked and should gain a typed, startup-validated registry.
 
@@ -654,6 +689,7 @@ old personal/learning requirement boundary. The startup delivery index is:
 D1 Startup requirements and architecture — COMPLETE
 D2 V1 engineering standards — COMPLETE
 S0.1 Discovery execution safety — COMPLETE (2026-09-08)
+Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
 S0.2 Onboarding correctness — QUEUED, NOT STARTED
 S0.3 Cross-role ranking correctness — QUEUED, NOT STARTED
 S1 Authenticated account ownership and RBAC — NOT STARTED
@@ -669,7 +705,7 @@ and does not override S0–S6. Do not combine the
 startup modules or silently advance. At each boundary, finish tests, evidence, documentation, and a
 conventional commit, then obtain explicit user direction before starting another module.
 
-The implementation baseline is M3.2 plus S0.1, the product baseline is D1, and the engineering
-baseline is D2. Select exactly one next checkpoint before implementation. Do not combine S0.2,
-S0.3, the approved assisted multi-market onboarding follow-up, S1–S6, M2.8, or a microservice split
+The implementation baseline is M3.2 plus S0.1 and the completed assisted multi-market onboarding
+follow-up; the product baseline is D1 and the engineering baseline is D2. Select exactly one next
+checkpoint before implementation. Do not combine S0.2, S0.3, S1–S6, M2.8, or a microservice split
 without an explicit checkpoint decision.

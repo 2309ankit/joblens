@@ -64,13 +64,14 @@ The generated project currently contains:
 ## Current Verification Summary
 
 - Implementation baseline: M3.2 Role-Aware Ranking, commit `2885c84`.
-- Latest full behavioral suite: `./mvnw clean test`, 129 Java tests and 3 React tests, 0 failures,
+- Latest full behavioral suite: `./mvnw clean test`, 130 Java tests and 8 React tests, 0 failures,
   0 errors, 0 skipped, recorded on 2026-09-08.
 - Database baseline: PostgreSQL 17 with Flyway V25 verified from clean Testcontainers.
 - Release metadata: JobLens V1 development artifact `1.0.0-SNAPSHOT`; Maven packaging and Docker
   image construction verified on 2026-09-04.
-- R1.1 React surface completion and S0.1 Discovery Execution Safety are verified. This does not pass
-  the authenticated private-beta or public-launch gates.
+- R1.1 React surface completion, S0.1 Discovery Execution Safety, and the assisted multi-market
+  onboarding follow-up are verified. This does not pass the authenticated private-beta or
+  public-launch gates.
 
 ## Required Build Milestones
 
@@ -251,6 +252,35 @@ No external job-source integration had been implemented at that early checkpoint
 
 ## Current Milestone
 
+The owner-approved **assisted multi-market onboarding follow-up** is complete for
+`BUG-ONBOARDING-01` (the React setup submitted only the first configured country) and
+`BUG-ONBOARDING-02` (hard-coded current location and unclear/incomplete advanced preferences).
+`/setup` now loads, renders, adds, edits, removes, validates, and submits every normalized
+`searchMarkets` row up to the existing ten-market limit. Blank, unsupported, and case-insensitive
+duplicate rows receive product-safe messages; the backend no longer silently deduplicates a malformed
+request. Saved preferences remain authoritative.
+
+For a new profile, current location and the first editable search market use a visible deterministic
+estimate: a supported browser time zone first, a supported browser language/region second, and
+Singapore only as the labelled fallback. The user can rerun the browser estimate or replace any
+value. No precise geolocation, external service, résumé-location claim, or automatic readiness
+acknowledgement was added. “Where you live now” is visibly separated from “Places you want to
+search,” and changing a desired country no longer changes current location. Preferred sectors are
+visible with role intent; advanced preferences now accurately expose the optional provider-query
+override, pages per source, employment type, and work arrangement with their defaults explained.
+
+Observed evidence on 2026-09-08: `./mvnw clean test` passed with **130 Java tests** and **8 React/
+Vitest tests**, 0 failures, 0 errors, and 0 skipped. Fresh PostgreSQL 17 Testcontainers applied Flyway
+V1–V25. Focused tests cover the résumé-first empty state, two editable market rows, market
+normalization, client/server duplicate rejection, blank-row API errors, and time-zone/language/
+fallback location selection. Spotless and `git diff --check` passed. `./mvnw -q -DskipTests package`
+and `docker compose build app` succeeded after the clean test lifecycle's expected absence of a
+packaged JAR was corrected by running the package phase. The recreated local app reported `UP` and
+served `index-DdhNRvf8.js` with `index-BG1Cp8qN.css`. Headless Chrome verified two removable market
+rows at 1440×1000 and 390×844 with no horizontal overflow, in-viewport rows, distinct current/search
+location labels, and all advanced controls present. The browser check changed client state only and
+did not submit or modify profile data.
+
 R1.1 **React surface completion** is complete. The owner-approved checkpoint now serves the React
 bundle for all three primary workspace routes: `/dashboard`, `/setup`, and `/applications`.
 `/setup` is an assisted activation flow: it reads a résumé, presents editable deterministic
@@ -373,10 +403,10 @@ remains the detailed evidence history.
 
 ## Next Observable Milestone
 
-S0.1 is complete. Do not begin another milestone without an explicit checkpoint choice. S0.2 and
-S0.3 remain queued correctness work; the owner-approved assisted multi-market onboarding checkpoint
-is documented in `SESSION_HANDOFF.md`; S1–S6 remain the launch sequence. Authentication, privacy
-storage, distributed run control, infrastructure, and service extraction were outside S0.1.
+S0.1 and the assisted multi-market onboarding follow-up are complete. Do not begin another milestone
+without an explicit checkpoint choice. S0.2 and S0.3 remain queued correctness work; S1–S6 remain the
+launch sequence. Authentication, privacy storage, distributed run control, infrastructure, and
+service extraction were outside this UI follow-up.
 
 ## D2 JobLens V1 Engineering Standards Evidence
 

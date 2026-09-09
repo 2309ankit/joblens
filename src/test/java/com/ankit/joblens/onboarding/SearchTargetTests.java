@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Test;
 
 class SearchTargetTests {
   @Test
-  void parsesNormalizesAndDeduplicatesOneMarketPerLine() {
-    assertThat(SearchTarget.parse("sg | Singapore\nAU| Sydney\nSG | singapore"))
+  void parsesAndNormalizesOneMarketPerLine() {
+    assertThat(SearchTarget.parse("sg | Singapore\nAU| Sydney"))
         .containsExactly(new SearchTarget("SG", "Singapore"), new SearchTarget("AU", "Sydney"));
   }
 
@@ -20,5 +20,8 @@ class SearchTargetTests {
     assertThatThrownBy(() -> SearchTarget.parse("Singapore | Singapore"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("two-letter country code");
+    assertThatThrownBy(() -> SearchTarget.parse("SG | Singapore\nsg | singapore"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("duplicate search markets");
   }
 }

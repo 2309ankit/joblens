@@ -13,6 +13,8 @@ import com.ankit.joblens.onboarding.OnboardingService;
 import com.ankit.joblens.onboarding.ProfileIntelligence;
 import com.ankit.joblens.onboarding.ResumeReadinessAssessment;
 import com.ankit.joblens.onboarding.RoleOption;
+import com.ankit.joblens.onboarding.SearchPreferences;
+import com.ankit.joblens.onboarding.SearchTarget;
 import com.ankit.joblens.onboarding.SkillOption;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,6 +22,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -105,8 +108,65 @@ class ResumeProfileControllerTests {
     assertThat(service.lastWorkspaceId).isEqualTo(workspaceId);
   }
 
+  @Test
+  void activatesEveryReviewedSearchMarketAndRejectsDuplicates() throws Exception {
+    String request =
+        """
+        {
+          "skills": ["Java"],
+          "targetRoles": ["Backend Engineer"],
+          "targetDomains": "banking",
+          "primaryLocation": "Singapore",
+          "keywords": "",
+          "searchMarkets": [
+            {"countryCode": "SG", "location": "Singapore"},
+            {"countryCode": "AU", "location": "Sydney"}
+          ],
+          "maxPages": 3,
+          "employmentPreference": "PERMANENT",
+          "workPreference": "HYBRID",
+          "acknowledgeReadiness": false
+        }
+        """;
+
+    mvc.perform(
+            post("/api/candidate-profile/activate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request))
+        .andExpect(status().isOk());
+
+    assertThat(service.lastPreferences.targets())
+        .containsExactly(new SearchTarget("SG", "Singapore"), new SearchTarget("AU", "Sydney"));
+
+    mvc.perform(
+            post("/api/candidate-profile/activate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    request.replace(
+                        "{\"countryCode\": \"AU\", \"location\": \"Sydney\"}",
+                        "{\"countryCode\": \"sg\", \"location\": \"singapore\"}")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("INVALID_PROFILE_REQUEST"))
+        .andExpect(
+            jsonPath("$.message").value("Remove duplicate search markets before activation"));
+
+    mvc.perform(
+            post("/api/candidate-profile/activate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    request.replace(
+                        "{\"countryCode\": \"AU\", \"location\": \"Sydney\"}",
+                        "{\"countryCode\": \"AU\", \"location\": \"\"}")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("INVALID_PROFILE_REQUEST"))
+        .andExpect(
+            jsonPath("$.message")
+                .value("Each search market needs a location up to 150 characters"));
+  }
+
   private static final class StubOnboardingService extends OnboardingService {
     private UUID lastWorkspaceId;
+    private SearchPreferences lastPreferences;
     private boolean rejectUpdate;
 
     private StubOnboardingService() {
@@ -195,6 +255,33 @@ class ResumeProfileControllerTests {
                   "Confirm this is your resume.",
                   "Requirement signals: 3",
                   30)));
+    }
+
+    @Override
+    public long completeSetup(
+        UUID workspaceId,
+        List<String> requestedSkills,
+        SearchPreferences preferences,
+        boolean acknowledgeReadiness) {
+      lastWorkspaceId = workspaceId;
+      preferences.targets();
+      lastPreferences = preferences;
+      return 42;
+    }
+
+    @Override
+    public Optional<OnboardingProfile> latest(UUID workspaceId) {
+      lastWorkspaceId = workspaceId;
+      return Optional.of(
+          new OnboardingProfile(
+              12,
+              2,
+              "ACTIVE",
+              "Candidate",
+              List.of("Backend Engineer"),
+              List.of("banking"),
+              "Singapore",
+              List.of("Java")));
     }
   }
 }
