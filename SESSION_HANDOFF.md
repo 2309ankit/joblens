@@ -19,7 +19,7 @@ Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
 React surface checkpoint: R1.1 — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
-Next shipping milestone: D3 Free Demo Deployment — SELECTED by owner on 2026-09-10
+Next shipping milestone: D3 Free Demo Deployment — COMPLETE (2026-09-10); await owner direction for the next module
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
@@ -44,11 +44,11 @@ Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md),
 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), and [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
-## D3 Free Demo Deployment — selected, local release checks verified, remote open
+## D3 Free Demo Deployment — COMPLETE (2026-09-10)
 
 The owner selected D3 on 2026-09-10 and paused further product work until the demo is deployed. Its
 bounded requirement and design record is
-[D3_FREE_DEMO_DEPLOYMENT.md](D3_FREE_DEMO_DEPLOYMENT.md). The repository now defines one Render Free
+[D3_FREE_DEMO_DEPLOYMENT.md](D3_FREE_DEMO_DEPLOYMENT.md). The repository defines one Render Free
 Singapore Docker web service backed by an owner-created Neon Free PostgreSQL 17 Singapore database;
 the environment is limited to synthetic or redacted data and does not satisfy S6 or private-beta
 launch gates.
@@ -56,9 +56,17 @@ launch gates.
 The clean suite passed with 138 Java and 12 React tests. The 167,668,389-byte runtime image is
 non-root and contains no build toolchain. At 512 MB and 0.1 CPU it reached `UP` in 193 seconds, used
 approximately 240 MB at idle, served `/setup` and hashed assets, and emitted the required secure
-cookie. Formatting and diff checks passed. Render CLI v2.22.0 was checksum-verified, but its Blueprint
-validator requires an authenticated workspace. Complete the owner-account connection, Blueprint
-validation, fresh Neon migration, and remote smoke evidence before marking D3 complete.
+cookie. Formatting and diff checks passed.
+
+Remote evidence recorded 2026-09-10: service `joblens-demo` (`srv-dahcds6q1p3s73ec8i5g`) deploy
+`dep-dahcdsuq1p3s73ec8kv0` of commit `c1fd772` reached `live`. Remote Flyway logs show all 26
+migrations validated and applied against the fresh Neon Singapore database. The public URL
+(`https://joblens-demo.onrender.com`) returned HTTP 200 `UP` from `/actuator/health`, served `/setup`
+with both content-hashed assets, issued the workspace cookie with `Secure; HttpOnly; SameSite=Lax`,
+and `/api/source-boards` returned HTTP 200, confirming live database connectivity. No error-level
+application logs were observed. Full evidence is in `BUILD_PROGRESS.md`. D3 is complete; await
+explicit owner direction before selecting the next module (S0.2 acceptance, S0.3, or another
+milestone).
 
 ## 2. S0.2 Onboarding Correctness — selected, implementation verified, acceptance open
 
@@ -887,7 +895,7 @@ old personal/learning requirement boundary. The startup delivery index is:
 ```text
 D1 Startup requirements and architecture — COMPLETE
 D2 V1 engineering standards — COMPLETE
-D3 Free demo deployment — SELECTED, LOCAL RELEASE CHECKS VERIFIED, REMOTE OPEN
+D3 Free demo deployment — COMPLETE (2026-09-10)
 S0.1 Discovery execution safety — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
 S0.2 Onboarding correctness — SELECTED, IMPLEMENTATION VERIFIED, ACCEPTANCE OPEN

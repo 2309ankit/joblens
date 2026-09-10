@@ -272,6 +272,23 @@ Render requires an authenticated workspace for schema, semantic, and conflict va
 open pending that workspace validation, a fresh Neon deployment, and externally observed HTTP and
 database evidence.
 
+D3 remote smoke evidence on 2026-09-10: the authenticated Render workspace created service
+`joblens-demo` (`srv-dahcds6q1p3s73ec8i5g`, Singapore, Docker runtime, Free plan, manual promotion,
+`/actuator/health` health check, `autoDeploy=false`) from `github.com/2309ankit/joblens` branch
+`main`, wired to a fresh owner-created Neon Free PostgreSQL 17 database in
+`ap-southeast-1`/Singapore over a TLS JDBC URL supplied only as Render environment variables. Deploy
+`dep-dahcdsuq1p3s73ec8kv0` of commit `c1fd772` reached `live` status. Remote Flyway logs show
+`Successfully validated 26 migrations` followed by `Successfully applied 26 migrations` against the
+fresh Neon schema, with no manual schema edits or seed data. `https://joblens-demo.onrender.com/actuator/health`
+returned HTTP 200 `{"status":"UP"}`; `/setup` returned HTTP 200 and served both content-hashed assets
+(`index-DnzkfvgI.js`, `index-BLcOZmRq.css`, matching the local build); the response issued the
+anonymous workspace cookie with `Secure; HttpOnly; SameSite=Lax`. `/api/source-boards` and
+`/v3/api-docs` each returned HTTP 200, confirming live database read connectivity end to end. Render
+application logs for the deploy window show no `ERROR`-level entries; the only warnings are the
+expected SpringDoc default-enablement notices. D3 acceptance criteria 1–5 are now satisfied by this
+remote evidence; criteria 6 (operator runbook) and 7 (local test/build evidence) were already
+recorded above. D3 is complete.
+
 S0.2 Onboarding Correctness remains acceptance-open and is paused at its verified implementation
 checkpoint. Before the pause, its bounded requirement set was
 `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004`, `BUG-ONBOARDING-03`, and `UX-ONBOARDING-04`: correct
