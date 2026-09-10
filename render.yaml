@@ -10,7 +10,6 @@ services:
     dockerContext: .
     autoDeployTrigger: "off"
     healthCheckPath: /actuator/health
-    maxShutdownDelaySeconds: 60
     envVars:
       - key: JOBLENS_SERVER_PORT
         value: "10000"

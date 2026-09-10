@@ -133,7 +133,7 @@ SELECT pg_size_pretty(pg_database_size(current_database()));
    implemented.
 
 The Blueprint sets Render's port, HTTPS-only workspace cookie, a five-connection/zero-minimum JDBC
-pool, a low-memory JVM policy, graceful shutdown allowance, and `/actuator/health` health check.
+pool, a low-memory JVM policy, and `/actuator/health` health check.
 Secrets are runtime-only. The multi-stage Docker build produces the React bundle and Spring Boot JAR,
 then copies only the JAR into the non-root Java 21 runtime image.
 
