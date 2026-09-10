@@ -41,6 +41,16 @@ export function addDistinctValue(values, value, limit = Infinity) {
   return [...values, clean];
 }
 
+export function catalogChoices(options, values, query) {
+  const available = options.filter(option => !values.some(value => normalizedKey(value) === normalizedKey(option.name)));
+  const exact = options.some(option => normalizedKey(option.name) === normalizedKey(query));
+  return exact || !query ? available : [...available, { name: query, custom: true, addition: true }];
+}
+
+export function catalogPopupOpen(query, state) {
+  return query.trim().length >= 2 && state !== 'idle';
+}
+
 export function splitValues(value) {
   if (Array.isArray(value)) return value;
   return String(value || '').split(',').map(item => item.trim()).filter(Boolean);
@@ -259,8 +269,8 @@ export function CatalogChipEditor({ title, itemName, values, setValues, endpoint
   const [activeIndex, setActiveIndex] = useState(0);
   const [lastRemoved, setLastRemoved] = useState('');
   const query = input.trim();
-  const available = useMemo(() => options.filter(option => !values.some(value => normalizedKey(value) === normalizedKey(option.name))), [options, values]);
-  const exact = options.some(option => normalizedKey(option.name) === normalizedKey(query));
+  const choices = useMemo(() => catalogChoices(options, values, query), [options, values, query]);
+  const popupOpen = catalogPopupOpen(query, state);
 
   useEffect(() => {
     if (query.length < 2) { setOptions([]); setState('idle'); return undefined; }
@@ -278,9 +288,9 @@ export function CatalogChipEditor({ title, itemName, values, setValues, endpoint
     setInput(''); setOptions([]); setState('idle');
   };
   const keyDown = event => {
-    if (event.key === 'ArrowDown' && available.length) { event.preventDefault(); setActiveIndex(index => Math.min(index + 1, available.length - 1)); }
-    if (event.key === 'ArrowUp' && available.length) { event.preventDefault(); setActiveIndex(index => Math.max(index - 1, 0)); }
-    if (event.key === 'Enter' && available[activeIndex]) { event.preventDefault(); select(available[activeIndex].name); }
+    if (event.key === 'ArrowDown' && popupOpen && choices.length) { event.preventDefault(); setActiveIndex(index => Math.min(index + 1, choices.length - 1)); }
+    if (event.key === 'ArrowUp' && popupOpen && choices.length) { event.preventDefault(); setActiveIndex(index => Math.max(index - 1, 0)); }
+    if (event.key === 'Enter' && popupOpen && choices[activeIndex]) { event.preventDefault(); select(choices[activeIndex].name); }
     if (event.key === 'Escape') { setOptions([]); setState('idle'); }
   };
   const atLimit = values.length >= limit;
@@ -290,8 +300,8 @@ export function CatalogChipEditor({ title, itemName, values, setValues, endpoint
   const undo = () => { setValues(addDistinctValue(values, lastRemoved, limit)); setLastRemoved(''); };
 
   return <div className="chip-editor"><div className="editor-heading"><h3>{title} {optional && <span>(optional)</span>}</h3>{Number.isFinite(limit) && <span>{values.length}/{limit}</span>}</div><div className="chips">{values.map(value => <span className="chip" key={normalizedKey(value)}>{value}<button type="button" aria-label={`Remove ${value}`} onClick={() => remove(value)}><X size={13}/></button></span>)}</div>{lastRemoved && <p className="undo-removal" role="status">Removed {lastRemoved}. <button type="button" onClick={undo}>Undo</button></p>}
-    <div className="catalog-combobox"><Search size={16} aria-hidden="true"/><input value={input} onChange={event => setInput(event.target.value)} onKeyDown={keyDown} placeholder={`Search or add a ${itemName}`} role="combobox" aria-label={`Search ${title.toLowerCase()}`} aria-expanded={query.length >= 2 && state !== 'idle'} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={available[activeIndex] ? `${listId}-${activeIndex}` : undefined} disabled={atLimit} />{input && <button type="button" aria-label={`Clear ${itemName} search`} onClick={() => setInput('')}><X size={14}/></button>}</div>
-    {query.length >= 2 && <div className="catalog-results" id={listId} role="listbox" aria-label={`${title} suggestions`}>{state === 'loading' && <p role="status">Searching the catalogue…</p>}{state === 'error' && <p role="alert">Suggestions could not load. You can retry or add a private value.</p>}{state === 'empty' && <p>No catalogue match.</p>}{available.map((option, index) => <button type="button" role="option" aria-selected={index === activeIndex} className={index === activeIndex ? 'active' : ''} id={`${listId}-${index}`} key={`${option.name}-${option.custom}`} onMouseEnter={() => setActiveIndex(index)} onClick={() => select(option.name)}><span>{option.name}<small>{option.custom ? 'Private to this workspace' : formatCategory(option.category)}</small></span><Plus size={14}/></button>)}{!exact && query && <button className="custom-option" type="button" onClick={() => select(query)}><span>Add “{query}”<small>Private to this workspace</small></span><Plus size={14}/></button>}</div>}
+    <div className="catalog-combobox"><Search size={16} aria-hidden="true"/><input value={input} onChange={event => setInput(event.target.value)} onKeyDown={keyDown} placeholder={`Search or add a ${itemName}`} role="combobox" aria-label={`Search ${title.toLowerCase()}`} aria-expanded={popupOpen} aria-controls={popupOpen ? listId : undefined} aria-autocomplete="list" aria-activedescendant={popupOpen && choices[activeIndex] ? `${listId}-${activeIndex}` : undefined} disabled={atLimit} />{input && <button type="button" aria-label={`Clear ${itemName} search`} onClick={() => setInput('')}><X size={14}/></button>}</div>
+    {popupOpen && <div className="catalog-results" id={listId} role="listbox" aria-label={`${title} suggestions`}>{state === 'loading' && <p role="status">Searching the catalogue…</p>}{state === 'error' && <p role="alert">Suggestions could not load. You can retry or add a private value.</p>}{state === 'empty' && <p>No catalogue match.</p>}{choices.map((option, index) => <button type="button" role="option" aria-selected={index === activeIndex} className={`${option.addition ? 'custom-option ' : ''}${index === activeIndex ? 'active' : ''}`.trim()} id={`${listId}-${index}`} key={`${option.name}-${option.custom}-${option.addition || false}`} onMouseEnter={() => setActiveIndex(index)} onClick={() => select(option.name)}><span>{option.addition ? `Add “${option.name}”` : option.name}<small>{option.custom ? 'Private to this workspace' : formatCategory(option.category)}</small></span><Plus size={14}/></button>)}</div>}
     {evidence.length > 0 && <div className="resume-evidence"><p>From your resume — review before adding</p>{evidence.slice(0, 6).map(suggestion => <details key={normalizedKey(suggestion.name)}><summary><span>{suggestion.name}<small>{formatCategory(suggestion.category)} · {Math.round(Number(suggestion.confidence) * 100)}% evidence confidence</small></span><ChevronDown size={14}/></summary><p>{suggestion.evidence}</p><p className="evidence-source">{formatCategory(suggestion.evidenceSource || suggestion.evidenceSection)} · {suggestion.matchType?.replaceAll('_', ' ').toLowerCase()}</p><button className="button secondary" type="button" disabled={atLimit} onClick={() => select(suggestion.name)}><Plus size={14}/> Use this {itemName}</button></details>)}</div>}
     {optional && <p className="field-help">Leave this empty to search across all sectors. Selected canonical names also drive sector query and score explanations.</p>}
   </div>;

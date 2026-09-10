@@ -25,9 +25,9 @@ Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V26
-Latest full test: 136 Java tests plus 11 React tests, 0 failures, 0 errors, 0 skipped
+Latest full test: 136 Java tests plus 12 React tests, 0 failures, 0 errors, 0 skipped
 Latest focused check: 38 Java tests plus 11 React tests covering S0.2 extraction, catalogue, market, provider, API, and persistence contracts
-Local runtime: Docker app running with index-B1VRLAyb.js and index-Cyde1RPH.css; PostgreSQL healthy; /actuator/health reports UP
+Local runtime: Docker app running with index-B2cWL7k-.js and index-Cyde1RPH.css; PostgreSQL healthy; /actuator/health reports UP
 Owner-reported next items: S0.2 is selected and acceptance-open; the S0.3 recommendation diagnosis
 is recorded below, but its implementation remains queued
 ```
@@ -53,13 +53,17 @@ Front-end role aliases, searchable skill/role/sector editors, a versioned canoni
 with workspace-private additions, country-wide search markets, progressive evidence review, and
 same-browser-session draft recovery. It does not include S0.3 recommendation/ranking semantics.
 
-The clean suite passed with 136 Java tests and 11 React tests against fresh PostgreSQL V1–V26. A
+The clean suite passed with 136 Java tests and 12 React tests against fresh PostgreSQL V1–V26. A
 focused 38-Java-test suite, provider contract checks, packaging, live Compose health/OpenAPI checks,
 and desktop/mobile headless Chrome inspection also passed. The redacted engineering fixtures measure
 100% recall and precision for 14 expected explicit skills across four professions. S0.2 remains open
 until the owner reviews those fixture expectations, representative PDF/DOC/DOCX files through the
 5 MB boundary establish parsing p95, and final assistive-technology review is recorded. Do not mark
 the checkpoint complete or begin S0.3 before those gates are resolved or explicitly excepted.
+
+A final self-review fixed the remaining catalogue keyboard edge case: Escape now fully closes the
+popup, and workspace-private additions participate in the same Arrow/Enter option sequence as
+catalogue matches. The added React regression is included in the 12-test total above.
 
 ## 3. Assisted multi-market onboarding follow-up — complete
 

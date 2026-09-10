@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { addDistinctValue, CatalogChipEditor, detectBrowserMarket, normalizeSearchMarkets, ResumeInsightSummary, SearchMarketsEditor, Setup, validateSearchMarkets } from './Setup';
+import { addDistinctValue, catalogChoices, catalogPopupOpen, CatalogChipEditor, detectBrowserMarket, normalizeSearchMarkets, ResumeInsightSummary, SearchMarketsEditor, Setup, validateSearchMarkets } from './Setup';
 
 const countries = [
   { code: 'AU', name: 'Australia', capabilityExplanation: 'Integrated search available through ADZUNA.' },
@@ -82,6 +82,19 @@ describe('assisted multi-market setup', () => {
     expect(html).toContain('aria-label="Search target roles"');
     expect(html).toContain('From your resume — review before adding');
     expect(html).toContain('Use this role');
+  });
+
+  it('keeps private additions in keyboard choices and closes the popup on Escape state', () => {
+    expect(catalogChoices(
+      [{ name: 'AI Engineer', category: 'DATA', custom: false }],
+      [],
+      'Applied Scientist',
+    )).toEqual([
+      { name: 'AI Engineer', category: 'DATA', custom: false },
+      { name: 'Applied Scientist', custom: true, addition: true },
+    ]);
+    expect(catalogPopupOpen('Applied Scientist', 'ready')).toBe(true);
+    expect(catalogPopupOpen('Applied Scientist', 'idle')).toBe(false);
   });
 
   it('keeps detailed resume evidence progressively disclosed', () => {

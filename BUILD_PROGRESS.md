@@ -271,8 +271,8 @@ Adzuna omits its optional city filter for country-wide searches, while Jooble re
 country name derived from the validated source key.
 
 Observed verification: the focused suite passed with **38 Java tests plus 11 React tests**. The clean
-full suite passed with **136 Java tests plus 11 React/Vitest tests**, 0 failures, 0 errors, and 0
-skipped; fresh PostgreSQL 17 Testcontainers applied Flyway V1–V26. The four-profession redacted
+full suite passed on 2026-09-10 with **136 Java tests plus 12 React/Vitest tests**, 0 failures, 0
+errors, and 0 skipped; fresh PostgreSQL 17 Testcontainers applied Flyway V1–V26. The four-profession redacted
 engineering fixture measured 100% recall and 100% precision for its 14 expected explicit taxonomy
 skills after first exposing and then correcting a contact-host false positive. Headless Chrome at
 1440×1000 and 390×844 observed functional alias-backed role search, three labelled comboboxes,
@@ -280,6 +280,11 @@ collapsed evidence, optional country-wide location, same-session draft persisten
 cards, and no horizontal overflow. The browser check changed temporary browser state only. The
 packaged Compose app started against schema V26, reported `UP`, and exposed the sector endpoint in
 OpenAPI.
+
+Final self-review also corrected the catalogue combobox's Escape and custom-entry keyboard path:
+Escape now removes the popup from the accessibility tree, and a private addition participates in the
+same Arrow/Enter option sequence as catalogue matches. A focused React regression protects both
+states.
 
 S0.2 is not yet marked complete. Product-owner review of the redacted fixture expectations, a
 representative PDF/DOC/DOCX parsing benchmark through the 5 MB boundary to set p95, and final
