@@ -19,17 +19,20 @@ Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
 React surface checkpoint: R1.1 — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
-Next shipping milestone: D3 Free Demo Deployment — COMPLETE (2026-09-10); await owner direction for the next module
+Next shipping milestone: D3 Free Demo Deployment — COMPLETE (2026-09-10), including post-deploy
+incident fixes on 2026-09-10; await owner direction for the next module
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V26
-Latest full test: 138 Java tests plus 12 React tests, 0 failures, 0 errors, 0 skipped
+Latest implementation commit: 45391a6 (fix(discovery): broaden provider queries that return zero results)
+Latest full test: 145 Java tests plus 12 React tests, 0 failures, 0 errors, 0 skipped
 Latest focused check: 38 Java tests plus 11 React tests covering S0.2 extraction, catalogue, market, provider, API, and persistence contracts
-Local runtime: Docker app running with index-DnzkfvgI.js and index-BLcOZmRq.css; PostgreSQL healthy; /actuator/health reports UP
-Owner-reported next items: D3 is selected and must deploy before other work; S0.2 is paused and acceptance-open; the S0.3 recommendation diagnosis
-is recorded below, but its implementation remains queued
+Local runtime: Docker app rebuilt on 45391a6, running with index-DnzkfvgI.js and index-BLcOZmRq.css; PostgreSQL healthy; /actuator/health reports UP
+Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g) deploy dep-dahdeklg1s2s73c5n2h0 of commit 45391a6 is live; /actuator/health reports UP
+Owner-reported next items: D3 (including its post-deploy incident fixes) is complete; S0.2 is paused and acceptance-open; the S0.3 recommendation diagnosis
+is recorded below, but its implementation remains queued. Next session should ask the owner which module to pick up (S0.2 acceptance, S0.3, or another).
 ```
 
 Before making changes:
@@ -67,6 +70,75 @@ and `/api/source-boards` returned HTTP 200, confirming live database connectivit
 application logs were observed. Full evidence is in `BUILD_PROGRESS.md`. D3 is complete; await
 explicit owner direction before selecting the next module (S0.2 acceptance, S0.3, or another
 milestone).
+
+## D3 post-deployment incident fixes — COMPLETE (2026-09-10)
+
+Two issues surfaced immediately after the owner started using the live demo. Both are fixed, tested,
+committed to `main`, and redeployed; this is bug-fix follow-through on the D3 environment, not a new
+module, and does not authorize starting S0.2/S0.3/S1–S6 without a separate owner checkpoint.
+
+**Missing provider credentials.** The Render service was created without `ADZUNA_APP_ID`,
+`ADZUNA_APP_KEY`, or `JOOBLE_API_KEY` — `render.yaml` never declared them and the original creation
+script omitted them, so Find Jobs failed immediately with `MissingJobSourceCredentialsException`.
+Fixed by setting the three variables on the Render service via the Render API. A plain service
+`restart` did **not** pick up the new values (the same error persisted across two restarts on the
+existing container); a full `render deploys create` of the already-live commit was required to
+recreate the container with fresh environment injection. Verified via `/actuator/health` and clean
+application logs after the redeploy.
+
+**Adzuna/Jooble zero-result queries.** `ProviderQueryPlanner` builds each query as a role name plus up
+to two skills, AND-joined into one search string (see `S0_2`-era `role-intent-v1` generation). A
+narrow combination — e.g. `"Backend Engineer Apache Camel IBM MQ"` — can legitimately return zero live
+postings even with correct setup and credentials. This was confirmed to be identical behavior in the
+local Testcontainers-backed database (same narrow queries returned `EMPTY` locally too), ruling out a
+Render-specific defect before any code changed. Fixed in commit `45391a6`
+(`fix(discovery): broaden provider queries that return zero results`): `JobDiscoveryTasklet` now
+retries a fresh (page-1) empty search with progressively fewer trailing terms — up to two extra
+attempts — before accepting the empty result. Scoped to providers where broadening is safe via a new
+`JobSourceClient.supportsQueryBroadening()` default method (`true` for Adzuna and Jooble; Greenhouse
+and Lever are unaffected since they already OR-match keyword tokens locally against a fully fetched
+board, so provider-side AND-narrowing does not apply to them). The originally persisted
+`search_profile.keywords` and the reporting-layer `workspace_search_source_run.query_text` are left
+untouched by broadening — only the outgoing provider request is widened, so the UI still shows the
+optimal intended query.
+
+Also found but **not fixed**: one workspace-private `skill` row named literally `AWS (S3` (unclosed
+parenthesis, `USER_DEFINED` category) in the local database, most likely bad manual test data entered
+during earlier onboarding testing. It degrades that one generated query's readability but does not
+block discovery (broadening still finds results around it). Left for a future onboarding-data-quality
+pass; do not silently delete it without first checking whether it is expected fixture/test data.
+
+Verification: full suite passed at 145 Java tests (138 baseline + 4 new `QueryBroadeningTests` + 3 new
+`JobDiscoveryIntegrationTests` broadening cases — `broadensNarrowQueryWhenFirstAttemptReturnsNoResults`,
+`staysEmptyWhenEveryBroadenedAttemptAlsoReturnsNoResults`,
+`doesNotBroadenAnEmptyLaterPageThatEndsNormalPagination`) plus 12 React tests, 0 failures, 0 errors, 0
+skipped; `spotless:check` and `git diff --check` passed. Fixing this also required updating
+`FindJobsIntegrationTests.reportsACompletedSourceWithNoResultsAsEmpty` to enqueue the one additional
+broadened-empty mock response the new retry now makes — its shared static `MockWebServer` queue is not
+per-test-isolated, so one missed enqueue there previously cascaded into five unrelated test failures
+and one timeout across the rest of that file; if a future change to broadening attempt counts breaks
+that file again, check every `ADZUNA.enqueue(...)` call's response count first, in file order, before
+assuming individual tests are wrong. The local Docker image was rebuilt on this commit and Find Jobs
+was re-run against a live local workspace with real Adzuna credentials: three previously-`EMPTY`
+queries (`"AI Engineer JWT Node.js"`, `"Senior AI Engineer AI AWS (S3"`,
+`"senior software engineer AI AWS (S3"`) all broadened successfully and returned 17–20 real records
+each. Pushed to `origin/main` and redeployed to Render: deploy `dep-dahdeklg1s2s73c5n2h0` of commit
+`45391a6` is `live`; remote `/actuator/health` returns `UP` with no error-level logs since the
+redeploy (only benign SpringDoc and PDF-font-fallback warnings).
+
+Current live Render state, for the next session:
+
+- `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, and `JOOBLE_API_KEY` are now set on `joblens-demo`. Values are not
+  recorded here; check the Render dashboard environment tab if rotation is ever needed.
+- Deployed commit: `45391a6`. Auto-deploy remains off (`autoDeployTrigger: "off"` in `render.yaml`) —
+  any further code change needs an explicit `render deploys create` (or a dashboard deploy) after
+  pushing to `main`. A plain `restart` is confirmed **insufficient** to apply new environment
+  variables; use a full redeploy for that.
+- The Render CLI v2.22.0 binary used this session lives at
+  `/private/tmp/joblens-render-cli-v2.22.0/clean/cli_v2.22.0` and is already authenticated
+  (`~/.render/config.yaml`, workspace `tea-dahc7eqd0e5s738rdge0`). It is **not** on `PATH`, and that
+  `/private/tmp` path will not survive a reboot — re-download and re-authenticate
+  (`render login`) if it is gone.
 
 ## 2. S0.2 Onboarding Correctness — selected, implementation verified, acceptance open
 

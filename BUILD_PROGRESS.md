@@ -289,6 +289,31 @@ expected SpringDoc default-enablement notices. D3 acceptance criteria 1–5 are 
 remote evidence; criteria 6 (operator runbook) and 7 (local test/build evidence) were already
 recorded above. D3 is complete.
 
+D3 post-deployment incident fixes on 2026-09-10: the live Render service was missing
+`ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, and `JOOBLE_API_KEY` (never declared in `render.yaml`, omitted from
+the original creation script), causing immediate `MissingJobSourceCredentialsException` failures.
+Fixed by setting all three via the Render API; a plain `restart` did not apply them (confirmed by two
+failed retries against the running container), so a full `render deploys create` of the already-live
+commit was required. Separately, Adzuna/Jooble queries generated as role name plus up to two
+AND-joined skills (e.g. `"Backend Engineer Apache Camel IBM MQ"`) can legitimately return zero live
+results; this was reproduced identically in the local Testcontainers database before any code change,
+ruling out a Render-specific defect. Fixed in commit `45391a6`: `JobDiscoveryTasklet` now retries an
+empty first-page search with progressively fewer trailing terms (up to two extra attempts), gated by a
+new `JobSourceClient.supportsQueryBroadening()` flag (`true` for Adzuna/Jooble only; Greenhouse/Lever
+already OR-match locally and are unaffected). The clean suite passed with 145 Java tests (138 baseline
+plus 4 `QueryBroadeningTests` and 3 new `JobDiscoveryIntegrationTests` cases) and 12 React tests, 0
+failures; `spotless:check` and `git diff --check` passed. Fixing this uncovered that
+`FindJobsIntegrationTests`'s shared static `MockWebServer` is not per-test-isolated: one test's missed
+mock-response enqueue for the new retry cascaded into 5 unrelated test failures and 1 timeout
+elsewhere in that file until its enqueue count was corrected. The local Docker image was rebuilt on
+this commit and re-verified against a live local workspace with real Adzuna credentials: three
+previously-`EMPTY` queries all broadened successfully and returned 17–20 real records each. Pushed to
+`origin/main` and redeployed; Render deploy `dep-dahdeklg1s2s73c5n2h0` of commit `45391a6` is `live`
+with `/actuator/health` reporting `UP` and no error-level logs since redeploy. A workspace-private
+skill row literally named `AWS (S3` (unclosed parenthesis, `USER_DEFINED`) was also found in the local
+database — left unfixed as likely bad manual test data; flagged for a future onboarding-data-quality
+pass rather than fixed silently.
+
 S0.2 Onboarding Correctness remains acceptance-open and is paused at its verified implementation
 checkpoint. Before the pause, its bounded requirement set was
 `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004`, `BUG-ONBOARDING-03`, and `UX-ONBOARDING-04`: correct
