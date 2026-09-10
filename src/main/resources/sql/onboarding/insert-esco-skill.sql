@@ -5,6 +5,7 @@ INSERT INTO skill (
 )
 ON CONFLICT (lower(canonical_name)) WHERE created_by_workspace_id IS NULL
 DO UPDATE SET
+    taxonomy_source = 'ESCO',
     taxonomy_version = :version,
     external_uri = COALESCE(skill.external_uri, :uri)
 RETURNING id

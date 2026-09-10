@@ -347,6 +347,57 @@ class WorkspaceOnboardingIntegrationTests {
   }
 
   @Test
+  void extractsSalesToolsAndMethodologiesFromTheExpandedCatalog() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    byte[] docx =
+        docx(
+            """
+            Alex Rivera
+            alex.rivera@example.com
+            Professional Summary
+            Senior Sales Executive driving enterprise growth across US, EMEA, and APAC markets.
+            Core Competencies
+            Growth & Lead Generation: Outbound Prospecting, Cold Outreach & Email Sequencing, Account Mining, Lead Qualification (BANT/MEDDPICC)
+            Account Management & Farming: Relationship Management, Upselling, Cross-selling, and Retention Strategy.
+            Tools & Ecosystems
+            LinkedIn Navigator, ZoomInfo, Salesforce, Zoho CRM, MS Office Suite
+            Experience
+            Senior Sales Executive — Example Corp, 2023 - Present
+            Closed multiple enterprise expansion deals across existing accounts.
+            Education
+            Bachelor of Business Administration
+            """);
+
+    OnboardingProfile profile =
+        onboardingService.upload(
+            workspaceId,
+            new MockMultipartFile(
+                "file",
+                "alex-resume.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                docx));
+
+    assertThat(profile.skills())
+        .contains(
+            "Salesforce",
+            "Zoho CRM",
+            "ZoomInfo",
+            "LinkedIn Sales Navigator",
+            "Microsoft Office Suite",
+            "Outbound Prospecting",
+            "Cold Email Outreach",
+            "Account Mining",
+            "Lead Qualification",
+            "BANT",
+            "MEDDIC",
+            "Account Management",
+            "Upselling",
+            "Cross-selling",
+            "Customer Retention");
+  }
+
+  @Test
   void resubmittingTheSameResumeReusesTheExistingDraftInsteadOfDuplicatingIt() throws Exception {
     UUID workspaceId = UUID.randomUUID();
     workspaces.create(workspaceId);
