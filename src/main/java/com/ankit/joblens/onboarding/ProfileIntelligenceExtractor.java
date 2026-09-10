@@ -2,6 +2,7 @@ package com.ankit.joblens.onboarding;
 
 import com.ankit.joblens.intelligence.PhraseAutomaton;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -10,14 +11,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ProfileIntelligenceExtractor {
-  public static final String EXTRACTOR_VERSION = "esco-deterministic-v4";
+  public static final String EXTRACTOR_VERSION = "esco-semantic-v5";
+  private static final String MATCH_TYPE_SEMANTIC = "SEMANTIC";
 
   private static final Pattern EXPLICIT_GROUP_LABEL =
       Pattern.compile("\\b([A-Z][A-Za-z/&-]*(?: [A-Z&][A-Za-z/&-]*){1,5}):");
@@ -29,6 +34,26 @@ public class ProfileIntelligenceExtractor {
       Set.of("and", "or", "with", "skills", "competencies", "tools", "ecosystems");
 
   private final ResumeDocumentParser documentParser = new ResumeDocumentParser();
+  private final SemanticSkillMatcher semanticMatcher;
+  private final double semanticAutoAcceptThreshold;
+  private final double semanticSuggestThreshold;
+
+  @Autowired
+  public ProfileIntelligenceExtractor(
+      SemanticSkillMatcher semanticMatcher,
+      @Value("${joblens.onboarding.semantic-matching.auto-accept-threshold:0.80}")
+          double semanticAutoAcceptThreshold,
+      @Value("${joblens.onboarding.semantic-matching.suggest-threshold:0.55}")
+          double semanticSuggestThreshold) {
+    this.semanticMatcher = semanticMatcher;
+    this.semanticAutoAcceptThreshold = semanticAutoAcceptThreshold;
+    this.semanticSuggestThreshold = semanticSuggestThreshold;
+  }
+
+  // Exact-phrase matching only, no semantic pass; pre-S0.4 behavior for non-Spring callers/tests.
+  public ProfileIntelligenceExtractor() {
+    this(SemanticSkillMatcher.NOOP, 0.80, 0.55);
+  }
 
   public Extraction extract(String text, List<SkillDefinition> skills, List<RoleDefinition> roles) {
     ResumeDocument document = documentParser.parse(text);
@@ -60,7 +85,6 @@ public class ProfileIntelligenceExtractor {
               skill.taxonomyVersion(),
               section.explicitlyListsSkills()));
     }
-    detectedSkills.sort(Comparator.comparing(DetectedSkill::name));
 
     var detectedRoles = new ArrayList<DetectedRole>();
     for (RoleDefinition role : roles) {
@@ -111,8 +135,17 @@ public class ProfileIntelligenceExtractor {
               role.taxonomyVersion()));
     }
 
+    List<SkillDefinition> unmatchedSkills =
+        skills.stream()
+            .filter(skill -> detectedSkills.stream().noneMatch(hit -> hit.id() == skill.id()))
+            .toList();
+    ExplicitCandidateOutcome candidateOutcome =
+        explicitCandidates(document, detectedSkills, rankedRoles, rejected, unmatchedSkills);
+    detectedSkills.addAll(candidateOutcome.semanticSkills());
+    detectedSkills.sort(Comparator.comparing(DetectedSkill::name));
+
     var allTerms = new ArrayList<TermSuggestion>();
-    allTerms.addAll(explicitCandidates(document, detectedSkills, rankedRoles, rejected));
+    allTerms.addAll(candidateOutcome.terms());
     allTerms.addAll(rejected);
     return new Extraction(
         List.copyOf(detectedSkills), List.copyOf(rankedRoles), List.copyOf(rankTerms(allTerms)));
@@ -139,7 +172,8 @@ public class ProfileIntelligenceExtractor {
                           document.evidenceAt(hit.start()),
                           new BigDecimal("0.100"),
                           "REJECTED",
-                          0));
+                          0,
+                          null));
                 }
               }
               return safe;
@@ -235,11 +269,12 @@ public class ProfileIntelligenceExtractor {
         ".*(?i)(\\b(19|20)\\d{2}\\b|present|current|\\||—|-\\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)).*");
   }
 
-  private static List<TermSuggestion> explicitCandidates(
+  private ExplicitCandidateOutcome explicitCandidates(
       ResumeDocument document,
       List<DetectedSkill> skills,
       List<DetectedRole> roles,
-      List<TermSuggestion> rejected) {
+      List<TermSuggestion> rejected,
+      List<SkillDefinition> unmatchedSkills) {
     Set<String> known = new LinkedHashSet<>();
     skills.forEach(
         skill -> {
@@ -249,35 +284,57 @@ public class ProfileIntelligenceExtractor {
     roles.forEach(role -> known.add(key(role.name())));
     rejected.forEach(term -> known.add(key(term.normalizedTerm())));
     var candidates = new LinkedHashMap<String, TermSuggestion>();
+    var semanticSkills = new ArrayList<DetectedSkill>();
+    var promoted = new LinkedHashSet<Long>();
     for (ResumeDocument.Segment segment : document.segments()) {
       if (!segment.section().explicitlyListsSkills()) {
         continue;
       }
       String grouped = EXPLICIT_GROUP_LABEL.matcher(segment.text()).replaceAll("$1;");
       for (String rawCandidate : grouped.split("[,;]|\\s+&\\s+")) {
-        addCandidate(candidates, known, segment, rawCandidate);
+        considerCandidate(
+            candidates, semanticSkills, promoted, known, segment, rawCandidate, unmatchedSkills);
         Matcher acronyms = ACRONYM.matcher(rawCandidate);
         while (acronyms.find()) {
-          addCandidate(candidates, known, segment, acronyms.group());
+          considerCandidate(
+              candidates,
+              semanticSkills,
+              promoted,
+              known,
+              segment,
+              acronyms.group(),
+              unmatchedSkills);
         }
         int open = rawCandidate.indexOf('(');
         int close = rawCandidate.indexOf(')', open + 1);
         if (open >= 0 && close > open) {
-          addCandidate(candidates, known, segment, rawCandidate.substring(0, open));
+          considerCandidate(
+              candidates,
+              semanticSkills,
+              promoted,
+              known,
+              segment,
+              rawCandidate.substring(0, open),
+              unmatchedSkills);
           for (String nested : rawCandidate.substring(open + 1, close).split("[/,]")) {
-            addCandidate(candidates, known, segment, nested);
+            considerCandidate(
+                candidates, semanticSkills, promoted, known, segment, nested, unmatchedSkills);
           }
         }
       }
     }
-    return List.copyOf(candidates.values());
+    return new ExplicitCandidateOutcome(
+        List.copyOf(semanticSkills), List.copyOf(candidates.values()));
   }
 
-  private static void addCandidate(
+  private void considerCandidate(
       Map<String, TermSuggestion> candidates,
+      List<DetectedSkill> semanticSkills,
+      Set<Long> promoted,
       Set<String> known,
       ResumeDocument.Segment segment,
-      String rawCandidate) {
+      String rawCandidate,
+      List<SkillDefinition> unmatchedSkills) {
     String candidate =
         rawCandidate
             .replaceAll("^[^\\p{L}\\p{N}+#]+|[^\\p{L}\\p{N}+#.)-]+$", "")
@@ -290,12 +347,53 @@ public class ProfileIntelligenceExtractor {
         || candidate.split("\\s+").length > 10
         || CANDIDATE_STOP_WORDS.contains(normalized)
         || known.contains(normalized)
+        || candidates.containsKey(normalized)
         || candidate.matches(".*[.!?].*[.!?].*")) {
       return;
     }
     String evidence =
         segment.text().length() <= 300 ? segment.text() : segment.text().substring(0, 297) + "...";
-    candidates.putIfAbsent(
+    List<SkillDefinition> stillUnmatched =
+        unmatchedSkills.stream().filter(skill -> !promoted.contains(skill.id())).toList();
+    Optional<SemanticSkillMatcher.SemanticMatch> match =
+        semanticMatcher.bestMatch(candidate, stillUnmatched);
+    if (match.isPresent() && match.get().similarity() >= semanticAutoAcceptThreshold) {
+      SkillDefinition matched = matchedSkill(stillUnmatched, match.get().definitionId());
+      promoted.add(matched.id());
+      known.add(key(matched.name()));
+      known.add(normalized);
+      semanticSkills.add(
+          new DetectedSkill(
+              matched.id(),
+              matched.name(),
+              matched.category(),
+              candidate,
+              evidence,
+              similarityConfidence(match.get().similarity()),
+              segment.section().name(),
+              MATCH_TYPE_SEMANTIC,
+              0,
+              0,
+              matched.taxonomyVersion(),
+              false));
+      return;
+    }
+    if (match.isPresent() && match.get().similarity() >= semanticSuggestThreshold) {
+      SkillDefinition matched = matchedSkill(stillUnmatched, match.get().definitionId());
+      candidates.put(
+          normalized,
+          new TermSuggestion(
+              "SKILL",
+              candidate,
+              segment.section().name(),
+              evidence,
+              similarityConfidence(match.get().similarity()),
+              "SUGGESTED",
+              0,
+              matched.name()));
+      return;
+    }
+    candidates.put(
         normalized,
         new TermSuggestion(
             "SKILL",
@@ -304,7 +402,21 @@ public class ProfileIntelligenceExtractor {
             evidence,
             new BigDecimal("0.750"),
             "SUGGESTED",
-            0));
+            0,
+            null));
+  }
+
+  private static SkillDefinition matchedSkill(List<SkillDefinition> candidates, long id) {
+    return candidates.stream()
+        .filter(skill -> skill.id() == id)
+        .findFirst()
+        .orElseThrow(
+            () -> new IllegalStateException("Semantic match resolved to an unknown skill"));
+  }
+
+  private static BigDecimal similarityConfidence(double similarity) {
+    return BigDecimal.valueOf(Math.max(0, Math.min(1, similarity)))
+        .setScale(3, RoundingMode.HALF_UP);
   }
 
   private static List<TermSuggestion> rankTerms(List<TermSuggestion> terms) {
@@ -328,7 +440,8 @@ public class ProfileIntelligenceExtractor {
               term.evidence(),
               term.evidenceStrength(),
               term.reviewState(),
-              priority++));
+              priority++,
+              term.matchedCanonicalTerm()));
     }
     return ranked;
   }
@@ -431,10 +544,14 @@ public class ProfileIntelligenceExtractor {
       String evidence,
       BigDecimal evidenceStrength,
       String reviewState,
-      int priority) {}
+      int priority,
+      String matchedCanonicalTerm) {}
 
   public record Extraction(
       List<DetectedSkill> skills, List<DetectedRole> roles, List<TermSuggestion> terms) {}
+
+  private record ExplicitCandidateOutcome(
+      List<DetectedSkill> semanticSkills, List<TermSuggestion> terms) {}
 
   private record TermHit<D extends TermDefinition>(
       D definition, String term, String surface, int start, int end, boolean canonical) {}

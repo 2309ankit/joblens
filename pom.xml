@@ -80,6 +80,15 @@
 		<dependency><groupId>org.apache.tika</groupId><artifactId>tika-core</artifactId><version>3.2.2</version></dependency>
 		<dependency><groupId>org.apache.tika</groupId><artifactId>tika-parsers-standard-package</artifactId><version>3.2.2</version></dependency>
 
+		<!-- S0.4 local sentence-embedding inference: all-MiniLM-L6-v2 (quantized ONNX), CPU-only, no
+		     external API. Model/tokenizer files are fetched by the download-maven-plugin below. -->
+		<dependency><groupId>ai.djl</groupId><artifactId>api</artifactId><version>0.33.0</version></dependency>
+		<dependency><groupId>ai.djl.onnxruntime</groupId><artifactId>onnxruntime-engine</artifactId><version>0.33.0</version></dependency>
+		<dependency><groupId>ai.djl.huggingface</groupId><artifactId>tokenizers</artifactId><version>0.33.0</version></dependency>
+		<!-- ai.djl:api pulls commons-compress 1.27.1, which shadows the 1.28.0 tika-parsers-standard-package
+		     needs for archive-format detection (breaks PDF upload parsing). Pin explicitly to Tika's version. -->
+		<dependency><groupId>org.apache.commons</groupId><artifactId>commons-compress</artifactId><version>1.28.0</version></dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>
@@ -179,6 +188,49 @@
 						<phase>test</phase>
 						<goals><goal>npm</goal></goals>
 						<configuration><arguments>run test</arguments></configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<!-- Fetches the bundled sentence-embedding model (S0.4) the same way frontend-maven-plugin
+				     fetches Node: a pinned, checksum-verified download into target/classes so Spring Boot
+				     packages it like any other generated resource. Cached under ~/.m2 between builds. -->
+				<groupId>com.googlecode.maven-download-plugin</groupId>
+				<artifactId>download-maven-plugin</artifactId>
+				<version>1.10.0</version>
+				<executions>
+					<execution>
+						<id>download-embedding-model</id>
+						<phase>generate-resources</phase>
+						<goals><goal>wget</goal></goals>
+						<configuration>
+							<url>https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/onnx/model_quantized.onnx</url>
+							<outputDirectory>${project.build.outputDirectory}/models/all-MiniLM-L6-v2</outputDirectory>
+							<outputFileName>model_quantized.onnx</outputFileName>
+							<sha256>afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1</sha256>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-embedding-tokenizer</id>
+						<phase>generate-resources</phase>
+						<goals><goal>wget</goal></goals>
+						<configuration>
+							<url>https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/tokenizer.json</url>
+							<outputDirectory>${project.build.outputDirectory}/models/all-MiniLM-L6-v2</outputDirectory>
+							<outputFileName>tokenizer.json</outputFileName>
+							<sha256>da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0</sha256>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-embedding-config</id>
+						<phase>generate-resources</phase>
+						<goals><goal>wget</goal></goals>
+						<configuration>
+							<url>https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/config.json</url>
+							<outputDirectory>${project.build.outputDirectory}/models/all-MiniLM-L6-v2</outputDirectory>
+							<outputFileName>config.json</outputFileName>
+							<sha256>7135149f7cffa1a573466c6e4d8423ed73b62fd2332c575bf738a0d033f70df7</sha256>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>

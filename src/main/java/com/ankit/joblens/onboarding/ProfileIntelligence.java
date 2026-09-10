@@ -86,5 +86,6 @@ public record ProfileIntelligence(
       String evidenceSection,
       String evidence,
       BigDecimal evidenceStrength,
-      String reviewState) {}
+      String reviewState,
+      String matchedCanonicalTerm) {}
 }

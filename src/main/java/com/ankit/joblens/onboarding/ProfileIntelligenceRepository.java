@@ -169,7 +169,8 @@ public class ProfileIntelligenceRepository {
                         .addValue("reviewState", term.reviewState())
                         .addValue(
                             "extractorVersion", ProfileIntelligenceExtractor.EXTRACTOR_VERSION)
-                        .addValue("priority", term.priority())));
+                        .addValue("priority", term.priority())
+                        .addValue("matchedCanonicalTerm", term.matchedCanonicalTerm())));
   }
 
   public ProfileIntelligence intelligence(UUID workspaceId, long profileVersionId) {
@@ -213,7 +214,8 @@ public class ProfileIntelligenceRepository {
                     resultSet.getString("evidence_section"),
                     resultSet.getString("evidence"),
                     resultSet.getBigDecimal("evidence_strength"),
-                    resultSet.getString("review_state")));
+                    resultSet.getString("review_state"),
+                    resultSet.getString("matched_canonical_term")));
     return new ProfileIntelligence(skillSuggestions, roleSuggestions, termSuggestions);
   }
 

@@ -20,26 +20,35 @@ Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
 React surface checkpoint: R1.1 — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
 Next shipping milestone: D3 Free Demo Deployment — COMPLETE (2026-09-10), including post-deploy
-incident fixes on 2026-09-10 and a second post-deploy fix round on 2026-09-11 (see below); await
-owner direction for the next module
+incident fixes on 2026-09-10 and a second post-deploy fix round on 2026-09-11 (see below).
+S0.4 Semantic Skill Extraction — IMPLEMENTED 2026-09-11, shipped disabled by default (see below and
+[S0_4_SEMANTIC_SKILL_EXTRACTION.md](S0_4_SEMANTIC_SKILL_EXTRACTION.md)); await owner direction for the
+next module.
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V28
+Latest Flyway migration: V29 (add_semantic_skill_match_evidence — additive `matched_canonical_term`
+column; not yet committed, see below)
 Latest implementation commit: 8170d61 (feat(onboarding): expand skill catalog with sales/business-development terms)
-Latest full test: 147 Java tests, 0 failures, 0 errors, 0 skipped (React suite unchanged at 12 tests; not touched this session)
-Latest focused check: 38 Java tests plus 11 React tests covering S0.2 extraction, catalogue, market, provider, API, and persistence contracts
-Local runtime: not rebuilt this session; last verified Docker image is on 45391a6 (see prior checkpoint)
-Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g) deploy dep-dahf5irl550s7381j210 of commit 8170d61 is live; /actuator/health reports UP.
+  — S0.4's implementation (this session) is complete and verified in the working tree but **not yet
+  committed**; the owner has not yet been asked whether to commit. Run `git status --short` to see the
+  full uncommitted change set before starting new work.
+Latest full test: 155 Java tests, 0 failures, 0 errors, 0 skipped (working tree, uncommitted; React
+suite unchanged at 12 tests; not touched this session)
+Local runtime: rebuilt and verified this session on the uncommitted S0.4 working tree — `docker compose
+up -d --force-recreate app` starts cleanly in 2.01s, `/actuator/health` UP, idle memory 301 MiB
+(`docker stats`, no artificial limit), image 341,930,845 bytes (~326 MB, up from the D3-era ~160 MB —
+see S0_4 doc §8 for why). Semantic matching is OFF at runtime
+(`joblens.onboarding.semantic-matching.enabled=false` default).
+Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g) deploy dep-dahf5irl550s7381j210 of commit 8170d61 is live (unchanged this session — nothing pushed); /actuator/health reports UP.
 Auto-deploy is now ON (`autoDeployTrigger: "commit"` in render.yaml and on the live service) — a push
 to `main` deploys automatically; `render deploys create` is no longer required for routine pushes.
-Owner-reported next items: D3 (including both post-deploy incident-fix rounds) is complete; S0.2 is paused and acceptance-open; the S0.3 recommendation diagnosis
-is recorded below, but its implementation remains queued. A candidate semantic (embedding-based) skill
-extraction follow-up is recorded as a queued, not-yet-selected checkpoint — see
-[NEXT_MILESTONES.md](NEXT_MILESTONES.md#semantic-skill-extraction-candidate-not-yet-selected). Next
-session should ask the owner which module to pick up (S0.2 acceptance, S0.3, the semantic extraction
-candidate, or another).
+Owner-reported next items: D3 (including both post-deploy incident-fix rounds) is complete; S0.4 is
+implemented but shipped disabled and not yet committed/pushed; S0.2 is paused and acceptance-open; the
+S0.3 recommendation diagnosis is recorded below, but its implementation remains queued. Next session
+should confirm whether to commit/push S0.4, then ask the owner which module to pick up next (S0.2
+acceptance, S0.3, enabling S0.4 in production via a base-image change, or another).
 ```
 
 Before making changes:
@@ -219,6 +228,59 @@ final commit — deploy `dep-dahf5irl550s7381j210` of commit `8170d61` is `live`
 returns `UP`. The Neon database's fresh Flyway history was not independently re-verified remotely this
 session beyond the successful deploy (health check implies migrations applied; no separate `psql`
 inspection was run against Neon).
+
+## S0.4 Semantic Skill Extraction — IMPLEMENTED, shipped disabled by default (2026-09-11)
+
+The owner selected S0.4 (the candidate queued in the previous section) this session. Per
+`NEXT_MILESTONES.md` Selection rule 1, a full design record was written and agreed
+([S0_4_SEMANTIC_SKILL_EXTRACTION.md](S0_4_SEMANTIC_SKILL_EXTRACTION.md)) before any code — four design
+trade-offs (ONNX runtime library, catalog-embedding cache strategy, auto-accept risk tolerance, 512 MB
+fallback plan) were each explicitly decided with the owner before implementation began. **Everything in
+this section is uncommitted working-tree state** — see the resume checkpoint above.
+
+**What it does.** `ProfileIntelligenceExtractor`'s existing exact-phrase `PhraseAutomaton` pass is
+unchanged and still runs first. A new second pass embeds unmatched explicit-skills-list candidate
+phrases (e.g. "Cold Email Outreach") and unmatched catalog skills using a local, bundled
+`all-MiniLM-L6-v2` sentence-transformer (quantized ONNX, 23 MB, via DJL + ONNX Runtime, CPU-only, no
+external API/network call at request time) and scores cosine similarity. A match above
+`auto-accept-threshold` (provisional 0.80) becomes a confirmed skill (`matchType="SEMANTIC"`); a match
+above `suggest-threshold` (provisional 0.55) becomes a reviewable suggestion carrying the matched
+canonical skill name; below that, behavior is identical to before. `EXTRACTOR_VERSION` bumped
+`esco-deterministic-v4` → `esco-semantic-v5`. New migration `V29` adds `matched_canonical_term` to
+`workspace_profile_term_suggestion`. Implemented for skills only (the originating recall gap), not
+roles. Full design/scope detail, including three real bugs found only by running the actual bundled
+model (DJL's `model.onnx` filename requirement, a required `token_type_ids` input, and a
+`commons-compress` version conflict with Tika that broke PDF parsing), is in the design doc §8.
+
+**Why it ships disabled.** Building and running the real deployment Docker image
+(`eclipse-temurin:21-jre-alpine`, same as D3) — not reachable by `mvn test`, which runs on macOS —
+crash-looped with `UnsatisfiedLinkError: libstdc++.so.6: No such file or directory`: ONNX Runtime's
+published native library is glibc-linked and Alpine uses musl. Adding `apk add gcompat libstdc++` (the
+standard documented Alpine glibc-compat workaround) was tried and **confirmed insufficient** — it
+progressed to a different, deeper failure, `Error relocating libonnxruntime.so: __sprintf_chk: symbol
+not found` (a glibc `_FORTIFY_SOURCE`-hardened symbol `gcompat` doesn't implement). The owner decided,
+rather than switch the runtime base image unilaterally, to ship with
+`joblens.onboarding.semantic-matching.enabled=false` as the default (env override
+`JOBLENS_SEMANTIC_MATCHING_ENABLED`) and defer the base-image decision. The `gcompat`/`libstdc++`
+Dockerfile line was added then reverted (confirmed not to fix the problem; `git diff Dockerfile` is
+clean). Verified with the disabled default: real Docker image rebuilt and started cleanly, `Started
+JoblensApplication in 2.01 seconds`, `/actuator/health` UP, 301 MiB idle memory, zero ONNX-related log
+lines.
+
+**Known follow-up, not done this session** (see design doc §8 "What flipping this on in production
+requires"): a base-image decision (e.g. `eclipse-temurin:21-jre-noble`) is the only confirmed-working
+fix for Alpine/musl; the full §4 fixture-sweep threshold calibration remains outstanding (only one real
+data point exists — "Zoho CRM" vs. "managed pipeline in Zoho" scored ~0.50, below the provisional 0.55
+suggest-threshold); and the packaged jar/image grew from the D3-era ~160 MB to ~326 MB even with the
+feature disabled, since the toggle skips loading the model but not bundling the DJL/ONNX Runtime
+dependencies (the default `onnxruntime` Maven artifact bundles native libraries for every OS/arch, and
+no Linux-x64-only alternative is published) — this is new capacity-planning evidence for whoever revisits
+enabling it in production, not covered by the original "~90 MB model" budget sketch.
+
+Verification: full Java suite (155 tests — 147 baseline + 8 new: 4
+`ProfileIntelligenceExtractorSemanticMatchingTests`, 4 `OnnxTextEmbeddingModelTests` — 0
+failures/errors/skipped) and Spotless/`git diff --check` passed locally, both before and after the
+disabled-by-default change. React suite not touched this session. Not pushed; Render is unaffected.
 
 ## 2. S0.2 Onboarding Correctness — selected, implementation verified, acceptance open
 
