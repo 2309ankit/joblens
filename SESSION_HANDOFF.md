@@ -29,25 +29,25 @@ Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V29 (add_semantic_skill_match_evidence — additive `matched_canonical_term`
-column; not yet committed, see below)
-Latest implementation commit: 8170d61 (feat(onboarding): expand skill catalog with sales/business-development terms)
-  — S0.4's implementation (this session) is complete and verified in the working tree but **not yet
-  committed**; the owner has not yet been asked whether to commit. Run `git status --short` to see the
-  full uncommitted change set before starting new work.
-Latest full test: 155 Java tests, 0 failures, 0 errors, 0 skipped (working tree, uncommitted; React
-suite unchanged at 12 tests; not touched this session)
-Local runtime: rebuilt and verified this session on the uncommitted S0.4 working tree — `docker compose
-up -d --force-recreate app` starts cleanly in 2.01s, `/actuator/health` UP, idle memory 301 MiB
-(`docker stats`, no artificial limit), image 341,930,845 bytes (~326 MB, up from the D3-era ~160 MB —
-see S0_4 doc §8 for why). Semantic matching is OFF at runtime
+column)
+Latest implementation commit: 6e01af2 (feat(onboarding): add semantic skill matching, shipped disabled by default)
+  — committed to `main` but **not pushed** this session; `git log origin/main..HEAD` will show it ahead
+  of the remote.
+Latest full test: 155 Java tests, 0 failures, 0 errors, 0 skipped (React suite unchanged at 12 tests;
+not touched this session)
+Local runtime: rebuilt and verified this session on the S0.4 code — `docker compose up -d
+--force-recreate app` starts cleanly in 2.01s, `/actuator/health` UP, idle memory 301 MiB (`docker
+stats`, no artificial limit), image 341,930,845 bytes (~326 MB, up from the D3-era ~160 MB — see S0_4
+doc §8 for why). Semantic matching is OFF at runtime
 (`joblens.onboarding.semantic-matching.enabled=false` default).
-Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g) deploy dep-dahf5irl550s7381j210 of commit 8170d61 is live (unchanged this session — nothing pushed); /actuator/health reports UP.
+Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g) deploy dep-dahf5irl550s7381j210 of commit 8170d61 is live (unchanged this session — commit 6e01af2 not pushed/deployed); /actuator/health reports UP.
 Auto-deploy is now ON (`autoDeployTrigger: "commit"` in render.yaml and on the live service) — a push
-to `main` deploys automatically; `render deploys create` is no longer required for routine pushes.
+to `main` deploys automatically; `render deploys create` is no longer required for routine pushes. A
+push of 6e01af2 would auto-deploy S0.4 (disabled by default, so this is low-risk) to the live demo.
 Owner-reported next items: D3 (including both post-deploy incident-fix rounds) is complete; S0.4 is
-implemented but shipped disabled and not yet committed/pushed; S0.2 is paused and acceptance-open; the
-S0.3 recommendation diagnosis is recorded below, but its implementation remains queued. Next session
-should confirm whether to commit/push S0.4, then ask the owner which module to pick up next (S0.2
+implemented, committed, and shipped disabled, but not yet pushed; S0.2 is paused and acceptance-open;
+the S0.3 recommendation diagnosis is recorded below, but its implementation remains queued. Next
+session should confirm whether to push 6e01af2, then ask the owner which module to pick up next (S0.2
 acceptance, S0.3, enabling S0.4 in production via a base-image change, or another).
 ```
 
@@ -235,8 +235,8 @@ The owner selected S0.4 (the candidate queued in the previous section) this sess
 `NEXT_MILESTONES.md` Selection rule 1, a full design record was written and agreed
 ([S0_4_SEMANTIC_SKILL_EXTRACTION.md](S0_4_SEMANTIC_SKILL_EXTRACTION.md)) before any code — four design
 trade-offs (ONNX runtime library, catalog-embedding cache strategy, auto-accept risk tolerance, 512 MB
-fallback plan) were each explicitly decided with the owner before implementation began. **Everything in
-this section is uncommitted working-tree state** — see the resume checkpoint above.
+fallback plan) were each explicitly decided with the owner before implementation began. Committed as
+`6e01af2`; **not pushed** — see the resume checkpoint above.
 
 **What it does.** `ProfileIntelligenceExtractor`'s existing exact-phrase `PhraseAutomaton` pass is
 unchanged and still runs first. A new second pass embeds unmatched explicit-skills-list candidate
@@ -280,7 +280,8 @@ enabling it in production, not covered by the original "~90 MB model" budget ske
 Verification: full Java suite (155 tests — 147 baseline + 8 new: 4
 `ProfileIntelligenceExtractorSemanticMatchingTests`, 4 `OnnxTextEmbeddingModelTests` — 0
 failures/errors/skipped) and Spotless/`git diff --check` passed locally, both before and after the
-disabled-by-default change. React suite not touched this session. Not pushed; Render is unaffected.
+disabled-by-default change. React suite not touched this session. Committed as `6e01af2`; not pushed —
+Render is unaffected.
 
 ## 2. S0.2 Onboarding Correctness — selected, implementation verified, acceptance open
 
