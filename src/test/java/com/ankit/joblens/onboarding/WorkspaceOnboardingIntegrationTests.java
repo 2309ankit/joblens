@@ -347,6 +347,50 @@ class WorkspaceOnboardingIntegrationTests {
   }
 
   @Test
+  void resubmittingTheSameResumeReusesTheExistingDraftInsteadOfDuplicatingIt() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    workspaces.create(workspaceId);
+    byte[] docx =
+        docx(
+            """
+            Jordan Lee
+            jordan@example.com
+            Professional Summary
+            Culinary professional serving community events and private functions.
+            Experience
+            Head Chef — Neighbourhood Kitchen, 2021 - Present
+            Planned menus and supervised daily food preparation.
+            Education
+            Diploma in Culinary Arts
+            """);
+
+    OnboardingProfile first =
+        onboardingService.upload(
+            workspaceId,
+            new MockMultipartFile(
+                "file",
+                "jordan-resume.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                docx));
+    OnboardingProfile second =
+        onboardingService.upload(
+            workspaceId,
+            new MockMultipartFile(
+                "file",
+                "jordan-resume.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                docx));
+
+    assertThat(second.id()).isEqualTo(first.id());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM workspace_profile_version WHERE workspace_id=? AND status='DRAFT'",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(1);
+  }
+
+  @Test
   void preservesSuspiciousReadableUploadAndRequiresAcknowledgementBeforeActivation()
       throws Exception {
     UUID workspaceId = UUID.randomUUID();
