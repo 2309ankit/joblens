@@ -10,5 +10,9 @@ public interface JobSourceClient {
     return 20;
   }
 
+  default boolean supportsQueryBroadening() {
+    return false;
+  }
+
   JobPage search(SearchProfile profile, PageRequest request);
 }

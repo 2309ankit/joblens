@@ -96,6 +96,28 @@ public class JobDiscoveryTasklet implements Tasklet {
           nextPage,
           jobExecutionId);
       JobPage page = client.search(profile, new PageRequest(nextPage, client.pageSize()));
+      if (nextPage == 1
+          && page.jobs().isEmpty()
+          && client.supportsQueryBroadening()
+          && profile.keywords() != null) {
+        for (String broadened : QueryBroadening.broaden(profile.keywords())) {
+          JobPage retryPage =
+              client.search(
+                  withKeywords(profile, broadened), new PageRequest(nextPage, client.pageSize()));
+          if (!retryPage.jobs().isEmpty()) {
+            log.info(
+                "Broadened source={} profile={} narrowKeywords='{}' broadenedKeywords='{}'"
+                    + " jobExecutionId={}",
+                source,
+                profile.profileId(),
+                profile.keywords(),
+                broadened,
+                jobExecutionId);
+            page = retryPage;
+            break;
+          }
+        }
+      }
       persistence.persistPage(fetchRunId, profile, page, jobExecutionId);
 
       int maxPages = profile.maxPages() == null ? properties.maxPages() : profile.maxPages();
@@ -130,5 +152,22 @@ public class JobDiscoveryTasklet implements Tasklet {
           failureReasons.sanitize(failure));
       throw failure;
     }
+  }
+
+  private static SearchProfile withKeywords(SearchProfile profile, String keywords) {
+    return new SearchProfile(
+        profile.profileId(),
+        profile.source(),
+        profile.sourceKey(),
+        keywords,
+        profile.location(),
+        profile.includeSkills(),
+        profile.excludeSkills(),
+        profile.employmentType(),
+        profile.active(),
+        profile.workspaceId(),
+        profile.searchDefinitionId(),
+        profile.maxPages(),
+        profile.searchTargetId());
   }
 }

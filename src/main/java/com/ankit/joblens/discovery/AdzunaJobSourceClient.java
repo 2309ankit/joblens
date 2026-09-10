@@ -42,6 +42,11 @@ public class AdzunaJobSourceClient implements JobSourceClient {
   }
 
   @Override
+  public boolean supportsQueryBroadening() {
+    return true;
+  }
+
+  @Override
   public JobPage search(SearchProfile profile, PageRequest request) {
     if (!properties.hasCredentials()) {
       throw new MissingJobSourceCredentialsException(

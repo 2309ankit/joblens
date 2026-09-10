@@ -261,6 +261,11 @@ class FindJobsIntegrationTests {
   void reportsACompletedSourceWithNoResultsAsEmpty() throws Exception {
     UUID workspaceId = UUID.randomUUID();
     long candidateProfileId = confirm(workspaceId, "4");
+    // Two responses: the primary query, then the one broadened retry a two-term query allows.
+    ADZUNA.enqueue(
+        new MockResponse()
+            .setHeader("Content-Type", "application/json")
+            .setBody("{\"count\":0,\"results\":[]}"));
     ADZUNA.enqueue(
         new MockResponse()
             .setHeader("Content-Type", "application/json")

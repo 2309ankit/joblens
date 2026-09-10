@@ -144,6 +144,74 @@ class JobDiscoveryIntegrationTests {
   }
 
   @Test
+  void broadensNarrowQueryWhenFirstAttemptReturnsNoResults() throws Exception {
+    insertProfile("D010", true, "Backend Engineer Apache Camel IBM MQ");
+    ADZUNA.enqueue(json(200, responseWithoutCount()));
+    ADZUNA.enqueue(json(200, response(1, job("B1", "Backend", 10, true))));
+
+    JobExecution execution = launch("D010");
+
+    assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM raw_job_posting", Integer.class))
+        .isEqualTo(1);
+    assertThat(
+            jdbcTemplate.queryForMap(
+                "SELECT status, pages_fetched, records_received FROM source_fetch_run"))
+        .containsEntry("status", "COMPLETED")
+        .containsEntry("pages_fetched", 1)
+        .containsEntry("records_received", 1);
+    assertThat(ADZUNA.takeRequest().getRequestUrl().queryParameter("what"))
+        .isEqualTo("Backend Engineer Apache Camel IBM MQ");
+    assertThat(ADZUNA.takeRequest().getRequestUrl().queryParameter("what"))
+        .isEqualTo("Backend Engineer Apache Camel IBM");
+  }
+
+  @Test
+  void staysEmptyWhenEveryBroadenedAttemptAlsoReturnsNoResults() throws Exception {
+    insertProfile("D011", true, "Backend Engineer Apache Camel IBM MQ");
+    ADZUNA.enqueue(json(200, responseWithoutCount()));
+    ADZUNA.enqueue(json(200, responseWithoutCount()));
+    ADZUNA.enqueue(json(200, responseWithoutCount()));
+
+    JobExecution execution = launch("D011");
+
+    assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM raw_job_posting", Integer.class))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForMap(
+                "SELECT status, pages_fetched, records_received FROM source_fetch_run"))
+        .containsEntry("status", "COMPLETED")
+        .containsEntry("pages_fetched", 1)
+        .containsEntry("records_received", 0);
+    assertThat(ADZUNA.takeRequest().getRequestUrl().queryParameter("what"))
+        .isEqualTo("Backend Engineer Apache Camel IBM MQ");
+    assertThat(ADZUNA.takeRequest().getRequestUrl().queryParameter("what"))
+        .isEqualTo("Backend Engineer Apache Camel IBM");
+    assertThat(ADZUNA.takeRequest().getRequestUrl().queryParameter("what"))
+        .isEqualTo("Backend Engineer Apache Camel");
+  }
+
+  @Test
+  void doesNotBroadenAnEmptyLaterPageThatEndsNormalPagination() throws Exception {
+    insertProfile("D012", true, "java developer");
+    ADZUNA.enqueue(
+        json(200, responseWithoutCount(job("P1", "One", 1, true), job("P2", "Two", 2, true))));
+    ADZUNA.enqueue(json(200, responseWithoutCount()));
+
+    JobExecution execution = launch("D012");
+
+    assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+    assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM raw_job_posting", Integer.class))
+        .isEqualTo(2);
+    assertThat(ADZUNA.takeRequest().getRequestUrl().queryParameter("what"))
+        .isEqualTo("java developer");
+    assertThat(ADZUNA.takeRequest().getRequestUrl().queryParameter("what"))
+        .isEqualTo("java developer");
+    assertThat(ADZUNA.takeRequest(50, java.util.concurrent.TimeUnit.MILLISECONDS)).isNull();
+  }
+
+  @Test
   void ignoresInactiveProfileWithoutCallingSource() throws Exception {
     insertProfile("D003", false);
 
@@ -306,14 +374,19 @@ class JobDiscoveryIntegrationTests {
   }
 
   private void insertProfile(String profileId, boolean active) {
+    insertProfile(profileId, active, "java developer");
+  }
+
+  private void insertProfile(String profileId, boolean active, String keywords) {
     jdbcTemplate.update(
         """
                 INSERT INTO search_profile (
                     profile_id, source, source_key, keywords, location,
                     include_skills, exclude_skills, employment_type, active
-                ) VALUES (?, 'ADZUNA', 'sg', 'java developer', 'Singapore', 'java', '', 'ANY', ?)
+                ) VALUES (?, 'ADZUNA', 'sg', ?, 'Singapore', 'java', '', 'ANY', ?)
                 """,
         profileId,
+        keywords,
         active);
   }
 
