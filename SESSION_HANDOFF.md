@@ -27,7 +27,7 @@ Database: PostgreSQL 17
 Latest Flyway migration: V26
 Latest full test: 136 Java tests plus 12 React tests, 0 failures, 0 errors, 0 skipped
 Latest focused check: 38 Java tests plus 11 React tests covering S0.2 extraction, catalogue, market, provider, API, and persistence contracts
-Local runtime: Docker app running with index-B2cWL7k-.js and index-Cyde1RPH.css; PostgreSQL healthy; /actuator/health reports UP
+Local runtime: Docker app running with index-DnzkfvgI.js and index-BLcOZmRq.css; PostgreSQL healthy; /actuator/health reports UP
 Owner-reported next items: S0.2 is selected and acceptance-open; the S0.3 recommendation diagnosis
 is recorded below, but its implementation remains queued
 ```
@@ -63,7 +63,9 @@ the checkpoint complete or begin S0.3 before those gates are resolved or explici
 
 A final self-review fixed the remaining catalogue keyboard edge case: Escape now fully closes the
 popup, and workspace-private additions participate in the same Arrow/Enter option sequence as
-catalogue matches. The added React regression is included in the 12-test total above.
+catalogue matches. The added React regression is included in the 12-test total above. The subsequent
+owner UI follow-up caps long suggestion lists at 18rem with contained vertical scrolling and keeps
+the active Arrow-key option in view.
 
 ## 3. Assisted multi-market onboarding follow-up — complete
 

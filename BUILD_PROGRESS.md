@@ -284,7 +284,8 @@ OpenAPI.
 Final self-review also corrected the catalogue combobox's Escape and custom-entry keyboard path:
 Escape now removes the popup from the accessibility tree, and a private addition participates in the
 same Arrow/Enter option sequence as catalogue matches. A focused React regression protects both
-states.
+states. The owner follow-up caps long suggestion lists at 18rem with contained vertical scrolling;
+Arrow-key navigation keeps the active option scrolled into view.
 
 S0.2 is not yet marked complete. Product-owner review of the redacted fixture expectations, a
 representative PDF/DOC/DOCX parsing benchmark through the 5 MB boundary to set p95, and final

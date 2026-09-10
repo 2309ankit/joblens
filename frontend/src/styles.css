@@ -52,7 +52,7 @@
 .catalog-combobox input { width: 100%; min-height: 2.75rem; padding: .55rem 2.5rem .55rem 2.25rem; border: 1px solid #ffffff20; border-radius: 8px; color: #f5f6f9; background: #10121b; font: inherit; }
 .catalog-combobox input:focus { outline: 2px solid #79d7ff; outline-offset: 2px; border-color: transparent; }
 .catalog-combobox > button { position: absolute; right: .55rem; display: grid; padding: .3rem; border: 0; color: #aeb4c4; background: transparent; cursor: pointer; }
-.catalog-results { margin-top: .35rem; padding: .35rem; border: 1px solid #ffffff1c; border-radius: 8px; background: #0d0f16; box-shadow: 0 14px 30px #0008; }
+.catalog-results { max-height: 18rem; margin-top: .35rem; padding: .35rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border: 1px solid #ffffff1c; border-radius: 8px; background: #0d0f16; box-shadow: 0 14px 30px #0008; }
 .catalog-results > p { margin: .45rem .55rem; color: #9da4b6; font-size: .68rem; }
 .catalog-results > button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .6rem .65rem; border: 0; border-radius: 6px; color: #e6e8ee; background: transparent; text-align: left; cursor: pointer; }
 .catalog-results > button.active,.catalog-results > button:hover { color: #fff; background: #ffffff0d; }
