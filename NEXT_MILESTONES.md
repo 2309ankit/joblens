@@ -177,6 +177,7 @@ table. These are inspection facts, not a completed diagnosis or fix.
 | --- | --- | --- |
 | S0.2 — Onboarding correctness — SELECTED; ACCEPTANCE OPEN | `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004`, `BUG-ONBOARDING-03`, `UX-ONBOARDING-04` | Implementation and automated/browser verification complete; owner fixture review, parsing p95, and final assistive-technology acceptance remain |
 | S0.3 — Cross-role ranking correctness | `BUG-M3-006`, `UX-DASHBOARD-01` | Reproduce high .NET scoring, define when a job is qualified as Recommended, correct the proven scoring/presentation defect, and preserve universal-policy behavior |
+| S0.4 — Semantic skill extraction — CANDIDATE; NOT YET SELECTED | `UX-ONBOARDING-05` | Replace/augment the exact-phrase catalog matcher with local-embedding similarity so recall no longer depends on hand-seeding every synonym; see subsection below |
 
 The selected S0.2 requirement and design record is
 [S0_2_ONBOARDING_CORRECTNESS.md](S0_2_ONBOARDING_CORRECTNESS.md).
@@ -184,6 +185,49 @@ The selected S0.2 requirement and design record is
 S0.1 does not include résumé suggestion changes, sector taxonomy, country/location redesign,
 ranking-weight changes, Job Explorer pagination, feedback calibration, authentication, a new source,
 shared ingestion, scheduling, live SSE, or service extraction.
+
+### Semantic skill extraction candidate (not yet selected)
+
+Raised 2026-09-11 after the owner uploaded a sales/account-management résumé and the deterministic
+extractor (`esco-deterministic-v4`) detected only 2 of a dozen-plus clearly-present skills. A same-day
+fix (migration `V28`, see `SESSION_HANDOFF.md`) hand-seeded ~34 missing sales/business-development
+catalog terms, which is a content patch, not a structural fix — the matcher (`PhraseAutomaton`) is
+still literal Aho-Corasick phrase matching, so recall on any future domain/vendor term not literally
+catalogued remains zero, and every gap still requires a human to notice it and write a migration.
+
+**Owner-proposed design** (both decisions below are locked in; this checkpoint is otherwise
+unscoped/unselected):
+
+1. Embed every catalog skill's canonical name (and aliases) once, offline, into a fixed-dimension
+   vector using a sentence-embedding model.
+2. Embed each résumé candidate phrase the same way at parse time.
+3. Score by cosine similarity, `(A·B)/(‖A‖×‖B‖)`, between each candidate and every catalog vector — a
+   calculation, not a lookup, so a résumé phrase that shares no words with the catalog term (e.g. "Cold
+   Outreach & Email Sequencing" vs. catalog "Outbound Prospecting") can still match on meaning.
+4. Threshold-based decision: ≥ ~0.80 auto-accepts as that canonical skill; 0.55–0.80 surfaces as a
+   review suggestion (same disposition as today's uncatalogued `TermSuggestion`s); below that stays an
+   unknown term.
+5. **Embedding source — DECIDED: local model, no external API.** Bundle a small sentence-transformer
+   (e.g. `all-MiniLM-L6-v2`, ~90 MB) via ONNX/DJL running inside the Spring Boot process. Zero marginal
+   cost and no API key/network dependency, consistent with the D3 zero-cost demo constraint and the
+   512 MB Render free-tier container; trade-off is a larger Docker image and CPU-only inference
+   latency per résumé upload. An external embedding API (OpenAI/Cohere/etc.) was considered and
+   explicitly rejected for this checkpoint on cost/dependency grounds.
+6. **Scope — DECIDED: steps 1–4 only for this checkpoint.** Embedding-based matching replacing/
+   augmenting `PhraseAutomaton`, with the same accept/suggest split the extractor already has. Two
+   further ideas from the same discussion are explicitly deferred, not included, and would need their
+   own future checkpoint: (a) a corpus-wide feedback loop that aggregates unknown terms across
+   workspaces and auto-flags frequently-seen ones as candidate catalog entries (needs new schema and an
+   admin review/promotion surface); (b) an LLM first-pass extraction step ahead of embedding
+   normalization (a second external/paid dependency, and a genuine departure from this extractor's
+   "deterministic" design, not merely an accuracy tweak).
+
+Not yet done: acceptance criteria, a design record, catalog vector storage/refresh approach (brute-
+force cosine over ~100 rows needs no vector DB at this scale; revisit if the catalog grows by orders of
+magnitude), threshold calibration against reviewed fixtures (reuse the redacted-fixture discipline from
+`S0_2_ONBOARDING_CORRECTNESS.md` rather than eyeballing one résumé), Docker image size/latency impact
+measurement on the 512 MB Render free tier, and explicit owner selection. Do not start implementation
+without first agreeing those per the Selection rules above.
 
 ### Owner additions assigned to the selected checkpoint
 

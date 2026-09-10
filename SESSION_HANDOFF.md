@@ -20,19 +20,26 @@ Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
 React surface checkpoint: R1.1 — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
 Next shipping milestone: D3 Free Demo Deployment — COMPLETE (2026-09-10), including post-deploy
-incident fixes on 2026-09-10; await owner direction for the next module
+incident fixes on 2026-09-10 and a second post-deploy fix round on 2026-09-11 (see below); await
+owner direction for the next module
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V26
-Latest implementation commit: 45391a6 (fix(discovery): broaden provider queries that return zero results)
-Latest full test: 145 Java tests plus 12 React tests, 0 failures, 0 errors, 0 skipped
+Latest Flyway migration: V28
+Latest implementation commit: 8170d61 (feat(onboarding): expand skill catalog with sales/business-development terms)
+Latest full test: 147 Java tests, 0 failures, 0 errors, 0 skipped (React suite unchanged at 12 tests; not touched this session)
 Latest focused check: 38 Java tests plus 11 React tests covering S0.2 extraction, catalogue, market, provider, API, and persistence contracts
-Local runtime: Docker app rebuilt on 45391a6, running with index-DnzkfvgI.js and index-BLcOZmRq.css; PostgreSQL healthy; /actuator/health reports UP
-Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g) deploy dep-dahdeklg1s2s73c5n2h0 of commit 45391a6 is live; /actuator/health reports UP
-Owner-reported next items: D3 (including its post-deploy incident fixes) is complete; S0.2 is paused and acceptance-open; the S0.3 recommendation diagnosis
-is recorded below, but its implementation remains queued. Next session should ask the owner which module to pick up (S0.2 acceptance, S0.3, or another).
+Local runtime: not rebuilt this session; last verified Docker image is on 45391a6 (see prior checkpoint)
+Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g) deploy dep-dahf5irl550s7381j210 of commit 8170d61 is live; /actuator/health reports UP.
+Auto-deploy is now ON (`autoDeployTrigger: "commit"` in render.yaml and on the live service) — a push
+to `main` deploys automatically; `render deploys create` is no longer required for routine pushes.
+Owner-reported next items: D3 (including both post-deploy incident-fix rounds) is complete; S0.2 is paused and acceptance-open; the S0.3 recommendation diagnosis
+is recorded below, but its implementation remains queued. A candidate semantic (embedding-based) skill
+extraction follow-up is recorded as a queued, not-yet-selected checkpoint — see
+[NEXT_MILESTONES.md](NEXT_MILESTONES.md#semantic-skill-extraction-candidate-not-yet-selected). Next
+session should ask the owner which module to pick up (S0.2 acceptance, S0.3, the semantic extraction
+candidate, or another).
 ```
 
 Before making changes:
@@ -139,6 +146,79 @@ Current live Render state, for the next session:
   (`~/.render/config.yaml`, workspace `tea-dahc7eqd0e5s738rdge0`). It is **not** on `PATH`, and that
   `/private/tmp` path will not survive a reboot — re-download and re-authenticate
   (`render login`) if it is gone.
+
+## D3 post-deployment fixes, round 2 — COMPLETE (2026-09-11)
+
+Bug-fix/infra follow-through on the live D3 demo, prompted by owner-reported issues while using it.
+Not a new module; does not authorize starting S0.2/S0.3/S1–S6 without a separate owner checkpoint.
+
+**Duplicate profile-version rows on résumé re-upload.** `OnboardingService.upload()` called
+`OnboardingRepository.createDraft()` unconditionally on every call, and `create-draft.sql` had no
+idempotency guard, so a double submit/resubmission of the same résumé inserted a second full
+`workspace_profile_version` DRAFT row (each with its own skills, suggestions, and readiness
+assessment) instead of reusing the existing one. Fixed in commit `0612903`
+(`fix(onboarding): stop resume re-upload from duplicating draft profiles`): `create-draft.sql` now
+upserts on a new partial unique index `workspace_profile_one_draft_per_resume_idx`
+(`workspace_id, resume_id` where `status='DRAFT'`, migration `V27`), which also deletes any
+duplicates the bug had already created. Regression test:
+`WorkspaceOnboardingIntegrationTests.resubmittingTheSameResumeReusesTheExistingDraftInsteadOfDuplicatingIt`.
+
+**Auto-deploy enabled.** The owner asked why deploys were manual and to turn auto-deploy on. Commit
+`c7ca62e` flips `render.yaml`'s `autoDeployTrigger` from `"off"` to `"commit"`; the live service was
+also updated directly via the Render CLI (`render services update ... --auto-deploy`). This reverses
+D3's original "controlled manual promotion" design choice (see `D3_FREE_DEMO_DEPLOYMENT.md`
+acceptance criterion 2 and its stated rationale — no S6 CI/CD gate yet); that document is now stale on
+this point and should be reconciled if a future session has time. Practical effect: any push to `main`
+now deploys to `joblens-demo` automatically, with no promotion gate beyond CI/tests run locally before
+pushing.
+
+**Keep-alive workflow added.** Commit `16a008f` adds `.github/workflows/keep-render-warm.yml`, a
+GitHub Actions cron (`*/10 * * * *`) that pings `/actuator/health` to keep the free Render instance
+from idling to sleep, chosen over a Render-side cron job because D3's scope explicitly excludes Render
+background workers/cron jobs.
+
+**Résumé skill-extraction recall gap.** The owner uploaded a senior sales/account-management résumé
+(redacted evidence: Sahil Singh — Calsoft/Tata Elxsi/Envision/Tech Mahindra) and only `Oracle` and
+`CRM` were detected as skills, despite the résumé explicitly listing Salesforce, Zoho CRM, ZoomInfo,
+LinkedIn Sales Navigator, BANT/MEDDPICC, upselling, cross-selling, account mining, proposal
+management (RFXs), etc. Root cause: `ProfileIntelligenceExtractor` (`esco-deterministic-v4`) is an
+exact-phrase Aho-Corasick matcher (`PhraseAutomaton`) against the literal `skill`/`skill_alias` catalog
+rows — not fuzzy or semantic — and the global catalog (`V5`, `V18`) was seeded almost entirely around
+one Java/backend-engineer profile plus a handful of one-word business terms; it had no sales-tool
+brand names, methodology acronyms, or process terms at all. This matches the open item already
+recorded in [11. Known limitations](#11-known-limitations).
+
+Commit `8170d61` (`feat(onboarding): expand skill catalog with sales/business-development terms`)
+adds migration `V28`, seeding ~34 sales/business-development skills and aliases (Salesforce, Zoho CRM,
+Microsoft Dynamics 365, HubSpot, ZoomInfo, LinkedIn Sales Navigator, Outbound Prospecting, Cold Calling,
+Cold Email Outreach, Lead Generation/Qualification, BANT, MEDDIC/MEDDPICC, consultative/solution
+selling, account mining/farming/management, upselling, cross-selling, customer retention, pipeline
+management, sales forecasting, territory management, enterprise/inside sales, sales enablement, quota
+attainment, negotiation, proposal management/RFX/RFP, executive presentations, Microsoft Office Suite,
+client onboarding, product adoption) — including `Account Management`, which prior fixtures/tests
+referenced as an expected catalog skill but which no migration had actually seeded. The same commit
+fixes a latent bug this exposed: `insert-esco-skill.sql`/`insert-esco-role.sql`'s `ON CONFLICT` upsert
+never stamped `taxonomy_source = 'ESCO'` when updating a pre-existing catalog row (only
+`taxonomy_version`/`external_uri`), so a hand-seeded row later "claimed" by a real ESCO import kept
+looking non-ESCO-sourced; `EscoTaxonomyImportIntegrationTests` caught this once `V28` pre-seeded
+`Account Management`, which collided by name with that test's ESCO fixture. Regression test:
+`WorkspaceOnboardingIntegrationTests.extractsSalesToolsAndMethodologiesFromTheExpandedCatalog`.
+
+This is a **catalog-content fix, not an algorithm change** — the matcher is still exact-phrase, so
+recall on any résumé domain/vendor term not literally in the (now larger, but still hand-curated)
+catalog will remain zero. The owner and this session discussed replacing/augmenting the exact matcher
+with local-embedding cosine-similarity matching (no external API — see the candidate checkpoint in
+[NEXT_MILESTONES.md](NEXT_MILESTONES.md#semantic-skill-extraction-candidate-not-yet-selected)) as the
+actual fix for open-ended recall, but explicitly asked to record it as a queued milestone rather than
+implement it in this session.
+
+Verification: full Java suite (147 tests, 0 failures/errors/skipped) and `fmt-maven-plugin:check`
+(formatting) passed locally after each change. React suite not touched this session. Pushed to
+`origin/main`; Render auto-deploy (see above) plus one manual `render deploys create` picked up the
+final commit — deploy `dep-dahf5irl550s7381j210` of commit `8170d61` is `live`, `/actuator/health`
+returns `UP`. The Neon database's fresh Flyway history was not independently re-verified remotely this
+session beyond the successful deploy (health check implies migrations applied; no separate `psql`
+inspection was run against Neon).
 
 ## 2. S0.2 Onboarding Correctness — selected, implementation verified, acceptance open
 
@@ -940,9 +1020,13 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
   S4 owns feedback and Precision@10 rather than automatic self-training.
 - Original resume storage, schedules, and external notifications are not implemented.
 - Market insights are shared market-level projections rather than private workspace projections.
-- The inclusive taxonomy is a curated starter set, with optional versioned ESCO skill/occupation
-  releases imported by `escoTaxonomyImportJob`; users can add
-  workspace-private skills and roles; expanding or governing the shared seed remains deliberate work.
+- The inclusive taxonomy is a curated starter set (expanded 2026-09-11 with ~34 sales/business-
+  development terms, migration `V28`), with optional versioned ESCO skill/occupation releases imported
+  by `escoTaxonomyImportJob`; users can add workspace-private skills and roles; expanding or governing
+  the shared seed remains deliberate work. Matching itself is exact-phrase (`PhraseAutomaton`), not
+  fuzzy/semantic, so recall is capped by whatever is literally in the catalog regardless of size — see
+  the queued semantic-extraction candidate in
+  [NEXT_MILESTONES.md](NEXT_MILESTONES.md#semantic-skill-extraction-candidate-not-yet-selected).
 - Title confidence orders deterministic evidence sources and is not a probability or claim that a
   suggested title is factually correct.
 - React currently exposes only upload-derived role suggestions and a plain-text sector field; it does
