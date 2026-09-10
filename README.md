@@ -90,6 +90,83 @@ JOOBLE_COUNTRY_CODE=sg
 
 Environment variables override these values. Never commit real credentials; `.env` is ignored.
 
+## Free demo deployment
+
+The selected D3 checkpoint deploys one disposable JobLens demo process to Render and one external
+Neon PostgreSQL database. It is intentionally limited to synthetic or redacted résumé content. The
+anonymous workspace cookie is not an authenticated account, so this environment is not a private beta
+or a place for real user data. The full requirement and review boundary is in
+[D3_FREE_DEMO_DEPLOYMENT.md](D3_FREE_DEMO_DEPLOYMENT.md).
+
+### 1. Create the free Neon database
+
+1. Create a Neon Free project using PostgreSQL 17 in AWS Asia Pacific (Singapore).
+2. Keep the generated database, role, and password. In Neon **Connection Details**, select a direct
+   connection and require SSL.
+3. Convert the connection string to JDBC form without embedding the username or password. For
+   example, a Neon value beginning with `postgresql://role:password@host/database` becomes:
+
+   ```text
+   jdbc:postgresql://host/database?sslmode=require
+   ```
+
+4. Retain the role and password for Render's secret prompts. Never place them in `render.yaml`, a
+   shell-history command, a screenshot, or a committed file.
+
+The application applies Flyway V1 through V26 during its first healthy startup. Do not create tables
+manually. Neon Free is disposable demo storage, not the JobLens backup plan. Inspect its size in the
+Neon SQL editor and export it before approaching 400 MB:
+
+```sql
+SELECT pg_size_pretty(pg_database_size(current_database()));
+```
+
+### 2. Create the Render service
+
+1. In Render, create a **Blueprint** from this repository. Render reads the root `render.yaml` and
+   proposes one `joblens-demo` Free web service in Singapore.
+2. At the initial secret prompts, enter `JOBLENS_DB_URL`, `JOBLENS_DB_USERNAME`, and
+   `JOBLENS_DB_PASSWORD` from Neon. Confirm the service plan still says **Free** before applying it.
+3. Do not add a Render database, disk, worker, or cron service. Optional Adzuna or Jooble credentials
+   may be entered later in Render's environment settings; they are not required for deployment.
+4. Start the first deploy manually. Subsequent deploys are manual until the separate S6 CI/CD gate is
+   implemented.
+
+The Blueprint sets Render's port, HTTPS-only workspace cookie, a five-connection/zero-minimum JDBC
+pool, a low-memory JVM policy, graceful shutdown allowance, and `/actuator/health` health check.
+Secrets are runtime-only. The multi-stage Docker build produces the React bundle and Spring Boot JAR,
+then copies only the JAR into the non-root Java 21 runtime image.
+
+### 3. Verify and operate the demo
+
+Replace the example hostname with the value shown by Render:
+
+```bash
+export JOBLENS_DEMO_URL=https://joblens-demo.onrender.com
+curl --fail --silent --show-error "$JOBLENS_DEMO_URL/actuator/health"
+curl --fail --silent --show-error --dump-header /tmp/joblens-demo-headers.txt \
+  --output /tmp/joblens-demo-setup.html "$JOBLENS_DEMO_URL/setup"
+rg -i 'HTTP/|set-cookie:' /tmp/joblens-demo-headers.txt
+rg -o 'assets/index-[A-Za-z0-9_-]+\.(js|css)' /tmp/joblens-demo-setup.html
+```
+
+Expected evidence is health status `UP`, HTTP 200 for `/setup`, a workspace cookie containing
+`Secure`, `HttpOnly`, and `SameSite=Lax`, and content-hashed JavaScript/CSS asset paths that return
+HTTP 200. A Free Render service sleeps after 15 idle minutes, so its first request can take about one
+minute before application startup begins. Under Render's exact 0.1 CPU and 512 MB limits, the local
+release smoke test measured a 193-second JobLens cold start; allow three to four minutes before
+treating the first request as failed. Treat that delay and occasional restarts as expected demo
+behavior.
+
+Keep **Pages per source** at `1` and traffic low. Provider calls and Batch work still share this one
+small web process; worker separation and durable admission control remain S2/S3 work. Check Render
+logs for startup/migration failures without copying secrets or résumé content into issue reports.
+
+To roll back application code, use Render **Deploys → Rollback** to the prior successful image and
+confirm `/actuator/health` again. D3 adds no schema migration. Before moving providers, export Neon
+with standard PostgreSQL tools and restore it into the destination; JobLens remains plain
+JDBC/PostgreSQL/Flyway and the same Docker artifact can later run on AWS.
+
 ## First-time use
 
 1. Open `http://localhost:8080/setup`. JobLens creates an anonymous workspace cookie in this browser.

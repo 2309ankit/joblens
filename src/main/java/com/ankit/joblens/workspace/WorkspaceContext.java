@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
 
@@ -13,9 +14,13 @@ import org.springframework.stereotype.Service;
 public class WorkspaceContext {
   public static final String COOKIE_NAME = "JOBLENS_WORKSPACE";
   private final WorkspaceRepository repository;
+  private final boolean secureCookie;
 
-  public WorkspaceContext(WorkspaceRepository repository) {
+  public WorkspaceContext(
+      WorkspaceRepository repository,
+      @Value("${joblens.workspace.cookie-secure:false}") boolean secureCookie) {
     this.repository = repository;
+    this.secureCookie = secureCookie;
   }
 
   public UUID resolve(HttpServletRequest request, HttpServletResponse response) {
@@ -26,6 +31,7 @@ public class WorkspaceContext {
       ResponseCookie cookie =
           ResponseCookie.from(COOKIE_NAME, workspaceId.toString())
               .httpOnly(true)
+              .secure(secureCookie)
               .sameSite("Lax")
               .path("/")
               .maxAge(Duration.ofDays(365))

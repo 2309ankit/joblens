@@ -19,16 +19,16 @@ Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
 React surface checkpoint: R1.1 — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
-Next shipping milestone: S0.2 Onboarding Correctness — SELECTED by owner on 2026-09-09
+Next shipping milestone: D3 Free Demo Deployment — SELECTED by owner on 2026-09-10
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V26
-Latest full test: 136 Java tests plus 12 React tests, 0 failures, 0 errors, 0 skipped
+Latest full test: 138 Java tests plus 12 React tests, 0 failures, 0 errors, 0 skipped
 Latest focused check: 38 Java tests plus 11 React tests covering S0.2 extraction, catalogue, market, provider, API, and persistence contracts
 Local runtime: Docker app running with index-DnzkfvgI.js and index-BLcOZmRq.css; PostgreSQL healthy; /actuator/health reports UP
-Owner-reported next items: S0.2 is selected and acceptance-open; the S0.3 recommendation diagnosis
+Owner-reported next items: D3 is selected and must deploy before other work; S0.2 is paused and acceptance-open; the S0.3 recommendation diagnosis
 is recorded below, but its implementation remains queued
 ```
 
@@ -43,6 +43,22 @@ docker compose ps
 Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md),
 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), and [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
+
+## D3 Free Demo Deployment — selected, local release checks verified, remote open
+
+The owner selected D3 on 2026-09-10 and paused further product work until the demo is deployed. Its
+bounded requirement and design record is
+[D3_FREE_DEMO_DEPLOYMENT.md](D3_FREE_DEMO_DEPLOYMENT.md). The repository now defines one Render Free
+Singapore Docker web service backed by an owner-created Neon Free PostgreSQL 17 Singapore database;
+the environment is limited to synthetic or redacted data and does not satisfy S6 or private-beta
+launch gates.
+
+The clean suite passed with 138 Java and 12 React tests. The 167,668,389-byte runtime image is
+non-root and contains no build toolchain. At 512 MB and 0.1 CPU it reached `UP` in 193 seconds, used
+approximately 240 MB at idle, served `/setup` and hashed assets, and emitted the required secure
+cookie. Formatting and diff checks passed. Render CLI v2.22.0 was checksum-verified, but its Blueprint
+validator requires an authenticated workspace. Complete the owner-account connection, Blueprint
+validation, fresh Neon migration, and remote smoke evidence before marking D3 complete.
 
 ## 2. S0.2 Onboarding Correctness — selected, implementation verified, acceptance open
 
@@ -871,6 +887,7 @@ old personal/learning requirement boundary. The startup delivery index is:
 ```text
 D1 Startup requirements and architecture — COMPLETE
 D2 V1 engineering standards — COMPLETE
+D3 Free demo deployment — SELECTED, LOCAL RELEASE CHECKS VERIFIED, REMOTE OPEN
 S0.1 Discovery execution safety — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
 S0.2 Onboarding correctness — SELECTED, IMPLEMENTATION VERIFIED, ACCEPTANCE OPEN

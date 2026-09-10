@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+
+services:
+  - type: web
+    name: joblens-demo
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: "off"
+    healthCheckPath: /actuator/health
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: JOBLENS_SERVER_PORT
+        value: "10000"
+      - key: JOBLENS_WORKSPACE_COOKIE_SECURE
+        value: "true"
+      - key: JOBLENS_DB_MAXIMUM_POOL_SIZE
+        value: "5"
+      - key: JOBLENS_DB_MINIMUM_IDLE
+        value: "0"
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:+UseSerialGC -XX:InitialRAMPercentage=20.0 -XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError
+      - key: JOBLENS_DB_URL
+        sync: false
+      - key: JOBLENS_DB_USERNAME
+        sync: false
+      - key: JOBLENS_DB_PASSWORD
+        sync: false

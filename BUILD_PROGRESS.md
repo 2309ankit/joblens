@@ -252,7 +252,28 @@ No external job-source integration had been implemented at that early checkpoint
 
 ## Current Milestone
 
-The owner selected **S0.2 Onboarding Correctness** on 2026-09-09. Its bounded requirement set is
+The owner selected **D3 Free Demo Deployment** on 2026-09-10 and directed that it complete before
+further product work. Requirement `D3-DEMO-DEPLOY-01` is bounded in
+`D3_FREE_DEMO_DEPLOYMENT.md`: build the existing modular monolith reproducibly, deploy one free
+Singapore Render web service backed by one free Singapore Neon PostgreSQL 17 database, verify remote
+health/UI/database behavior, and document rollback and migration seams. The environment is explicitly
+limited to synthetic or redacted data and does not pass the authenticated private-beta or S6 gates.
+
+D3 local release evidence on 2026-09-10: `./mvnw clean test` passed **138 Java tests plus
+12 React/Vitest tests**, with 0 failures, 0 errors, and 0 skipped; fresh PostgreSQL 17
+Testcontainers applied Flyway V1–V26. `spotless:check` and `git diff --check` passed. A clean
+multi-stage Docker build produced a 167,668,389-byte image whose runtime is the non-root `joblens`
+user and contains Java 21 and `/app/app.jar`, but no Maven, Node, or build workspace. Under the exact
+Render Free limits of 512 MB and 0.1 CPU, the container applied the existing schema, reached `UP`,
+served `/setup` and both hashed assets with HTTP 200, emitted a `Secure; HttpOnly; SameSite=Lax`
+workspace cookie, and used approximately 240 MB at idle. The measured cold start was 193 seconds.
+The Render CLI v2.22.0 download matched its published SHA-256 and parsed the Blueprint command, but
+Render requires an authenticated workspace for schema, semantic, and conflict validation. D3 remains
+open pending that workspace validation, a fresh Neon deployment, and externally observed HTTP and
+database evidence.
+
+S0.2 Onboarding Correctness remains acceptance-open and is paused at its verified implementation
+checkpoint. Before the pause, its bounded requirement set was
 `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004`, `BUG-ONBOARDING-03`, and `UX-ONBOARDING-04`: correct
 evidence-backed résumé role suggestions, restore live role-catalogue search, add normalized optional
 sector assistance, allow country-only search markets, and provide a progressively disclosed résumé
@@ -287,7 +308,7 @@ same Arrow/Enter option sequence as catalogue matches. A focused React regressio
 states. The owner follow-up caps long suggestion lists at 18rem with contained vertical scrolling;
 Arrow-key navigation keeps the active option scrolled into view.
 
-S0.2 is not yet marked complete. Product-owner review of the redacted fixture expectations, a
+S0.2 is not yet marked complete and is not being extended by D3. Product-owner review of the redacted fixture expectations, a
 representative PDF/DOC/DOCX parsing benchmark through the 5 MB boundary to set p95, and final
 assistive-technology review remain required evidence. No ranking, identity, storage, or launch gap
 was silently added.

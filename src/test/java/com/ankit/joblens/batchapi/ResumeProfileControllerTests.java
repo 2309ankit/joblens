@@ -40,7 +40,7 @@ class ResumeProfileControllerTests {
   void setUp() {
     workspaceId = UUID.randomUUID();
     WorkspaceContext workspaceContext =
-        new WorkspaceContext(null) {
+        new WorkspaceContext(null, false) {
           @Override
           public UUID resolve(HttpServletRequest request, HttpServletResponse response) {
             return workspaceId;

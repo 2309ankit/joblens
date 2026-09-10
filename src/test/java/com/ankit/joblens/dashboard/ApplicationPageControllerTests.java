@@ -19,7 +19,7 @@ class ApplicationPageControllerTests {
   void redirectsAnIncompleteWorkspaceToSetup() {
     UUID workspaceId = UUID.randomUUID();
     WorkspaceContext workspaceContext =
-        new WorkspaceContext(null) {
+        new WorkspaceContext(null, false) {
           @Override
           public UUID resolve(HttpServletRequest request, HttpServletResponse response) {
             return workspaceId;
@@ -44,7 +44,7 @@ class ApplicationPageControllerTests {
   @Test
   void forwardsAReadyWorkspaceToTheReactApplication() {
     WorkspaceContext workspaceContext =
-        new WorkspaceContext(null) {
+        new WorkspaceContext(null, false) {
           @Override
           public UUID resolve(HttpServletRequest request, HttpServletResponse response) {
             return UUID.randomUUID();

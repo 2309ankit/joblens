@@ -25,13 +25,27 @@ of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
 | --- | --- | --- | --- |
 | D1 | Startup requirements and architecture baseline — COMPLETE | Replaces the personal/learning boundary with users, SLOs, real-time semantics, launch gates, and a fixed/not-fixed assessment | Product assumptions require owner review |
 | D2 | V1 engineering standards — COMPLETE | Defines requirement, design, implementation, verification, review, and release gates | None |
-| S0 | V1 correctness stabilization — SELECTED | Reproduce and repair recorded defects in three bounded checkpoints before adding more product surface | Redacted fixtures and controlled provider access where required |
+| D3 | Free demo deployment — SELECTED | Put the current artifact on a disposable zero-cost Render + Neon environment before further product work | Render and Neon owner accounts |
+| S0 | V1 correctness stabilization — PAUSED; S0.2 ACCEPTANCE OPEN | Reproduce and repair recorded defects in three bounded checkpoints before adding more product surface | Redacted fixtures and controlled provider access where required |
 | S1 | Authenticated account ownership and RBAC | Anonymous UUID cookies cannot protect a public multi-user product | Identity-provider and account-linking decision |
 | S2 | Product run commands and live progress | Add admission control, idempotency, safe concurrency/recovery, cancellation, and SSE/polling status | S1 ownership contract |
 | S3 | Shared ingestion and provider budgets | Prevent equivalent user searches from multiplying external requests and cost | Provider quotas/contracts and freshness policy |
 | S4 | Job Explorer and reviewed ranking quality | Add backend filters/sorts/keyset paging plus private feedback and Precision@10 | Stable run/corpus identity |
 | S5 | Résumé object lifecycle and privacy workflows | Add encrypted/scanned storage, retention, export, and deletion | Storage/retention/security decisions |
 | S6 | Production platform gate | CI/CD, staging/production, managed HA data, observability, backups/restore, load/security/failure testing | Deployment platform and operating ownership |
+
+## Selected deployment checkpoint — D3 Free demo deployment
+
+Status: **SELECTED on 2026-09-10; deployment evidence open.**
+
+Requirement trace: `D3-DEMO-DEPLOY-01`. The bounded requirement, design, acceptance criteria,
+privacy boundary, rollback plan, and evidence contract are recorded in
+[D3_FREE_DEMO_DEPLOYMENT.md](D3_FREE_DEMO_DEPLOYMENT.md).
+
+D3 deploys one existing JobLens Docker process to a Render Free web service and connects it to a
+separate Neon Free PostgreSQL 17 database. It is a disposable demo for synthetic or redacted data,
+not S6, private-beta promotion, or production readiness. S0.2 remains acceptance-open and is paused
+until D3 finishes; S0.3 and S1–S6 remain unselected.
 
 ## React surface completion checkpoint — R1.1
 
