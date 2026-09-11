@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JobScoreCalculator {
-  public static final String POLICY_VERSION = "universal-v1";
+  public static final String POLICY_VERSION = "universal-v2";
   private static final Set<String> GENERIC_TITLE_WORDS =
       Set.of(
           "senior",
@@ -31,6 +31,22 @@ public class JobScoreCalculator {
           "executive",
           "officer",
           "associate");
+  // Technology-agnostic filler words that make a target-role phrase LOOK distinctive but aren't —
+  // distinct from GENERIC_TITLE_WORDS (seniority/role-noise). A target role of just "Software
+  // Engineer" strips to no distinctive tokens, so it can never self-qualify a job as Recommended
+  // on title alone (see BUG-M3-006: ".NET Software Engineer" phrase-matching "Software Engineer").
+  private static final Set<String> BROAD_TITLE_WORDS =
+      Set.of(
+          "software",
+          "application",
+          "applications",
+          "system",
+          "systems",
+          "solution",
+          "solutions",
+          "technology",
+          "technical",
+          "it");
   private final JdbcTemplate jdbc;
   private final CandidateProfileService profiles;
   private final RoleRankingRepository roleRanking;
@@ -102,6 +118,7 @@ public class JobScoreCalculator {
         best.employment(),
         best.salary(),
         best.freshness(),
+        best.qualifiesRecommended(),
         best.reasons(),
         best,
         roleScores);
@@ -207,6 +224,8 @@ public class JobScoreCalculator {
             + employment.points()
             + salary
             + freshness;
+    boolean titleQualifies = titleQualifiesForRecommendation(job.title(), role);
+    boolean qualifies = qualifiesRecommended(skill, titleQualifies);
     return new JobScore.RoleScore(
         role.id(),
         role.name(),
@@ -224,6 +243,7 @@ public class JobScoreCalculator {
         employment.points(),
         salary,
         freshness,
+        qualifies,
         List.copyOf(reasons));
   }
 
@@ -290,6 +310,46 @@ public class JobScoreCalculator {
       return new ScorePart(10, "Some distinctive target-role words matched the job title");
     }
     return new ScorePart(0, "Job title did not match this target role");
+  }
+
+  static boolean qualifiesRecommended(int skillScore, boolean titleQualifies) {
+    return skillScore > 0 || titleQualifies;
+  }
+
+  static boolean titleQualifiesForRecommendation(
+      String jobTitle, RoleRankingContext.TargetRole role) {
+    for (String alias : role.aliases()) {
+      if (containsPhrase(jobTitle, alias)) {
+        return true;
+      }
+    }
+    if (role.calibrationPack() != null) {
+      for (RoleRankingContext.TitleSignal signal : role.calibrationPack().titleSignals()) {
+        if (containsPhrase(jobTitle, signal.text())) {
+          return true;
+        }
+      }
+    }
+    Set<String> distinctiveTargetTokens = distinctiveQualifyingTokens(role.name());
+    if (distinctiveTargetTokens.isEmpty()) {
+      return false;
+    }
+    return meaningfulTitleTokens(jobTitle).containsAll(distinctiveTargetTokens);
+  }
+
+  private static Set<String> distinctiveQualifyingTokens(String value) {
+    String normalized = value == null ? "" : value.toLowerCase(Locale.ROOT);
+    var tokens = new LinkedHashSet<String>();
+    for (String token : normalized.split("[^a-z0-9+#]+")) {
+      if (token.length() >= 2
+          && !GENERIC_TITLE_WORDS.contains(token)
+          && !BROAD_TITLE_WORDS.contains(token)) {
+        tokens.add(token);
+      }
+    }
+    // Deliberately no fallback-refill (unlike meaningfulTitleTokens): an empty result here must
+    // mean "title alone cannot qualify," not "use generic/broad words anyway."
+    return tokens;
   }
 
   private ScorePart seniorityScore(String jobTitle, String targetRole) {

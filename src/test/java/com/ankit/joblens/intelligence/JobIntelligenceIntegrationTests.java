@@ -343,7 +343,7 @@ class JobIntelligenceIntegrationTests {
                 "SELECT ranking_policy_version FROM job_score WHERE normalized_job_id=?",
                 String.class,
                 normalizedId))
-        .isEqualTo("universal-v1");
+        .isEqualTo("universal-v2");
     int roleScoreCount =
         jdbcTemplate.queryForObject(
             "SELECT count(*) FROM job_role_score WHERE normalized_job_id=?",

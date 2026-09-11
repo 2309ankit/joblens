@@ -13,6 +13,7 @@ public record JobScore(
     int employment,
     int salary,
     int freshness,
+    boolean qualifiesRecommended,
     List<Reason> reasons,
     RoleScore bestRole,
     List<RoleScore> roleScores) {
@@ -35,5 +36,6 @@ public record JobScore(
       int employment,
       int salary,
       int freshness,
+      boolean qualifiesRecommended,
       List<Reason> reasons) {}
 }

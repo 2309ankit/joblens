@@ -3,11 +3,11 @@ INSERT INTO job_score(
     domain_score, seniority_score, location_score, employment_score,
     salary_score, freshness_score, normalized_content_hash,
     best_target_role_id, best_target_role_name, ranking_policy_version,
-    calibration_pack_code, calibration_pack_version
+    calibration_pack_code, calibration_pack_version, qualifies_recommended
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
     (SELECT normalized_content_hash FROM normalized_job WHERE id=?),
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT(normalized_job_id,candidate_profile_id)
 DO UPDATE SET total_score=EXCLUDED.total_score,
@@ -24,4 +24,5 @@ DO UPDATE SET total_score=EXCLUDED.total_score,
               ranking_policy_version=EXCLUDED.ranking_policy_version,
               calibration_pack_code=EXCLUDED.calibration_pack_code,
               calibration_pack_version=EXCLUDED.calibration_pack_version,
+              qualifies_recommended=EXCLUDED.qualifies_recommended,
               calculated_at=CURRENT_TIMESTAMP

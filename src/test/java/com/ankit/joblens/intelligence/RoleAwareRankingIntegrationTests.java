@@ -67,6 +67,35 @@ class RoleAwareRankingIntegrationTests {
     assertThat(backend.bestRole().calibrationPackCode()).isEqualTo("BACKEND");
     assertThat(frontend.roleScores()).hasSize(2);
     assertThat(backend.roleScores()).hasSize(2);
+    assertThat(frontend.bestRole().qualifiesRecommended()).isTrue();
+    assertThat(backend.bestRole().qualifiesRecommended()).isTrue();
+  }
+
+  @Test
+  void flagsBroadTitleMatchWithoutSkillOrSectorEvidenceAsNotQualified() {
+    JobScore netJob =
+        score(
+            "Software Engineer",
+            List.of("Java", "Spring Boot", "SQL"),
+            ".NET Software Engineer",
+            "Build enterprise applications using .NET, C#, and ASP.NET Core.");
+
+    assertThat(netJob.total()).isPositive();
+    assertThat(netJob.bestRole().qualifiesRecommended()).isFalse();
+  }
+
+  @Test
+  void flagsBroadSecondaryRoleMatchAsNotQualifiedEvenWhenItWinsBestRoleSelection() {
+    JobScore netJob =
+        score(
+            "Frontend Engineer, Software Engineer",
+            List.of("React", "TypeScript", "CSS"),
+            ".NET Software Engineer",
+            "Build enterprise applications using .NET, C#, and ASP.NET Core.");
+
+    assertThat(netJob.bestRole().targetRoleName()).isEqualTo("Software Engineer");
+    assertThat(netJob.total()).isPositive();
+    assertThat(netJob.bestRole().qualifiesRecommended()).isFalse();
   }
 
   @Test
@@ -95,6 +124,9 @@ class RoleAwareRankingIntegrationTests {
     assertThat(customerSuccess.bestRole().calibrationPackCode())
         .isEqualTo("SALES_CUSTOMER_SUCCESS");
     assertThat(ai.bestRole().policyVersion()).isEqualTo(JobScoreCalculator.POLICY_VERSION);
+    assertThat(ai.bestRole().qualifiesRecommended()).isTrue();
+    assertThat(sales.bestRole().qualifiesRecommended()).isTrue();
+    assertThat(customerSuccess.bestRole().qualifiesRecommended()).isTrue();
   }
 
   @Test
@@ -115,11 +147,13 @@ class RoleAwareRankingIntegrationTests {
     assertThat(nurse.bestRole().calibrationPackCode()).isNull();
     assertThat(nurse.bestRole().calibrationPackName()).isEqualTo("Universal policy");
     assertThat(nurse.total()).isPositive();
+    assertThat(nurse.bestRole().qualifiesRecommended()).isTrue();
     assertThat(frontendWithoutCore.total()).isPositive();
     assertThat(frontendWithoutCore.reasons())
         .filteredOn(reason -> reason.category().equals("CALIBRATED_CORE_SKILLS"))
         .singleElement()
         .satisfies(reason -> assertThat(reason.points()).isZero());
+    assertThat(frontendWithoutCore.bestRole().qualifiesRecommended()).isTrue();
   }
 
   private JobScore score(String role, List<String> skills, String title, String description) {

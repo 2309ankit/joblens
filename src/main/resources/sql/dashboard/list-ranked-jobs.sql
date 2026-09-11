@@ -4,6 +4,7 @@ SELECT n.id, n.title, n.company, n.location, n.source,
        s.ranking_policy_version,
        s.calibration_pack_code,
        s.calibration_pack_version,
+       COALESCE(s.qualifies_recommended, FALSE) AS qualifies_recommended,
        COALESCE(v.view_count, 0) AS view_count,
        application.id AS application_id,
        application.status AS application_status

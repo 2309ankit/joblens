@@ -283,6 +283,105 @@ failures/errors/skipped) and Spotless/`git diff --check` passed locally, both be
 disabled-by-default change. React suite not touched this session. Committed as `6e01af2`; not pushed —
 Render is unaffected.
 
+#### BUG-ONBOARDING-06 — "Read selected resume" can silently no-op right after choosing a file
+
+Status: **OBSERVED 2026-09-11, not confirmed against a real user click, not fixed.** While
+investigating an owner report that a résumé upload "wasn't reading," direct backend testing (`curl`
+against `/api/candidate-profile/resume`, and the owner's own eventual successful browser attempt) proved
+`OnboardingService.upload()`/`ProfileIntelligenceExtractor` correctly parse and extract the résumé every
+time — this is not a backend regression from S0.4. But one Chrome browser-automation reproduction showed
+the "Read selected resume" button click producing **zero** network request and the page silently
+continuing to show the previously-loaded profile's stale evidence, with no error and no loading state
+change. `Setup.jsx`'s `upload(file)` returns immediately with no feedback if `file` is falsy
+(`if (!file) return;`), so if the file-input's `change` handler hasn't finished updating React's `file`
+state by the time the button is clicked, the click is a silent no-op indistinguishable from success. Not
+yet confirmed whether a real (non-automated) fast click can trigger this, or whether it is specific to
+programmatic file-input events; needs a deliberate repro (rapid select-then-click) before scoping a fix.
+Separately, the owner confirmed the specific "wrong skills showing" incident was this session's own
+testing artifact (see below), not this bug.
+
+#### UX-DASHBOARD-02 — React dashboard drops the per-session "viewed" indicator
+
+Status: **CONFIRMED 2026-09-11, not fixed.** The pre-React `dashboard.html` Thymeleaf template (now
+dead code — `DashboardController` only forwards to the React bundle, nothing returns the `"dashboard"`
+view name anymore) rendered `Open on {source} · viewed {viewCount}` once a job had been opened.
+`sql/dashboard/list-ranked-jobs.sql` still computes `COALESCE(v.view_count, 0) AS view_count` and
+`DashboardApiController`'s `/api/dashboard` response passes every SQL column straight through as a raw
+`Map<String,Object>` (see `DashboardApiController.row()`), so `view_count` **is already present** in the
+JSON payload React receives — this is a pure frontend gap, not missing data. `frontend/src/main.jsx`'s
+`JobCard` and `FeaturedJob` components never read or render it, so a job opened earlier in the session
+shows no visual difference on the dashboard. Fix is contained to `main.jsx`: read `job.view_count` and
+render an indicator, mirroring the old Thymeleaf copy. Not started this session — the owner asked for it
+to be logged, not fixed, while priority went to verifying the live Render demo.
+
+#### Workspace-per-browser confusion (not a bug, but worth recording)
+
+The owner's earlier "resume reading isn't working" / "wrong skills showing" reports on 2026-09-11 turned
+out to have two real causes, both now resolved and confirmed **not** product defects:
+
+1. This session's own browser-automation testing (`claude-in-chrome`) shared a Chrome cookie jar with
+   the owner's own long-running local dev workspace (`755772bc-b5a4-4f1b-8d9d-2d1396572437`, history back
+   to 2026-09-01). A synthetic "Backend Engineer" test résumé uploaded during S0.4 Docker verification
+   created a new draft (`workspace_profile_version.id=65`, version 57) that became the workspace's
+   "latest" (selection is `ORDER BY version DESC`, any status — see
+   `sql/onboarding/find-latest-profile.sql`), so the owner's own `/setup` page started showing that
+   unrelated test data instead of their real profile. Deleted with the owner's explicit approval
+   (`workspace_profile_version.id=65`, `workspace_resume.id=48`); the workspace's real `ACTIVE` profile
+   (version 56) is restored as latest.
+2. Anonymous workspace identity is a browser cookie (`WorkspaceContext`, `JOBLENS_WORKSPACE`), so
+   **different browsers get different, disconnected workspaces by design** — the owner confirmed testing
+   in both Safari and Chrome, which explains results looking inconsistent between them. This is expected
+   anonymous-cookie behavior (`S1` authenticated ownership is the eventual fix for cross-device
+   continuity), not a defect. Each of this session's own repro attempts (`curl`, and each fresh
+   `claude-in-chrome` tab) also created its own brand-new workspace for the same reason — evidence should
+   be read per-workspace-id, not assumed to accumulate in one place, when debugging future local-dev
+   reports.
+
+## S0.3 Cross-role ranking correctness — COMPLETE (2026-09-11)
+
+The owner selected S0.3 on 2026-09-11. Fixes BUG-M3-006 (a `.NET Engineer` posting scoring highly
+for Java Backend/Frontend candidates) and UX-DASHBOARD-01 (no relevance boundary between "Featured"
+and everything else).
+
+**Root cause**, confirmed by reading `JobScoreCalculator.java` directly: `titleScore()` exact-phrase
+matches a job title against the candidate's raw target-role name for 25/25 points with no generic-word
+filtering (filtering only applied in the token-overlap fallback). A candidate whose only target role
+is the broad phrase "Software Engineer" gets a `.NET Software Engineer` posting the full 25 title
+points; combined with baseline points awarded even absent real fit (unspecified seniority → 5, market
+match → 5, employment `ANY` → 5, missing salary → 3 by default), a job with zero skill/sector/freshness
+evidence still totals 43 and gets featured. A pure title-regex fix was rejected: filler words like
+"software"/"backend" survive any generic-word stoplist and remain too broad to be meaningful
+(`.NET Software Engineer` and `Java Software Engineer` are lexically identical on "software" alone).
+
+**Fix**: added a new, separately-computed, versioned `qualifiesRecommended` boolean
+(`job_score`/`job_role_score.qualifies_recommended`, migration `V30`) alongside the existing
+(unchanged) additive scoring dimensions — `POLICY_VERSION` bumped to `universal-v2`. A job qualifies
+only when it has real skill evidence (`skill > 0`, confirmed or calibrated) or a *curated* title match
+(a role alias, a calibration-pack title signal, or full overlap on the target role's distinctive
+tokens after stripping both the existing seniority/role-noise stoplist and a new, narrow
+`BROAD_TITLE_WORDS` filler-word stoplist — software, application(s), system(s), solution(s),
+technology, technical, it). Sector was deliberately excluded as a qualifying signal (it's cross-role
+and non-discriminating — e.g. a healthcare sector preference would equally "qualify" an unrelated
+software job at a hospital). The dashboard (`list-ranked-jobs.sql`, `main.jsx`) now partitions jobs
+into Recommended (Featured/Top matches) vs. Explore other results using this flag via a new pure
+`frontend/src/dashboardRecommendation.js`, with a distinct "no strong matches yet" empty state when
+jobs exist but none qualify.
+
+No scoring math changed and no data backfill was needed: `ScoringWriter` unconditionally rewrites
+`job_score`/`job_role_score` on every Find Jobs run, so the next run per workspace self-heals under
+the new policy version; existing rows default to `qualifies_recommended = FALSE` until then
+(fail-closed).
+
+Verification: 164 Java tests (155 baseline + 9 new — pure-method unit tests for the title-qualification
+predicate plus two new integration fixtures reproducing both originally-reported cases, asserting
+`total() > 0` but `qualifiesRecommended() == false`) and 21 frontend tests (17 baseline + 4 new), 0
+failures; migration V30 applied cleanly from an empty Testcontainers database; `npm run build`
+succeeded. The existing Frontend/Backend/AI_ML/Sales calibration-pack tests and the Nurse
+universal-policy test (previously only asserting `total().isPositive()`, the exact weak-assertion
+pattern this bug exposed) now assert `qualifiesRecommended() == true` as an explicit non-regression
+control. Not yet deployed to the production Render demo — committed locally, pending owner review
+before push.
+
 ## 2. S0.2 Onboarding Correctness — selected, implementation verified, acceptance open
 
 The owner selected S0.2 on 2026-09-09. Its requirement and design record is
@@ -1118,7 +1217,7 @@ D3 Free demo deployment — COMPLETE (2026-09-10)
 S0.1 Discovery execution safety — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
 S0.2 Onboarding correctness — SELECTED, IMPLEMENTATION VERIFIED, ACCEPTANCE OPEN
-S0.3 Cross-role ranking correctness — QUEUED, READ-ONLY INVESTIGATION RECORDED
+S0.3 Cross-role ranking correctness — COMPLETE (2026-09-11)
 S1 Authenticated account ownership and RBAC — NOT STARTED
 S2 Product run commands, safe concurrency/recovery and live progress — NOT STARTED
 S3 Shared ingestion and provider budgets — NOT STARTED

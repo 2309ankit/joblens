@@ -176,7 +176,7 @@ table. These are inspection facts, not a completed diagnosis or fix.
 | Checkpoint | Recorded items | Boundary |
 | --- | --- | --- |
 | S0.2 — Onboarding correctness — SELECTED; ACCEPTANCE OPEN | `BUG-M3-002`, `UX-M3-003`, `BUG-M3-004`, `BUG-ONBOARDING-03`, `UX-ONBOARDING-04` | Implementation and automated/browser verification complete; owner fixture review, parsing p95, and final assistive-technology acceptance remain |
-| S0.3 — Cross-role ranking correctness | `BUG-M3-006`, `UX-DASHBOARD-01` | Reproduce high .NET scoring, define when a job is qualified as Recommended, correct the proven scoring/presentation defect, and preserve universal-policy behavior |
+| S0.3 — Cross-role ranking correctness — COMPLETE (2026-09-11) | `BUG-M3-006`, `UX-DASHBOARD-01` | Implemented: a versioned `qualifies_recommended` signal (skill evidence or curated title match; `universal-v2`) gates the dashboard's Recommended/Explore split. 164 Java + 21 React tests passing. See SESSION_HANDOFF.md for full evidence |
 | S0.4 — Semantic skill extraction — IMPLEMENTED; SHIPPED DISABLED BY DEFAULT | `UX-ONBOARDING-05` | Second-pass embedding matcher built and tested (155 Java tests passing), but off by default (`joblens.onboarding.semantic-matching.enabled=false`) — the bundled ONNX Runtime native library does not load on the Alpine/musl deployment image (`gcompat` confirmed insufficient); enabling in production needs a base-image decision first. See [S0_4_SEMANTIC_SKILL_EXTRACTION.md](S0_4_SEMANTIC_SKILL_EXTRACTION.md) §8 |
 
 The selected S0.2 requirement and design record is
@@ -201,8 +201,8 @@ calibration listed in that document's §8.
 
 ### Owner additions assigned to the selected checkpoint
 
-The 2026-09-09 owner review added two bounded directions. The owner subsequently selected S0.2;
-S0.3 remains queued:
+The 2026-09-09 owner review added two bounded directions. The owner subsequently selected S0.2, then
+S0.3 on 2026-09-11 (now complete — see SESSION_HANDOFF.md):
 
 - S0.2 must restore searchable role suggestions in React, design a normalized selectable sector
   control, and make résumé upload/review feel calm, immediate, detailed, and progressively disclosed.

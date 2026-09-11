@@ -1,0 +1,2 @@
+ALTER TABLE job_score ADD COLUMN qualifies_recommended BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE job_role_score ADD COLUMN qualifies_recommended BOOLEAN NOT NULL DEFAULT FALSE;

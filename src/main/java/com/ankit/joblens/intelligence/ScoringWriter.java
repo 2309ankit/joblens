@@ -33,7 +33,8 @@ public class ScoringWriter implements ItemWriter<JobScore> {
           s.bestRole().targetRoleName(),
           s.bestRole().policyVersion(),
           s.bestRole().calibrationPackCode(),
-          s.bestRole().calibrationPackVersion());
+          s.bestRole().calibrationPackVersion(),
+          s.bestRole().qualifiesRecommended());
       long id =
           jdbc.queryForObject(
               "SELECT id FROM job_score WHERE normalized_job_id=? AND candidate_profile_id=?",
@@ -75,6 +76,7 @@ public class ScoringWriter implements ItemWriter<JobScore> {
                 role.employment(),
                 role.salary(),
                 role.freshness(),
+                role.qualifiesRecommended(),
                 s.normalizedJobId());
         for (JobScore.Reason reason : role.reasons()) {
           jdbc.update(
