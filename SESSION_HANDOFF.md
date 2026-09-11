@@ -337,6 +337,53 @@ out to have two real causes, both now resolved and confirmed **not** product def
    be read per-workspace-id, not assumed to accumulate in one place, when debugging future local-dev
    reports.
 
+## Jooble multi-country architecture — COMPLETE, not yet deployed (2026-09-11)
+
+Product 1 of a roadmap the owner requested: expand job discovery to Malaysia and India, and
+(later, separately) Naukri and foundit. Research this session established: India already works
+via Adzuna (one key covers many countries); Malaysia has no Adzuna coverage at all; Jooble likely
+covers Malaysia but issues a **separate API key per country subdomain**
+(`sg.jooble.org`/`my.jooble.org`/`in.jooble.org` each need their own key), and the existing
+`JoobleProperties`/`JoobleJobSourceClient` only supported one Jooble country/key pair at a time —
+a real architecture gap, not a config tweak. Seek requires SEEK partner approval and is built for
+employers posting jobs, not for pulling search results into an aggregator — not a fit regardless
+of architecture. Naukri/foundit have no public API; the owner chose to build an in-house scraper
+for those later (accepting the ToS/maintenance risk directly) rather than pay a third-party
+scraper service (~$0.0004–0.001/job on Apify).
+
+This change generalizes Jooble to support any number of country/key pairs:
+`JoobleProperties.countries` is now a `List<JoobleCountryCredential>` (was singular
+`apiKey`/`baseUrl`/`countryCode`); `JoobleJobSourceClient` resolves the right country's base URL
+and key per request from `SearchProfile.sourceKey()` instead of one WebClient baked to one
+country at construction; `ProviderCountryCatalog` expands the integrated-country list from
+`joobleProperties.configuredCountryCodes()` instead of a single hardcoded code.
+
+**Backward compatible with the live Singapore integration on purpose**: Singapore keeps reading
+the exact same `JOOBLE_API_KEY`/`JOOBLE_BASE_URL` env vars already set on the live Render service
+— zero Render changes needed for Singapore to keep working. Malaysia and India are wired with new,
+distinctly-named env vars (`JOOBLE_MY_API_KEY`/`JOOBLE_MY_BASE_URL`,
+`JOOBLE_IN_API_KEY`/`JOOBLE_IN_BASE_URL`, defaulting to `my.jooble.org`/`in.jooble.org`) that are
+simply inactive — same fail-safe pattern as today — until the owner registers for those countries'
+Jooble keys and sets them on the live service (same out-of-band pattern as the existing three
+credential vars; not declared in `render.yaml`, same as today).
+
+173 Java tests (164 baseline + 9 new: `JooblePropertiesTests` covering multi-country
+binding/validation, `JoobleJobSourceClientTests` covering per-country routing to independent mock
+servers and country-specific missing-credential messages, `ProviderCountryCatalogTests` covering a
+second Jooble-only country appearing correctly) and 21 frontend tests, 0 failures; Spotless and
+`git diff --check` pass. No other code constructs `JoobleProperties` directly (confirmed via
+repo-wide search), so the blast radius is contained to the files above plus the two existing test
+call sites that needed updating for the new constructor shape.
+
+**Committed locally, not pushed** — pending owner review since this restructures discovery-pipeline
+code, even though Malaysia/India stay inactive until their keys are set.
+
+**Next steps** (separate checkpoints, each needs the owner to obtain that provider's credentials —
+not something this session can do): owner registers at `my.jooble.org` for a Malaysia key and sets
+`JOOBLE_MY_API_KEY` on Render to activate Malaysia; same for `JOOBLE_IN_API_KEY` to add Jooble as a
+second India source alongside the existing Adzuna coverage; then a from-scratch Naukri scraper,
+then a from-scratch foundit scraper (both accepted-risk, in-house, no third-party scraper service).
+
 ## S0.3 Cross-role ranking correctness — COMPLETE (2026-09-11)
 
 The owner selected S0.3 on 2026-09-11. Fixes BUG-M3-006 (a `.NET Engineer` posting scoring highly

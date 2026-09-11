@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import tools.jackson.core.JacksonException;
@@ -27,7 +28,7 @@ public class JoobleJobSourceClient implements JobSourceClient {
 
   public JoobleJobSourceClient(
       WebClient.Builder webClientBuilder, ObjectMapper objectMapper, JoobleProperties properties) {
-    this.webClient = webClientBuilder.baseUrl(properties.baseUrl()).build();
+    this.webClient = webClientBuilder.build();
     this.objectMapper = objectMapper;
     this.properties = properties;
   }
@@ -49,14 +50,26 @@ public class JoobleJobSourceClient implements JobSourceClient {
 
   @Override
   public JobPage search(SearchProfile profile, PageRequest request) {
-    if (!properties.hasCredentials()) {
-      throw new MissingJobSourceCredentialsException(
-          "Jooble credentials are missing; set JOOBLE_API_KEY");
-    }
+    String countryCode = profile.sourceKey() == null ? "" : profile.sourceKey().trim();
+    JoobleCountryCredential credential =
+        properties
+            .credentialFor(countryCode)
+            .orElseThrow(
+                () ->
+                    new MissingJobSourceCredentialsException(
+                        "Jooble credentials are missing for country "
+                            + countryCode.toUpperCase(Locale.ROOT)
+                            + "; set JOOBLE_"
+                            + countryCode.toUpperCase(Locale.ROOT)
+                            + "_API_KEY"));
     Mono<String> call =
         webClient
             .post()
-            .uri(uriBuilder -> uriBuilder.pathSegment("api", properties.apiKey()).build())
+            .uri(
+                UriComponentsBuilder.fromUriString(credential.baseUrl())
+                    .pathSegment("api", credential.apiKey())
+                    .build()
+                    .toUri())
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .bodyValue(

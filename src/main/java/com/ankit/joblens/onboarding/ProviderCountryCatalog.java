@@ -24,9 +24,7 @@ public class ProviderCountryCatalog {
 
   public List<IntegratedCountry> countries() {
     Set<String> codes = new LinkedHashSet<>(ADZUNA_COUNTRIES);
-    if (joobleProperties.hasCredentials()) {
-      codes.add(joobleProperties.countryCode().toUpperCase(Locale.ROOT));
-    }
+    codes.addAll(joobleProperties.configuredCountryCodes());
     var result = new ArrayList<IntegratedCountry>();
     for (String code : codes) {
       List<String> sources = sources(code);
@@ -54,7 +52,7 @@ public class ProviderCountryCatalog {
     if (ADZUNA_COUNTRIES.contains(code)) {
       sources.add("ADZUNA");
     }
-    if (joobleProperties.hasCredentials() && joobleProperties.supportsCountry(code)) {
+    if (joobleProperties.supportsCountry(code)) {
       sources.add("JOOBLE");
     }
     return List.copyOf(sources);

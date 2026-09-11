@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ankit.joblens.discovery.JoobleCountryCredential;
 import com.ankit.joblens.discovery.JoobleProperties;
 import com.ankit.joblens.workspace.WorkspaceContext;
 import com.ankit.joblens.workspace.WorkspaceRepository;
@@ -555,9 +556,8 @@ class WorkspaceOnboardingIntegrationTests {
         new OnboardingRepository(
             new NamedParameterJdbcTemplate(jdbc),
             new JoobleProperties(
-                "test-jooble-key",
-                "https://sg.jooble.org",
-                "sg",
+                List.of(
+                    new JoobleCountryCredential("sg", "https://sg.jooble.org", "test-jooble-key")),
                 Duration.ofSeconds(10),
                 20,
                 1,

@@ -1,21 +1,25 @@
 package com.ankit.joblens.discovery;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("joblens.jooble")
 public record JoobleProperties(
-    String apiKey,
-    String baseUrl,
-    String countryCode,
+    List<JoobleCountryCredential> countries,
     Duration timeout,
     int pageSize,
     int retryAttempts,
     Duration retryBackoff) {
 
   public JoobleProperties {
-    if (countryCode == null || !countryCode.matches("(?i)[a-z]{2}")) {
-      throw new IllegalArgumentException("Jooble country-code must contain two letters");
+    countries = countries == null ? List.of() : List.copyOf(countries);
+    long distinctCodes =
+        countries.stream().map(c -> c.countryCode().toUpperCase(Locale.ROOT)).distinct().count();
+    if (distinctCodes != countries.size()) {
+      throw new IllegalArgumentException("Jooble country codes must not repeat");
     }
     if (pageSize < 1 || retryAttempts < 1) {
       throw new IllegalArgumentException("Jooble page-size and retry-attempts must be positive");
@@ -29,10 +33,27 @@ public record JoobleProperties(
   }
 
   public boolean hasCredentials() {
-    return apiKey != null && !apiKey.isBlank();
+    return countries.stream().anyMatch(JoobleCountryCredential::hasCredentials);
   }
 
   public boolean supportsCountry(String requestedCountryCode) {
-    return countryCode.equalsIgnoreCase(requestedCountryCode);
+    return credentialFor(requestedCountryCode).isPresent();
+  }
+
+  public Optional<JoobleCountryCredential> credentialFor(String requestedCountryCode) {
+    if (requestedCountryCode == null) {
+      return Optional.empty();
+    }
+    return countries.stream()
+        .filter(c -> c.countryCode().equalsIgnoreCase(requestedCountryCode))
+        .filter(JoobleCountryCredential::hasCredentials)
+        .findFirst();
+  }
+
+  public List<String> configuredCountryCodes() {
+    return countries.stream()
+        .filter(JoobleCountryCredential::hasCredentials)
+        .map(c -> c.countryCode().toUpperCase(Locale.ROOT))
+        .toList();
   }
 }
