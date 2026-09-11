@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ArrowRight, BriefcaseBusiness, ExternalLink, Play, RefreshCw, Sparkles } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { ApiError, dashboard, findJobs, restartFindJobs, saveApplication } from './api';
 import { displayMessage } from './messages';
+import { shouldAutoRunFindJobs } from './dashboardAutoRun';
 import { Setup } from './Setup';
 import { Applications } from './Applications';
 import { WorkspaceNavigationContext, useWorkspaceNavigation } from './navigation';
@@ -14,6 +15,7 @@ function Dashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
+  const autoRunAttempted = useRef(false);
   const refresh = useCallback(async () => {
     setError('');
     try { setData(await dashboard()); }
@@ -29,6 +31,12 @@ function Dashboard() {
     catch (failure) { toast.error(displayMessage(failure)); }
     finally { setWorking(false); }
   }
+  useEffect(() => {
+    if (working || !shouldAutoRunFindJobs(data, autoRunAttempted.current)) return;
+    autoRunAttempted.current = true;
+    run(findJobs, 'Your Find Jobs run has started.');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, working]);
   if (!data && !error) return <main className="app-shell loading"><Brand /><div className="loading-orbit" /><p role="status">Mapping your opportunity landscape…</p></main>;
   if (!data) return <main className="app-shell"><Brand /><section className="surface error-state"><p className="eyebrow">Dashboard unavailable</p><h1>We couldn’t load your workspace.</h1><p role="alert">{error}</p><button className="button primary" onClick={refresh}>Try again</button></section></main>;
   const runDetail = data.latestSearchRun;
@@ -41,6 +49,7 @@ function Dashboard() {
     <Toaster theme="dark" richColors closeButton position="top-right" />
     <header className="topbar"><Brand compact /><nav aria-label="Workspace navigation"><a className="active" href="/dashboard">Browse</a><a href="/setup">Profile</a><a href="/applications">My list</a></nav></header>
     {error && <p className="inline-error" role="alert">{error}</p>}
+    {working && <p className="upload-stage" role="status" aria-live="polite"><span className="status-pulse" aria-hidden="true" /> Searching your configured sources for new matches — this can take up to a minute.</p>}
     {featuredJob ? <FeaturedJob job={featuredJob} working={working} onSave={() => run(() => saveApplication(featuredJob.id), 'Job saved to your application tracker.')} /> : <section className="empty-feature"><p className="eyebrow"><Sparkles size={13} aria-hidden="true" /> Your job feed</p><h1>Ready when you are.</h1><p>Run a search to build a personalised selection of explainable job matches.</p><button className="button primary" disabled={working} onClick={() => run(findJobs, 'Your Find Jobs run has started.')}>{working ? 'Searching…' : 'Find new roles'} <Play size={15} fill="currentColor" aria-hidden="true" /></button></section>}
     <section className="watch-stats" aria-label="Workspace summary"><Metric value={jobCount} label="For you" accent="violet" /><Metric value={data.applicationCount} label="My list" accent="cyan" /><Metric value={data.openFollowUpCount} label="To follow up" accent="amber" /></section>
     {runRecord && <section className="surface run-panel"><SectionTitle eyebrow="Search intelligence" title="Latest market pulse" action={['FAILED', 'STALE'].includes(runRecord.status) && <button className="button secondary" disabled={working} onClick={() => run(() => restartFindJobs(runRecord.id), 'The search has resumed from its last safe checkpoint.')}>Restart run</button>} /><div className="run-overview"><div><span className={`status-dot ${runRecord.outcome?.toLowerCase()}`} /><strong>{runRecord.outcome}</strong><p>{runRecord.outcome === 'PARTIAL' ? 'Some sources completed before another failed. Their results are still here.' : runRecord.outcome === 'STALE' ? 'This search stopped updating. Restart it to resume from the last safe checkpoint.' : 'Source activity and ranking progress for your latest search.'}</p></div><div className="run-badge"><span>Run status</span><strong>{runRecord.status}</strong></div></div><SourceRuns sources={runDetail.sources} /></section>}
