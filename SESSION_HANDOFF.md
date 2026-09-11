@@ -387,8 +387,28 @@ preserved; Mexico: click → scrollable 8+ city list with a visible scroll cutof
 owner's real local workspace. 21 frontend tests still pass; no backend changes so the Java suite is
 unaffected by this round.
 
-**Committed locally, not pushed** — pending owner review before push, consistent with this
-session's practice for changes touching production onboarding flow.
+Deployed as commit `31c552b`; live bundle hash confirmed (`index-BhqncQax.js`), health `UP`.
+
+**Second follow-up, same day**: the owner reported the alignment "becomes haphazard once popup
+appears" and asked for a smooth scroll with clearer text. Root cause: `.catalog-results` rendered
+in normal document flow (not an overlay), so opening it grew the `.market-row` CSS Grid cell's
+height; since that grid uses `align-items: end`, the "Remove market" button (and everything below
+the row) visibly jumped every time the popup opened/closed. Separately, the `MapPin` icon and city
+name were direct children of a `justify-content: space-between` button (inherited from the
+chip-editor's icon-on-right layout), pushing them to opposite edges instead of reading as one
+grouped "pin + place name."
+
+Fixed, scoped narrowly to avoid touching the working `CatalogChipEditor` skills/roles/sectors
+comboboxes: added a `.city-field` class to the City-or-region `<label>` and a corresponding
+`.city-field .catalog-results { position: absolute; ... }` rule so only this popup overlays
+instead of pushing layout (verified the shared `CatalogChipEditor` combobox — skills search tested
+live — is completely unaffected, same normal-flow behavior as before). Added a subtle fade/slide-in
+keyframe animation and `scroll-behavior: smooth` to the shared `.catalog-results` class (safe,
+purely additive, benefits both usages). Wrapped the pin icon and city name in one flex span
+(`.option-city`) so they read as a single grouped element regardless of the button's
+`space-between`. Verified locally again: opening/closing the popup no longer shifts the "Remove
+market" button or any content below the row; Mexico's 8+ city list scrolls smoothly with icon+name
+clearly grouped per row. 21 frontend tests pass; no backend changes.
 
 ## Jooble multi-country architecture — COMPLETE, deployed and verified live (2026-09-11)
 
