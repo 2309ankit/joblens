@@ -337,7 +337,7 @@ out to have two real causes, both now resolved and confirmed **not** product def
    be read per-workspace-id, not assumed to accumulate in one place, when debugging future local-dev
    reports.
 
-## City suggestions scoped to country — COMPLETE, not yet deployed (2026-09-11)
+## City suggestions scoped to country — COMPLETE, deployed and verified live (2026-09-11)
 
 Owner request: the "City or region" field on the setup page's search-markets editor should
 suggest cities based on the row's selected country. That field was plain free text with zero
@@ -362,7 +362,30 @@ verified end-to-end locally via `docker compose` and the browser: typing "guada"
 selected correctly suggested Guadalajara/Guadalupe/Guadalupe Victoria, selection filled the field,
 and switching countries re-scopes the list — tested carefully against the owner's real local dev
 workspace without touching their saved search markets (added a throwaway row, removed it before
-leaving, never clicked Activate).
+leaving, never clicked Activate). Deployed as commit `01d3918`; live verification (Malaysia/"kuala"
+→ Kuala Lumpur and 9 others) confirmed the backend worked correctly.
+
+**Follow-up fix, same day**: the owner reported "I don't see it" on the live demo. Root cause was
+UX clarity, not a functional bug — the popup only appeared after typing 2+ characters, and when
+the exact full city name was typed (e.g. "Kuala Lumpur"), the single returned suggestion just
+echoed the text already in the field with no visual distinction, making it look like nothing had
+happened. Verified this precisely by reproducing "Malaysia + Kuala Lumpur" live and inspecting the
+DOM directly (the popup *was* rendering — a real `listbox` with the correct option — just visually
+indistinguishable). The owner then asked for a scrollable browse-first UX instead: click the field
+→ immediately see a scrollable list of that country's top cities (no typing required) → narrows as
+you type. Backend already supported this (blank query already returns top-population cities, same
+code path used for filtered search — no backend change needed). Frontend-only follow-up:
+`MarketRow` now tracks focus and fetches on focus regardless of query length (immediate, no
+debounce, when query is empty; existing 250ms debounce only applies once typing starts); each
+suggestion row now shows a `MapPin` icon for visual distinction; added `onMouseDown`
+`preventDefault()` on the results container so clicking a suggestion doesn't blur-and-close the
+popup before the click registers (the classic combobox race condition); city field is disabled
+with a "Choose a country to browse its cities" hint until a country is picked. Manually verified
+locally again (Singapore: click → immediate single-item list with pin icon, click to select, focus
+preserved; Mexico: click → scrollable 8+ city list with a visible scroll cutoff, confirming the
+"like a scroll" behavior the owner asked for) — same careful non-destructive testing against the
+owner's real local workspace. 21 frontend tests still pass; no backend changes so the Java suite is
+unaffected by this round.
 
 **Committed locally, not pushed** — pending owner review before push, consistent with this
 session's practice for changes touching production onboarding flow.
