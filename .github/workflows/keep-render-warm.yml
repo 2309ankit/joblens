@@ -11,4 +11,5 @@ jobs:
     steps:
       - name: Ping health endpoint
         run: |
-          curl -fsS --max-time 20 https://joblens-demo.onrender.com/actuator/health
+          curl -fsS --max-time 150 --retry 2 --retry-delay 5 --retry-all-errors \
+            https://joblens-demo.onrender.com/actuator/health
