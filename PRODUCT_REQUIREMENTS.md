@@ -225,17 +225,23 @@ states; normal users must never receive raw `JobInstance`/`JobExecution` errors.
 - Raw-before-normalized source pipeline with bounded retries and observable provider failures.
 - Spring Batch metadata, checkpoints, restart, idempotency, and transactional chunk processing.
 - Deterministic normalization, skills, duplicate evidence, versioned profile intent, and ranking
-  explanations.
+  explanations, including a versioned `qualifiesRecommended` recommendation-qualification signal
+  (`universal-v2`, S0.3, completed 2026-09-11) that stops the dashboard from featuring the
+  highest-scored job in a weak result set as a strong match when it isn't one.
 - Workspace-scoped data model across profiles, sightings, scores, views, applications, and follow-ups.
 - Functional PostgreSQL Testcontainers and provider contract tests.
-- Docker image, health endpoint, REST/OpenAPI, and Thymeleaf product flow.
+- Docker image, health endpoint, REST/OpenAPI, and React product flow.
+- A test-gated GitHub Actions pipeline that deploys via the Render API only after the full Java and
+  frontend suites pass (not the full G1 production CI/CD gate below — no staging, security gates, or
+  progressive rollout).
 
 ### Not fixed and blocks public startup launch
 
 - authenticated identity, authorization, recovery, and tenant security;
 - shared/provider-budgeted ingestion instead of repeated per-user crawling;
 - asynchronous admission control, real-time progress, cancellation, and stale-run recovery;
-- the open zero-result, résumé extraction, location, concurrency, and cross-role ranking defects;
+- the open zero-result, résumé extraction, location, and concurrency defects (cross-role ranking
+  correctness was fixed under S0.3, 2026-09-11 — see above);
 - Job Explorer filters/sorts/keyset pagination and measurable ranking feedback;
 - secure original résumé storage, malware scanning, retention, export, and deletion;
 - production CI/CD, environments, managed database, HA, backups, disaster recovery, and runbooks;

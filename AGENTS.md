@@ -19,7 +19,7 @@ CSV search profiles
 → candidate scoring
 → application lifecycle
 → market insights
-→ Thymeleaf dashboard
+→ React dashboard
 
 This remains a guided incremental build. Do not attempt to implement the entire startup architecture
 at once, and do not claim launch readiness until the gates in `PRODUCT_REQUIREMENTS.md` have evidence.
@@ -87,12 +87,16 @@ The repository currently has these verified working slices:
 * JobOperator-based Batch 6 launch/restart infrastructure and JobRepository history lookup
 * weeklyMarketInsightJob with idempotent weekly aggregates and REST inspection
 * Swagger/OpenAPI inspection at `/swagger-ui.html` and `/v3/api-docs`
-* Thymeleaf dashboard at `/` and `/dashboard`
+* React dashboard (`frontend/`, Vite-bundled) served at `/`, `/dashboard`, `/setup`, and
+  `/applications` — every one of those routes forwards to the same SPA; no controller returns a
+  Thymeleaf view for a current user-facing page
 * Dockerized application image with Compose PostgreSQL dependency
 * anonymous browser workspaces with validated, versioned resume/profile onboarding and UI-managed preferences
 * workspace-owned search definitions, job sightings, rankings, views, applications, and follow-ups
 * `findJobsJob`, a six-step one-click workflow from discovery through candidate scoring
-* source-adapter registry with Adzuna, optional Jooble, and safe automatic enrichment through the public Greenhouse and Lever posting APIs
+* source-adapter registry with Adzuna, optional multi-country Jooble (one API key per country;
+  Singapore, Malaysia, and India configured as of 2026-09-11), and safe automatic enrichment through
+  the public Greenhouse and Lever posting APIs
 * normalized multi-market search targets with independent provider profiles, checkpoints, scoring evidence, and market-aware portal links
 * non-blocking, versioned resume machine-readability guidance with review acknowledgement and a two-step setup flow with one transactional review/activation action
 * inclusive categorized skill and role intelligence with explainable resume evidence, workspace-private additions, provider-aware country selection, and versioned ESCO taxonomy import
@@ -100,8 +104,16 @@ The repository currently has these verified working slices:
 * outbound Portal Search Hub for LinkedIn, JobStreet Singapore, SEEK Australia, and SEEK New Zealand without scraping or importing portal results
 * deterministic smart portal queries derived from preferred roles, sectors, confirmed resume skills, and a broad fallback
 * workspace-scoped resume skill review with draft-before-activation semantics
-* Thymeleaf application lifecycle and candidate-scoped follow-up controls
+* React application lifecycle and candidate-scoped follow-up controls
 * universal role-aware scoring with versioned Frontend, Backend, AI/ML, and Sales/Customer Success overlays and per-role evidence
+* a versioned `qualifiesRecommended` signal (`universal-v2`) gating the dashboard's genuine
+  Recommended jobs from an "Explore other results" section, instead of always featuring the
+  highest-scored job in a weak result set (S0.3, 2026-09-11)
+* a bundled, country-scoped city-suggestion catalogue (GeoNames-derived, CC BY 4.0) for the setup
+  page's search-market editor
+* a test-gated GitHub Actions pipeline (`.github/workflows/deploy.yml`) that runs the full Java and
+  frontend suites on every push to `main` and only then deploys via the Render API; Render's own
+  auto-deploy trigger is deliberately left off to avoid a second, untested deploy path
 
 The current anonymous flow is a verified JobLens V1 development baseline, not a launch-ready service. Identity,
 authorization, shared/provider-budgeted ingestion, real-time run control, secure résumé storage,

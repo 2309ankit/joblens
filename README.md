@@ -27,7 +27,7 @@ Browser cookie → workspace → validated resume draft → confirmed candidate/
                     findJobsJob
                     ├─ jobDiscoveryStep → JobSourceClient registry
                     │                    ├─ Adzuna API
-                    │                    ├─ Jooble Search API (when configured)
+                    │                    ├─ Jooble Search API (one API key per configured country)
                     │                    ├─ exposed Greenhouse URL → internal board registry → public Job Board API
                     │                    └─ exposed Lever URL → internal board registry → public Postings API
                     │                    → raw_job_posting/workspace_job_sighting
@@ -55,11 +55,7 @@ intelligence   normalization, skills, duplicate detection, candidate profile, an
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets; V18 adds categorized inclusive skill/role taxonomy, workspace-private additions, and versioned suggestion evidence; V19 makes custom-skill reference cleanup follow workspace deletion; V20 adds versioned ESCO taxonomy releases and uncatalogued-term review artifacts; V21 adds versioned resume-readability assessments, stable findings, and acknowledgement state; V22 separates ordered target-role intent from résumé evidence and persists versioned generated provider queries per market; V23 adds versioned role-calibration overlays and per-role score evidence.
-
-V31 adds a bundled city catalog (cities with population ≥ 15,000 across every integrated country)
-used to suggest cities as you type a search market's location; data is from
-[GeoNames](https://www.geonames.org/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets; V18 adds categorized inclusive skill/role taxonomy, workspace-private additions, and versioned suggestion evidence; V19 makes custom-skill reference cleanup follow workspace deletion; V20 adds versioned ESCO taxonomy releases and uncatalogued-term review artifacts; V21 adds versioned resume-readability assessments, stable findings, and acknowledgement state; V22 separates ordered target-role intent from résumé evidence and persists versioned generated provider queries per market; V23 adds versioned role-calibration overlays and per-role score evidence; V24 adds product-safe Find Jobs run diagnostics; V25 adds stale-run recovery status; V26 adds a normalized preferred-sector catalogue; V27 deduplicates draft profile versions on resume re-upload; V28 expands the skill catalogue with sales/business-development terms; V29 adds semantic skill-match evidence (shipped disabled by default); V30 adds the versioned `qualifies_recommended` signal that gates the dashboard's Recommended/Explore-other-results split; V31 adds a bundled city catalogue (cities with population ≥ 15,000 across every integrated country, from [GeoNames](https://www.geonames.org/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) used to suggest cities as you type a search market's location.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -87,12 +83,20 @@ The application is at `http://localhost:8080`; PostgreSQL is at port `5432`. Loc
 JOBLENS_DB_URL=jdbc:postgresql://localhost:5432/joblens
 JOBLENS_DB_USERNAME=joblens
 JOBLENS_DB_PASSWORD=joblens-local
-# Optional: a Singapore regional key from https://sg.jooble.org/api/about
+# Optional: Jooble issues one API key per country subdomain, so each market is its own pair.
+# Get a Singapore key from https://sg.jooble.org/api/about (the original/default market):
 JOOBLE_API_KEY=
-JOOBLE_COUNTRY_CODE=sg
+JOOBLE_BASE_URL=https://sg.jooble.org
+# Additional countries follow the same shape — get a key from https://<cc>.jooble.org/api/about,
+# e.g. Malaysia and India:
+JOOBLE_MY_API_KEY=
+JOOBLE_MY_BASE_URL=https://my.jooble.org
+JOOBLE_IN_API_KEY=
+JOOBLE_IN_BASE_URL=https://in.jooble.org
 ```
 
-Environment variables override these values. Never commit real credentials; `.env` is ignored.
+Environment variables override these values. Never commit real credentials; `.env` is ignored. An
+unset key for any one country simply leaves that country inactive; the others keep working.
 
 ## Free demo deployment
 
@@ -117,7 +121,8 @@ or a place for real user data. The full requirement and review boundary is in
 4. Retain the role and password for Render's secret prompts. Never place them in `render.yaml`, a
    shell-history command, a screenshot, or a committed file.
 
-The application applies Flyway V1 through V26 during its first healthy startup. Do not create tables
+The application applies every Flyway migration up to the latest version (see the version list above)
+during its first healthy startup. Do not create tables
 manually. Neon Free is disposable demo storage, not the JobLens backup plan. Inspect its size in the
 Neon SQL editor and export it before approaching 400 MB:
 
@@ -133,15 +138,36 @@ SELECT pg_size_pretty(pg_database_size(current_database()));
    `JOBLENS_DB_PASSWORD` from Neon. Confirm the service plan still says **Free** before applying it.
 3. Do not add a Render database, disk, worker, or cron service. Optional Adzuna or Jooble credentials
    may be entered later in Render's environment settings; they are not required for deployment.
-4. Start the first deploy manually. Subsequent deploys are manual until the separate S6 CI/CD gate is
-   implemented.
+4. Start the first deploy manually. Every push to `main` after that deploys automatically — see
+   **Deployment pipeline** below. This is not the full S6 production platform gate (no staging
+   environment, no security gates, no progressive rollout), but it is no longer a purely manual
+   process either.
 
 The Blueprint sets Render's port, HTTPS-only workspace cookie, a five-connection/zero-minimum JDBC
 pool, a low-memory JVM policy, and `/actuator/health` health check.
 Secrets are runtime-only. The multi-stage Docker build produces the React bundle and Spring Boot JAR,
 then copies only the JAR into the non-root Java 21 runtime image.
 
-### 3. Verify and operate the demo
+### 3. Deployment pipeline
+
+`.github/workflows/deploy.yml` runs on every push to `main`: a `test` job runs the full Java suite
+(`./mvnw clean test`, with a Postgres service container for the one test that needs a live default
+datasource) and the full frontend suite (`npm test` in `frontend/`); only if both pass does a
+`deploy` job call the Render API directly (`POST /v1/services/{id}/deploys`) to deploy the pushed
+commit. `render.yaml`'s own `autoDeployTrigger` is deliberately left `off` so Render's built-in
+GitHub-push auto-deploy can't also fire — that would race the test gate and could deploy an untested
+commit if it won before the GitHub Actions run finished. If a deploy fails for a reason unrelated to
+the code (observed once: a transient Neon "terminating connection due to administrator command"
+during Flyway init on a cold database), Render keeps serving the previous successful deploy and does
+not cut over traffic; retry with `render deploys create <service-id> --commit <sha>` (Render CLI,
+authenticated separately) or from the Render dashboard.
+
+`.github/workflows/keep-render-warm.yml` pings `/actuator/health` every 10 minutes to reduce how
+often the free-tier instance falls asleep between visits. GitHub's scheduled-workflow timing is not
+guaranteed to the minute, so the demo can still cold-sleep occasionally regardless; a cold start can
+take 90+ seconds to return `200`, which is expected, not a failure.
+
+### 4. Verify and operate the demo
 
 Replace the example hostname with the value shown by Render:
 
@@ -166,8 +192,10 @@ Keep **Pages per source** at `1` and traffic low. Provider calls and Batch work 
 small web process; worker separation and durable admission control remain S2/S3 work. Check Render
 logs for startup/migration failures without copying secrets or résumé content into issue reports.
 
-To roll back application code, use Render **Deploys → Rollback** to the prior successful image and
-confirm `/actuator/health` again. D3 adds no schema migration. Before moving providers, export Neon
+To roll back application code, either use Render **Deploys → Rollback** to the prior successful
+image, or push a revert commit to `main` and let the pipeline redeploy it (preferred, since it keeps
+`main` and the live service in sync and re-runs the test gate). Confirm `/actuator/health` again
+either way. D3 adds no schema migration. Before moving providers, export Neon
 with standard PostgreSQL tools and restore it into the destination; JobLens remains plain
 JDBC/PostgreSQL/Flyway and the same Docker artifact can later run on AWS.
 
@@ -183,14 +211,17 @@ JDBC/PostgreSQL/Flyway and the same Docker artifact can later run on AWS.
    with a labelled, editable browser time-zone/language estimate and a visible Singapore fallback;
    **Use browser estimate** can rerun it. Add, edit, or remove up to ten supported country and
    city/region market rows. ISO alpha-2 codes remain internal and every market runs independently.
-   Page count, employment type, work arrangement, and the optional provider-query override are under
-   **Advanced search preferences**; the displayed defaults work without opening that section.
+   The city/region field suggests cities from the bundled catalogue as you type, scoped to that row's
+   selected country — click the field to browse a scrollable list immediately, or keep typing to
+   narrow it; free text is always still accepted. Page count, employment type, work arrangement, and
+   the optional provider-query override are under **Advanced search preferences**; the displayed
+   defaults work without opening that section.
 6. Click **Activate profile** once. This versions the reviewed skills and preferences together,
    stores the `role-intent-v1` query plan for inspection, and activates one runnable source profile
    per generated query and market. Each has its own pagination and restart checkpoint. JobLens
-   searches Adzuna for every supported market and Jooble only for the regional country configured by
-   `JOOBLE_COUNTRY_CODE`. Direct official Greenhouse or Lever URLs are validated and searched without
-   ATS credentials.
+   searches Adzuna for every supported market and Jooble for every country that has its own
+   configured API key (Jooble issues one key per country; see **Start locally** above). Direct
+   official Greenhouse or Lever URLs are validated and searched without ATS credentials.
 7. Open `http://localhost:8080/dashboard` and click **Find and rank jobs**. This runs discovery through scoring as one restartable Spring Batch Job.
    The **Latest source run** panel then shows each source's status, attempted/fetched pages, received and
    new/changed/unchanged records, raw/normalized/sighted/scored totals, and any safe failure reason.
@@ -217,7 +248,7 @@ are documented in [ATS_READINESS.md](ATS_READINESS.md). Keyword alignment remain
 separate because it requires an explicit target role or job description.
 
 The integrated country catalogue is an explicit snapshot of markets supported by JobLens's Adzuna
-adapter, plus the configured Jooble regional market when credentials are present. The provider API
+adapter, plus every Jooble country that has its own configured API key. The provider API
 shape uses Adzuna's documented `jobs/{country}/search/{page}` route; see the official
 [Adzuna API overview](https://developer.adzuna.com/overview) and
 [search documentation](https://developer.adzuna.com/docs/search). Unsupported ISO codes are rejected
@@ -225,7 +256,15 @@ before profile activation rather than producing a knowingly unrunnable source pr
 
 ## What each batch does
 
-`findJobsJob` is the normal user flow: independent discovery for every confirmed source/market profile, including safe Greenhouse and Lever board enrichment when direct official URLs are exposed; normalization; skills; exact/fuzzy duplicate analysis; and workspace candidate scoring in six ordered steps. The `universal-v1` policy evaluates each job against every selected target role, then projects the highest role score while retaining all per-role reasons. Frontend, Backend Engineering, AI/ML, and Sales/Customer Success add versioned calibrated title/skill evidence; every other role keeps the same universal title, confirmed-skill, sector, seniority, location/work, employment, salary, and freshness dimensions. Missing calibrated skills lower evidence points but never discard a job. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` remains the legacy/operator CSV import. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
+`findJobsJob` is the normal user flow: independent discovery for every confirmed source/market profile, including safe Greenhouse and Lever board enrichment when direct official URLs are exposed; normalization; skills; exact/fuzzy duplicate analysis; and workspace candidate scoring in six ordered steps. The `universal-v2` policy evaluates each job against every selected target role, then projects the highest role score while retaining all per-role reasons. Frontend, Backend Engineering, AI/ML, and Sales/Customer Success add versioned calibrated title/skill evidence; every other role keeps the same universal title, confirmed-skill, sector, seniority, location/work, employment, salary, and freshness dimensions. Missing calibrated skills lower evidence points but never discard a job.
+
+Alongside the additive score, each role evaluation also computes a versioned `qualifiesRecommended`
+boolean: true when the job has real confirmed/calibrated skill evidence, or when its title matched a
+curated role alias or calibration-pack signal (not just an exact echo of the candidate's own,
+possibly generic, target-role phrase). This is what the dashboard uses to separate genuinely
+**Recommended** jobs (Featured/Top matches) from everything else (**Explore other results**) —
+a high raw score alone, from non-role baseline points like location or freshness, is not sufficient
+to be labelled a strong recommendation. `jobDiscoveryJob` and `jobIntelligenceJob` remain separately launchable operator jobs. `searchProfileImportJob` remains the legacy/operator CSV import. `applicationFollowUpJob` creates candidate-scoped reminders for active applications; its identifying state revision changes only when that candidate's application history changes. `weeklyMarketInsightJob` creates shared market counts and salary aggregates.
 
 The normal Find Jobs flow returns a workspace-owned product `runId`, `status`, and `outcome`.
 `ACTIVE` means the same command is already progressing, `FAILED` can be restarted, and `STALE` means
@@ -319,15 +358,14 @@ curl -X POST \
   'http://localhost:8080/api/batch/discovery/run?businessDate=2026-08-29'
 ```
 
-Adzuna is the default broad source. Optionally add a Singapore regional Jooble key in `.env`:
+Adzuna is the default broad source. Optionally add one or more regional Jooble keys in `.env`; Jooble
+issues a separate key per country subdomain, so each market you want is its own key/base-url pair
+(see the `.env` example under **Start locally** above for the exact variable names — Singapore uses
+`JOOBLE_API_KEY`/`JOOBLE_BASE_URL`, and every additional country follows the same
+`JOOBLE_<CC>_API_KEY`/`JOOBLE_<CC>_BASE_URL` shape, e.g. `JOOBLE_MY_API_KEY` for Malaysia or
+`JOOBLE_IN_API_KEY` for India).
 
-```env
-# Get the key from https://sg.jooble.org/api/about
-JOOBLE_API_KEY=your-singapore-regional-key
-JOOBLE_COUNTRY_CODE=sg
-```
-
-Recreate the Compose app (or restart a locally run app), then save and confirm preferences again. That projects a Jooble search profile alongside Adzuna; it is not created when the key is absent, so a normal Find-jobs run stays runnable. Jooble's documented free plan has a request quota; keep page limits modest. Its API supplies listing snippets, source links, and update timestamps, which JobLens preserves and normalizes. Live Singapore acceptance completed on 2026-08-31 with 60 Jooble records fetched, normalized, sighted, and scored in one completed Find Jobs execution.
+Recreate the Compose app (or restart a locally run app), then save and confirm preferences again. That projects a Jooble search profile alongside Adzuna for each configured country; a country with no key configured simply isn't offered, so a normal Find-jobs run stays runnable either way. Jooble's documented free plan has a request quota; keep page limits modest. Its API supplies listing snippets, source links, and update timestamps, which JobLens preserves and normalizes. Live Singapore acceptance completed on 2026-08-31 with 60 Jooble records fetched, normalized, sighted, and scored in one completed Find Jobs execution; Malaysia and India were added as additional Jooble markets on 2026-09-11.
 
 Without the relevant credentials, startup still works but a direct live discovery launch fails observably. Mocked Adzuna and Jooble behavior is covered by tests.
 
@@ -360,7 +398,7 @@ curl -X POST \
 Use `failDuplicateDetection=true` or `failFuzzyDetection=true` to demonstrate transactional rollback and restart of the corresponding duplicate step. Failure-injection parameters are non-identifying.
 
 Identifying parameters are `businessDate`, `normalizationVersion=v1`,
-`duplicateDetectionVersion=fuzzy-v1`, and `rankingPolicyVersion=universal-v1` (plus workspace,
+`duplicateDetectionVersion=fuzzy-v1`, and `rankingPolicyVersion=universal-v2` (plus workspace,
 candidate, and search-definition identity in Find Jobs). Current universal weights are role title 25,
 confirmed/calibrated skills 15, optional sector 15, seniority 10, location/work arrangement 10,
 employment 10, salary availability 10, and freshness 5. The compatibility `technical_score` projection
@@ -479,10 +517,19 @@ open http://localhost:8080/dashboard
 
 The job detail endpoint returns normalized fields, canonical skills, the best target role, ranking and
 overlay versions, every per-role score with point reasons, exact-cluster membership, and fuzzy
-similarity matches. The Thymeleaf dashboard names the best role/overlay and is available at
-`/dashboard`.
+similarity matches. The dashboard names the best role/overlay and is available at `/dashboard`. It
+is a React single-page app (`frontend/`, bundled by Vite and served as static assets under `/app/`);
+`/`, `/dashboard`, `/setup`, and `/applications` all forward to the same React bundle, which then
+routes client-side. Thymeleaf remains a project dependency but no controller returns a Thymeleaf view
+for any current user-facing page.
 
-Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, **GREENHOUSE**, or **LEVER**. Clicking records the job as viewed for this workspace and redirects through the exact listing URL supplied by that provider. Adzuna discovery requests date-sorted postings no more than `ADZUNA_MAX_DAYS_OLD` days old (default 30), and older landed Adzuna rows are excluded from dashboard/API lists. The latest-run table names the source and market, such as **ADZUNA — India (IN)**, so parallel country runs are distinguishable. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel creates three explainable queries for each selected market. LinkedIn is generated for every market; JobStreet appears for Singapore, SEEK Australia for `AU`, and SEEK New Zealand for `NZ`. Unselected regional links are not shown. These portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
+The dashboard splits jobs into **Featured for you**/**Top matches** (jobs that qualify as genuinely
+recommended — see `qualifiesRecommended` above) and a separate **Explore other results** section for
+everything else; if a search returns jobs but none qualify, the dashboard says so honestly instead of
+featuring the least-bad result. Right after activating a profile with no prior search, the dashboard
+auto-triggers one Find Jobs run so there's something to see without an extra click; a manual
+**Refresh matches** button is always available too, with a visible "Searching…" status while a run is
+in flight. Dashboard job rows include **Open on ADZUNA**, **JOOBLE**, **GREENHOUSE**, or **LEVER**. Clicking records the job as viewed for this workspace and redirects through the exact listing URL supplied by that provider. Adzuna discovery requests date-sorted postings no more than `ADZUNA_MAX_DAYS_OLD` days old (default 30), and older landed Adzuna rows are excluded from dashboard/API lists. The latest-run table names the source and market, such as **ADZUNA — India (IN)**, so parallel country runs are distinguishable. Viewing does not create an application or mark a job as applied. The separate **Search more job portals** panel creates three explainable queries for each selected market. LinkedIn is generated for every market; JobStreet appears for Singapore, SEEK Australia for `AU`, and SEEK New Zealand for `NZ`. Unselected regional links are not shown. These portal results are not scraped, imported, or scored by JobLens. Inspect view history with `GET /api/job-views`.
 
 Inspect automatically detected company boards for the current browser workspace:
 
@@ -522,7 +569,7 @@ Focused suites:
 
 ## Troubleshooting
 
-If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, activate the setup profile and click **Find and rank jobs**. If a document is rejected as not being a resume, upload the candidate's actual career resume with contact details and normal resume sections rather than a vacancy or interview specification. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. To enable Jooble, set its regional `JOOBLE_API_KEY` and matching `JOOBLE_COUNTRY_CODE`, recreate/restart the app, then activate the profile again. Greenhouse and Lever GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
+If PostgreSQL authentication fails, ensure Compose and the app use the same `JOBLENS_DB_PASSWORD` (local default: `joblens-local`) and restart the app. If the dashboard is empty, activate the setup profile and click **Find and rank jobs**. If a document is rejected as not being a resume, upload the candidate's actual career resume with contact details and normal resume sections rather than a vacancy or interview specification. If Adzuna reports missing credentials, set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` and recreate the app container. To enable Jooble for a country, set that country's key/base-url pair (e.g. `JOOBLE_API_KEY`/`JOOBLE_BASE_URL` for Singapore, `JOOBLE_MY_API_KEY`/`JOOBLE_MY_BASE_URL` for Malaysia), recreate/restart the app, then activate the profile again. Greenhouse and Lever GET access needs no API key; JobLens validates discovered boards internally, and their status is visible at `/api/source-boards`.
 
 ## V1 development review runbook
 
@@ -547,9 +594,11 @@ recorded in `SESSION_HANDOFF.md`.
 **S0.1 Discovery Execution Safety completed on 2026-09-08.** Its controlled AI Engineer and broad-role
 evidence, empty-provider diagnostics, safe simultaneous-command behavior and stale-run recovery are
 recorded in [BUILD_PROGRESS.md](BUILD_PROGRESS.md). The assisted multi-market onboarding follow-up
-completed on 2026-09-08, and S0.2 Onboarding Correctness was selected on 2026-09-09. S0.3 and S1–S6
-remain separate checkpoint decisions. Authenticated ownership (S1) is still mandatory before private
-beta or public launch.
+completed on 2026-09-08; S0.2 Onboarding Correctness was selected on 2026-09-09 (acceptance still
+open); **S0.3 Cross-role ranking correctness completed on 2026-09-11** (the `qualifiesRecommended`
+signal and `universal-v2` policy described above). S1–S6 remain separate checkpoint decisions.
+Authenticated ownership (S1) is still mandatory before private beta or public launch. See
+`SESSION_HANDOFF.md` for the current resume point and full evidence.
 
 - Store original resume bytes through an encrypted, scanned object-storage lifecycle; V11 currently stores validated metadata and SHA-256 only.
 - Add notification delivery only with user preferences, quiet hours, retries, and idempotency.

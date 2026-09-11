@@ -54,8 +54,14 @@ Neon Free PostgreSQL 17, Singapore
   launched Spring Batch jobs. No frontend split, microservice, queue, or separate worker is added.
 - Render builds the artifact from the repository. Build-time configuration is non-secret. Runtime
   database and optional provider values are entered in the Render dashboard and never committed.
-- Automatic deploys are disabled for this checkpoint because the repository does not yet have the S6
-  CI/CD promotion gate. A deploy is an explicit operator action.
+- **Superseded 2026-09-11**: automatic deploys were originally disabled here because the repository
+  had no CI/CD promotion gate — a deploy was an explicit operator action. The owner asked for
+  auto-deploy on 2026-09-10; that was first enabled as Render's own unconditional GitHub-push
+  auto-deploy, then replaced the next day with a real test gate: `.github/workflows/deploy.yml` now
+  runs the full test suite on every push to `main` and only deploys via the Render API on success
+  (Render's native auto-deploy trigger is off, so it can't race the test gate — see `README.md`'s
+  **Deployment pipeline** section). This is still short of the full S6 production platform gate (no
+  staging, no security gates, no progressive rollout).
 - The database is external to Render so it does not inherit Render Free PostgreSQL's 30-day expiry.
   The application remains plain PostgreSQL/Flyway/JDBC and can later move through a PostgreSQL dump or
   replication path to Amazon RDS without application data-access redesign.

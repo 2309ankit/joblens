@@ -33,7 +33,7 @@ providers are crawled.
 | Data | Local PostgreSQL volume, Flyway | Managed HA PostgreSQL, pooled connections, PITR, restore tests, retention/partitioning | PARTIAL |
 | Résumé storage | Metadata/hash only; original bytes discarded | Encrypted object storage, malware scan, retention, export/deletion | MISSING |
 | Operations | Actuator health, Batch metadata, source-run rows | Metrics, traces, centralized logs, alerts, SLOs, admin console, incident runbooks | PARTIAL |
-| Delivery | Local Maven and Docker commands | CI/CD, staging/production, immutable image, security gates, progressive rollout | MISSING |
+| Delivery | GitHub Actions runs the full test suite on every push to `main`, then deploys via the Render API on success; no staging environment, security gates, or progressive rollout | CI/CD, staging/production, immutable image, security gates, progressive rollout | PARTIAL |
 
 The modular monolith remains the correct starting architecture. “Monolith” describes the code and
 transaction boundary, not a requirement to run exactly one process. API and worker runtime roles can
