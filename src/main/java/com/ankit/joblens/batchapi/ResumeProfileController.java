@@ -1,5 +1,6 @@
 package com.ankit.joblens.batchapi;
 
+import com.ankit.joblens.onboarding.CityOption;
 import com.ankit.joblens.onboarding.IntegratedCountry;
 import com.ankit.joblens.onboarding.OnboardingProfile;
 import com.ankit.joblens.onboarding.OnboardingService;
@@ -96,6 +97,18 @@ public class ResumeProfileController {
       HttpServletRequest request,
       HttpServletResponse response) {
     return service.sectorOptions(workspaceContext.resolve(request, response), query);
+  }
+
+  @GetMapping("/cities/catalog")
+  @Operation(
+      summary = "Search the city catalogue for one country",
+      description =
+          "Returns cities for the given two-letter country code whose name starts with the "
+              + "optional query, ordered by population. Reference geography data, not "
+              + "workspace-scoped.")
+  public List<CityOption> cityCatalog(
+      @RequestParam String countryCode, @RequestParam(defaultValue = "") String query) {
+    return service.cityOptions(countryCode, query);
   }
 
   @GetMapping("/countries")

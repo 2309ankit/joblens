@@ -112,6 +112,10 @@ public class OnboardingService {
     return intelligenceRepository.sectorOptions(workspaceId, query);
   }
 
+  public List<CityOption> cityOptions(String countryCode, String query) {
+    return intelligenceRepository.cityOptions(countryCode, query);
+  }
+
   public List<IntegratedCountry> countries() {
     return countryCatalog.countries();
   }

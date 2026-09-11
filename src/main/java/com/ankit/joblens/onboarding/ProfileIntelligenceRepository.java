@@ -55,6 +55,18 @@ public class ProfileIntelligenceRepository {
                 resultSet.getString("taxonomy_version")));
   }
 
+  public List<CityOption> cityOptions(String countryCode, String query) {
+    String normalizedCountry =
+        countryCode == null ? "" : countryCode.trim().toUpperCase(Locale.ROOT);
+    if (!normalizedCountry.matches("[A-Z]{2}")) {
+      throw new IllegalArgumentException("City search needs a two-letter country code");
+    }
+    return jdbc.query(
+        load("sql/onboarding/list-city-options.sql"),
+        Map.of("countryCode", normalizedCountry, "query", catalogQuery(query)),
+        (resultSet, row) -> new CityOption(resultSet.getString("name")));
+  }
+
   public List<ProfileIntelligenceExtractor.SkillDefinition> skillDefinitions(UUID workspaceId) {
     var definitions = new LinkedHashMap<Long, TaxonomyTerms>();
     jdbc.query(

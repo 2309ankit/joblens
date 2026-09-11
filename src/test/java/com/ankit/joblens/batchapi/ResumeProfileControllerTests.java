@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ankit.joblens.onboarding.CityOption;
 import com.ankit.joblens.onboarding.IntegratedCountry;
 import com.ankit.joblens.onboarding.OnboardingProfile;
 import com.ankit.joblens.onboarding.OnboardingService;
@@ -98,6 +99,13 @@ class ResumeProfileControllerTests {
         .andExpect(jsonPath("$[0].code").value("SG"))
         .andExpect(jsonPath("$[0].name").value("Singapore"))
         .andExpect(jsonPath("$[0].sources[0]").value("ADZUNA"));
+    mvc.perform(
+            get("/api/candidate-profile/cities/catalog")
+                .param("countryCode", "MY")
+                .param("query", "kuala"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").value("Kuala Lumpur"));
+    assertThat(service.lastCountryCode).isEqualTo("MY");
     mvc.perform(get("/api/candidate-profile/intelligence"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.roleSuggestions[0].name").value("Product Manager"))
@@ -170,6 +178,7 @@ class ResumeProfileControllerTests {
     private UUID lastWorkspaceId;
     private SearchPreferences lastPreferences;
     private boolean rejectUpdate;
+    private String lastCountryCode;
 
     private StubOnboardingService() {
       super(null, null, null, null);
@@ -209,6 +218,12 @@ class ResumeProfileControllerTests {
       lastWorkspaceId = workspaceId;
       return List.of(
           new SectorOption("Financial Services", "BUSINESS", false, "joblens-sector-v1"));
+    }
+
+    @Override
+    public List<CityOption> cityOptions(String countryCode, String query) {
+      lastCountryCode = countryCode;
+      return List.of(new CityOption("Kuala Lumpur"));
     }
 
     @Override

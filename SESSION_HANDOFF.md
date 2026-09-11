@@ -337,7 +337,37 @@ out to have two real causes, both now resolved and confirmed **not** product def
    be read per-workspace-id, not assumed to accumulate in one place, when debugging future local-dev
    reports.
 
-## Jooble multi-country architecture — COMPLETE, not yet deployed (2026-09-11)
+## City suggestions scoped to country — COMPLETE, not yet deployed (2026-09-11)
+
+Owner request: the "City or region" field on the setup page's search-markets editor should
+suggest cities based on the row's selected country. That field was plain free text with zero
+suggestions — no city/geography data existed anywhere in the codebase.
+
+Added a bundled reference dataset rather than a live geocoding API (no per-keystroke external
+cost/dependency): a new `city` table (migration `V31__create_city_catalog.sql`) seeded with
+17,275 cities (population ≥ 15,000, deduplicated) across the 21 currently-integrated countries,
+filtered from GeoNames' public-domain `cities15000` dataset (CC BY 4.0, attributed in
+`README.md`). New `GET /api/candidate-profile/cities/catalog?countryCode=XX&query=YY` endpoint
+(`CityOption`, `ProfileIntelligenceRepository.cityOptions`, `OnboardingService.cityOptions`,
+mirroring the existing sector-catalog pattern but without workspace scoping, since geography data
+isn't workspace-private). Frontend: extracted `MarketRow` out of `SearchMarketsEditor` in
+`Setup.jsx` so each market row can hold its own debounced suggestion popup, reusing the already-
+tested `catalogPopupOpen` helper; free-text entry is completely unaffected — selecting a
+suggestion just fills the same field a keystroke would.
+
+177 Java tests (173 baseline + 4 new: prefix search scoped correctly, no cross-country leakage,
+population-descending ordering, malformed-country-code rejection) and 21 frontend tests pass;
+migration applies in ~230ms including the bulk seed; Spotless and `git diff --check` pass. Manually
+verified end-to-end locally via `docker compose` and the browser: typing "guada" with Mexico
+selected correctly suggested Guadalajara/Guadalupe/Guadalupe Victoria, selection filled the field,
+and switching countries re-scopes the list — tested carefully against the owner's real local dev
+workspace without touching their saved search markets (added a throwaway row, removed it before
+leaving, never clicked Activate).
+
+**Committed locally, not pushed** — pending owner review before push, consistent with this
+session's practice for changes touching production onboarding flow.
+
+## Jooble multi-country architecture — COMPLETE, deployed and verified live (2026-09-11)
 
 Product 1 of a roadmap the owner requested: expand job discovery to Malaysia and India, and
 (later, separately) Naukri and foundit. Research this session established: India already works
@@ -375,14 +405,17 @@ second Jooble-only country appearing correctly) and 21 frontend tests, 0 failure
 repo-wide search), so the blast radius is contained to the files above plus the two existing test
 call sites that needed updating for the new constructor shape.
 
-**Committed locally, not pushed** — pending owner review since this restructures discovery-pipeline
-code, even though Malaysia/India stay inactive until their keys are set.
+**Deployed and verified live** (commit `96b64cc`, redeployed as `122fd5d`'s successor via
+`96b64cc`): the owner obtained both keys same-day and set them directly on the live Render service
+(`JOOBLE_MY_API_KEY`, `JOOBLE_IN_API_KEY`) via the Render API. First deploy attempt hit a transient
+Neon "terminating connection due to administrator command" during Flyway init (unrelated to this
+change — no migration in this commit — Render correctly kept serving the prior live deploy without
+disruption); the retry succeeded cleanly. Live `/api/candidate-profile/countries` confirmed:
+`MY` → `["JOOBLE"]` (new), `IN` → `["ADZUNA","JOOBLE"]` (was Adzuna-only), `SG` unchanged.
 
-**Next steps** (separate checkpoints, each needs the owner to obtain that provider's credentials —
-not something this session can do): owner registers at `my.jooble.org` for a Malaysia key and sets
-`JOOBLE_MY_API_KEY` on Render to activate Malaysia; same for `JOOBLE_IN_API_KEY` to add Jooble as a
-second India source alongside the existing Adzuna coverage; then a from-scratch Naukri scraper,
-then a from-scratch foundit scraper (both accepted-risk, in-house, no third-party scraper service).
+**Next steps** (separate checkpoints, not something this session can do without the owner):
+a from-scratch Naukri scraper, then a from-scratch foundit scraper (both accepted-risk, in-house,
+no third-party scraper service, per the owner's explicit choice this session).
 
 ## S0.3 Cross-role ranking correctness — COMPLETE (2026-09-11)
 

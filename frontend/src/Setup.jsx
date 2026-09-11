@@ -245,8 +245,30 @@ export function SearchMarketsEditor({ countries, markets, setMarkets }) {
   const changeCountry = (market, countryCode) => update(market.id, { countryCode, location: '' });
   return <div className="market-editor">{markets.map((market, index) => {
     const selectedCountry = countries.find(item => item.code === market.countryCode);
-    return <div className="market-row" key={market.id}><span className="market-number" aria-hidden="true">{index + 1}</span><label>Country<select aria-label={`Search country ${index + 1}`} value={market.countryCode} onChange={event => changeCountry(market, event.target.value)} required><option value="">Choose a country</option>{countries.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label><label>City or region <span>(optional)</span><input aria-label={`City or region ${index + 1}, optional`} value={market.location} onChange={event => update(market.id, { location: event.target.value })} placeholder="Leave blank for country-wide" /></label><button className="remove-market" type="button" aria-label={`Remove search market ${index + 1}`} disabled={markets.length === 1} onClick={() => setMarkets(markets.filter(item => item.id !== market.id))}><X size={16}/></button>{selectedCountry && <p className="market-capability">{market.location.trim() ? `Narrowed to ${market.location.trim()}. ` : `Searching country-wide in ${selectedCountry.name}. `}{selectedCountry.capabilityExplanation}</p>}</div>;
+    return <MarketRow key={market.id} market={market} index={index} countries={countries} selectedCountry={selectedCountry} removable={markets.length > 1} update={update} changeCountry={changeCountry} onRemove={() => setMarkets(markets.filter(item => item.id !== market.id))} />;
   })}<button className="button secondary add-market" type="button" disabled={markets.length >= 10} onClick={() => setMarkets([...markets, marketRow()])}><Plus size={14}/> Add another market</button></div>;
+}
+
+function MarketRow({ market, index, countries, selectedCountry, removable, update, changeCountry, onRemove }) {
+  const listId = useId();
+  const [options, setOptions] = useState([]);
+  const [state, setState] = useState('idle');
+  const query = market.location.trim();
+  const popupOpen = catalogPopupOpen(query, state);
+
+  useEffect(() => {
+    if (query.length < 2 || !market.countryCode) { setOptions([]); setState('idle'); return undefined; }
+    const controller = new AbortController();
+    setState('loading');
+    const timer = setTimeout(() => request(`/api/candidate-profile/cities/catalog?countryCode=${encodeURIComponent(market.countryCode)}&query=${encodeURIComponent(query)}`, { signal: controller.signal })
+      .then(result => { setOptions(result); setState(result.length ? 'ready' : 'empty'); })
+      .catch(failure => { if (failure?.name !== 'AbortError') setState('error'); }), 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [market.countryCode, query]);
+
+  const select = value => { update(market.id, { location: value }); setOptions([]); setState('idle'); };
+
+  return <div className="market-row"><span className="market-number" aria-hidden="true">{index + 1}</span><label>Country<select aria-label={`Search country ${index + 1}`} value={market.countryCode} onChange={event => changeCountry(market, event.target.value)} required><option value="">Choose a country</option>{countries.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label><label>City or region <span>(optional)</span><div className="catalog-combobox"><Search size={16} aria-hidden="true"/><input aria-label={`City or region ${index + 1}, optional`} value={market.location} onChange={event => update(market.id, { location: event.target.value })} placeholder="Leave blank for country-wide" role="combobox" aria-expanded={popupOpen} aria-controls={popupOpen ? listId : undefined} aria-autocomplete="list" /></div>{popupOpen && <div className="catalog-results" id={listId} role="listbox" aria-label={`City suggestions for market ${index + 1}`}>{state === 'loading' && <p role="status">Searching cities…</p>}{state === 'error' && <p role="alert">Suggestions could not load.</p>}{state === 'empty' && <p>No matching city.</p>}{options.map(option => <button type="button" role="option" key={option.name} onClick={() => select(option.name)}><span>{option.name}</span></button>)}</div>}</label><button className="remove-market" type="button" aria-label={`Remove search market ${index + 1}`} disabled={!removable} onClick={onRemove}><X size={16}/></button>{selectedCountry && <p className="market-capability">{market.location.trim() ? `Narrowed to ${market.location.trim()}. ` : `Searching country-wide in ${selectedCountry.name}. `}{selectedCountry.capabilityExplanation}</p>}</div>;
 }
 
 export function ResumeUpload({ compact = false, working, stage, onUpload }) {
