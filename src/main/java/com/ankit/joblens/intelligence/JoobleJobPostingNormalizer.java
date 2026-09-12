@@ -1,9 +1,12 @@
 package com.ankit.joblens.intelligence;
 
 import com.ankit.joblens.discovery.JobSource;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
@@ -36,6 +39,7 @@ public class JoobleJobPostingNormalizer implements JobPostingNormalizer {
     if (title == null) {
       throw new NormalizationRejectedException(raw, "Jooble job title is required");
     }
+    SalaryRange salary = parseSalary(text(root.get("salary")));
     NormalizedJob job =
         new NormalizedJob(
             raw.id(),
@@ -46,9 +50,9 @@ public class JoobleJobPostingNormalizer implements JobPostingNormalizer {
             text(root.get("location")),
             htmlTextCleaner.clean(text(root.get("snippet"))),
             employmentType(text(root.get("type"))),
-            null,
-            null,
-            null,
+            salary.min(),
+            salary.max(),
+            salary.currency(),
             null,
             timestamp(text(root.get("updated"))),
             sourceUrl(root, raw),
@@ -70,6 +74,49 @@ public class JoobleJobPostingNormalizer implements JobPostingNormalizer {
         job.sourceUrl(),
         contentHasher.hash(job));
   }
+
+  // Jooble's raw "salary" field is free text like "12000 - 18000 SGD" or "12000 SGD", not
+  // separate min/max fields like Adzuna, so it needs its own lightweight parse.
+  private static final Pattern SALARY_RANGE =
+      Pattern.compile(
+          "(\\d[\\d,]*)(?:\\.\\d+)?\\s*(?:-|to)\\s*(\\d[\\d,]*)(?:\\.\\d+)?\\s*([A-Za-z]{3})?",
+          Pattern.CASE_INSENSITIVE);
+  private static final Pattern SALARY_SINGLE =
+      Pattern.compile("(\\d[\\d,]*)(?:\\.\\d+)?\\s*([A-Za-z]{3})?", Pattern.CASE_INSENSITIVE);
+
+  private static SalaryRange parseSalary(String raw) {
+    if (raw == null || raw.isBlank()) {
+      return new SalaryRange(null, null, null);
+    }
+    Matcher range = SALARY_RANGE.matcher(raw);
+    if (range.find()) {
+      return new SalaryRange(
+          parseAmount(range.group(1)), parseAmount(range.group(2)), currency(range.group(3)));
+    }
+    Matcher single = SALARY_SINGLE.matcher(raw);
+    if (single.find()) {
+      BigDecimal amount = parseAmount(single.group(1));
+      return new SalaryRange(amount, amount, currency(single.group(2)));
+    }
+    return new SalaryRange(null, null, null);
+  }
+
+  private static BigDecimal parseAmount(String value) {
+    if (value == null) {
+      return null;
+    }
+    try {
+      return new BigDecimal(value.replace(",", ""));
+    } catch (NumberFormatException exception) {
+      return null;
+    }
+  }
+
+  private static String currency(String value) {
+    return value == null ? null : value.toUpperCase(Locale.ROOT);
+  }
+
+  private record SalaryRange(BigDecimal min, BigDecimal max, String currency) {}
 
   private JsonNode parse(RawJobPosting raw) {
     try {

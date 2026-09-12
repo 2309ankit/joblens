@@ -227,6 +227,10 @@ public class OnboardingRepository {
     values.put("freshness.days.half", "30");
     values.put("employment.preference", preferences.employmentPreference());
     values.put("work.preference", preferences.workPreference());
+    values.put(
+        "jooble.exclude_my_careers_future", String.valueOf(preferences.excludeMyCareersFuture()));
+    values.put("salary.desired.min", preferences.salaryMin());
+    values.put("salary.desired.max", preferences.salaryMax());
     values.forEach(
         (key, value) ->
             jdbc.update(
@@ -322,7 +326,10 @@ public class OnboardingRepository {
             SearchTarget.format(targets),
             definition.maxPages(),
             values.getOrDefault("employment.preference", "ANY"),
-            values.getOrDefault("work.preference", "REMOTE,HYBRID,ONSITE")));
+            values.getOrDefault("work.preference", "REMOTE,HYBRID,ONSITE"),
+            Boolean.parseBoolean(values.getOrDefault("jooble.exclude_my_careers_future", "false")),
+            values.getOrDefault("salary.desired.min", ""),
+            values.getOrDefault("salary.desired.max", "")));
   }
 
   public long confirm(UUID workspaceId, OnboardingProfile profile) {
@@ -410,7 +417,12 @@ public class OnboardingRepository {
             .addValue("searchDefinitionId", definition.id())
             .addValue("searchTargetId", target.id())
             .addValue("searchQueryId", query.id())
-            .addValue("maxPages", preferences.maxPages()));
+            .addValue("maxPages", preferences.maxPages())
+            .addValue(
+                "excludeMyCareersFuture",
+                "JOOBLE".equals(source)
+                    && "sg".equalsIgnoreCase(sourceKey)
+                    && preferences.excludeMyCareersFuture()));
   }
 
   private SearchDefinition searchDefinition(UUID workspaceId) {

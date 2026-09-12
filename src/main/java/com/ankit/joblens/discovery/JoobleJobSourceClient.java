@@ -94,7 +94,7 @@ public class JoobleJobSourceClient implements JobSourceClient {
       if (body == null) {
         throw new JobSourceException("Jooble returned no response body for " + profile.profileId());
       }
-      return parse(body, request);
+      return parse(body, request, profile.excludeMyCareersFuture());
     } catch (JobSourceException exception) {
       throw exception;
     } catch (RuntimeException exception) {
@@ -129,7 +129,7 @@ public class JoobleJobSourceClient implements JobSourceClient {
         || throwable instanceof TimeoutException;
   }
 
-  private JobPage parse(String body, PageRequest request) {
+  private JobPage parse(String body, PageRequest request, boolean excludeMyCareersFuture) {
     try {
       JsonNode root = objectMapper.readTree(body);
       JsonNode jobsNode = root == null ? null : root.get("jobs");
@@ -137,26 +137,38 @@ public class JoobleJobSourceClient implements JobSourceClient {
         throw new MalformedJobSourceResponseException("Jooble response is missing the jobs array");
       }
       List<RawSourceJob> jobs = new ArrayList<>();
+      int rawCount = 0;
       for (JsonNode job : jobsNode) {
         JsonNode id = job.get("id");
         if (id == null || id.asString().isBlank()) {
           throw new MalformedJobSourceResponseException("Jooble job is missing its id");
         }
+        rawCount++;
+        if (excludeMyCareersFuture && isMyCareersFuture(job.get("source"))) {
+          continue;
+        }
         String rawJson = job.toString();
         jobs.add(new RawSourceJob(id.asString(), text(job.get("link")), rawJson, sha256(rawJson)));
       }
       long totalCount = root.path("totalCount").isNumber() ? root.path("totalCount").asLong() : -1;
+      // hasMore reflects the raw provider page, not the post-filter count, so excluding
+      // mycareersfuture results does not stop pagination early.
       boolean hasMore =
-          !jobs.isEmpty()
+          rawCount > 0
               && (totalCount >= 0
                   ? (long) request.page() * request.pageSize() < totalCount
-                  : jobs.size() == request.pageSize());
+                  : rawCount == request.pageSize());
       return new JobPage(request.page(), totalCount, jobs, hasMore);
     } catch (MalformedJobSourceResponseException exception) {
       throw exception;
     } catch (JacksonException exception) {
       throw new MalformedJobSourceResponseException("Jooble returned malformed JSON", exception);
     }
+  }
+
+  private static boolean isMyCareersFuture(JsonNode sourceNode) {
+    String source = text(sourceNode);
+    return source != null && source.toLowerCase(Locale.ROOT).contains("mycareersfuture");
   }
 
   private static String text(JsonNode node) {

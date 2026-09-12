@@ -22,6 +22,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
@@ -169,7 +170,10 @@ public class ResumeProfileController {
         preferences.targets(),
         preferences.maxPages(),
         preferences.employmentPreference(),
-        preferences.workPreference());
+        preferences.workPreference(),
+        preferences.excludeMyCareersFuture(),
+        preferences.salaryMin(),
+        preferences.salaryMax());
   }
 
   @GetMapping("/search-queries")
@@ -227,7 +231,10 @@ public class ResumeProfileController {
             SearchTarget.format(activation.searchMarkets()),
             activation.maxPages(),
             activation.employmentPreference(),
-            activation.workPreference());
+            activation.workPreference(),
+            Boolean.TRUE.equals(activation.excludeMyCareersFuture()),
+            activation.salaryMin() == null ? "" : String.valueOf(activation.salaryMin()),
+            activation.salaryMax() == null ? "" : String.valueOf(activation.salaryMax()));
     service.completeSetup(
         workspaceId, activation.skills(), preferences, activation.acknowledgeReadiness());
     return service.latest(workspaceId).orElseThrow();
@@ -247,7 +254,10 @@ public class ResumeProfileController {
       @Min(1) @Max(20) int maxPages,
       @NotBlank String employmentPreference,
       @NotBlank String workPreference,
-      boolean acknowledgeReadiness) {}
+      boolean acknowledgeReadiness,
+      Boolean excludeMyCareersFuture,
+      @PositiveOrZero Integer salaryMin,
+      @PositiveOrZero Integer salaryMax) {}
 
   public record SearchPreferenceView(
       String targetRoles,
@@ -257,5 +267,8 @@ public class ResumeProfileController {
       List<SearchTarget> searchMarkets,
       int maxPages,
       String employmentPreference,
-      String workPreference) {}
+      String workPreference,
+      boolean excludeMyCareersFuture,
+      String salaryMin,
+      String salaryMax) {}
 }

@@ -168,6 +168,7 @@ public class JobDiscoveryTasklet implements Tasklet {
         profile.workspaceId(),
         profile.searchDefinitionId(),
         profile.maxPages(),
-        profile.searchTargetId());
+        profile.searchTargetId(),
+        profile.excludeMyCareersFuture());
   }
 }

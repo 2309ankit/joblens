@@ -59,7 +59,8 @@ public class DiscoveryPersistenceService {
                     resultSet.getObject("workspace_id", UUID.class),
                     resultSet.getObject("search_definition_id", Long.class),
                     resultSet.getObject("max_pages", Integer.class),
-                    resultSet.getObject("search_target_id", Long.class)));
+                    resultSet.getObject("search_target_id", Long.class),
+                    resultSet.getBoolean("exclude_my_careers_future")));
     return profiles.isEmpty() ? null : profiles.getFirst();
   }
 

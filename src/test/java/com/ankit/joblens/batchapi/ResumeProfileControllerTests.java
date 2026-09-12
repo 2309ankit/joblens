@@ -174,6 +174,38 @@ class ResumeProfileControllerTests {
     assertThat(service.lastPreferences.targets().get(1)).isEqualTo(new SearchTarget("AU", ""));
   }
 
+  @Test
+  void activatesWithMyCareersFutureExclusionAndDesiredSalaryRange() throws Exception {
+    String request =
+        """
+        {
+          "skills": ["Java"],
+          "targetRoles": ["Backend Engineer"],
+          "targetDomains": "banking",
+          "primaryLocation": "Singapore",
+          "keywords": "",
+          "searchMarkets": [{"countryCode": "SG", "location": "Singapore"}],
+          "maxPages": 3,
+          "employmentPreference": "PERMANENT",
+          "workPreference": "HYBRID",
+          "acknowledgeReadiness": false,
+          "excludeMyCareersFuture": true,
+          "salaryMin": 4000,
+          "salaryMax": 6000
+        }
+        """;
+
+    mvc.perform(
+            post("/api/candidate-profile/activate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request))
+        .andExpect(status().isOk());
+
+    assertThat(service.lastPreferences.excludeMyCareersFuture()).isTrue();
+    assertThat(service.lastPreferences.salaryMin()).isEqualTo("4000");
+    assertThat(service.lastPreferences.salaryMax()).isEqualTo("6000");
+  }
+
   private static final class StubOnboardingService extends OnboardingService {
     private UUID lastWorkspaceId;
     private SearchPreferences lastPreferences;

@@ -109,6 +109,68 @@ class JoobleJobSourceClientTests {
   }
 
   @Test
+  void excludesMyCareersFutureResultsWhenToggleEnabled() throws Exception {
+    server.enqueue(
+        json(
+            200,
+            """
+            {"totalCount":2,"jobs":[
+              {"id":101,"title":"Java Engineer","location":"Singapore","snippet":"Spring Boot",
+               "link":"https://sg.jooble.org/jdp/101","source":"mycareersfuture.sg"},
+              {"id":102,"title":"Backend Engineer","location":"Singapore","snippet":"Kotlin",
+               "link":"https://sg.jooble.org/jdp/102","source":"example.com"}
+            ]}
+            """));
+
+    JobPage page =
+        client(credential("sg", "api-key"))
+            .search(profileExcludingMyCareersFuture(), new PageRequest(1, 20));
+
+    assertThat(page.jobs())
+        .singleElement()
+        .satisfies(job -> assertThat(job.externalJobId()).isEqualTo("102"));
+  }
+
+  @Test
+  void keepsMyCareersFutureResultsWhenToggleDisabled() throws Exception {
+    server.enqueue(
+        json(
+            200,
+            """
+            {"totalCount":1,"jobs":[
+              {"id":101,"title":"Java Engineer","location":"Singapore","snippet":"Spring Boot",
+               "link":"https://sg.jooble.org/jdp/101","source":"mycareersfuture.sg"}
+            ]}
+            """));
+
+    JobPage page = client(credential("sg", "api-key")).search(profile(), new PageRequest(1, 20));
+
+    assertThat(page.jobs()).hasSize(1);
+  }
+
+  @Test
+  void pagesPastMyCareersFutureExclusionsWithoutStoppingEarly() throws Exception {
+    server.enqueue(
+        json(
+            200,
+            """
+            {"jobs":[
+              {"id":101,"title":"Java Engineer","location":"Singapore","snippet":"Spring Boot",
+               "link":"https://sg.jooble.org/jdp/101","source":"mycareersfuture.sg"},
+              {"id":102,"title":"Backend Engineer","location":"Singapore","snippet":"Kotlin",
+               "link":"https://sg.jooble.org/jdp/102","source":"mycareersfuture.sg"}
+            ]}
+            """));
+
+    JobPage page =
+        client(credential("sg", "api-key"))
+            .search(profileExcludingMyCareersFuture(), new PageRequest(1, 2));
+
+    assertThat(page.jobs()).isEmpty();
+    assertThat(page.hasMore()).isTrue();
+  }
+
+  @Test
   void rejectsMalformedResponsesWithoutRetry() {
     server.enqueue(json(200, "{}"));
 
@@ -133,6 +195,24 @@ class JoobleJobSourceClientTests {
   private static SearchProfile profile() {
     return new SearchProfile(
         "SP-JOOBLE", "JOOBLE", "sg", "java developer", "Singapore", "", "", "ANY", true);
+  }
+
+  private static SearchProfile profileExcludingMyCareersFuture() {
+    return new SearchProfile(
+        "SP-JOOBLE",
+        "JOOBLE",
+        "sg",
+        "java developer",
+        "Singapore",
+        "",
+        "",
+        "ANY",
+        true,
+        null,
+        null,
+        null,
+        null,
+        true);
   }
 
   private static MockResponse json(int status, String body) {
