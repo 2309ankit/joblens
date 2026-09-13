@@ -24,17 +24,26 @@ incident fixes on 2026-09-10 and a second post-deploy fix round on 2026-09-11 (s
 S0.4 Semantic Skill Extraction — IMPLEMENTED 2026-09-11, shipped disabled by default (see below and
 [S0_4_SEMANTIC_SKILL_EXTRACTION.md](S0_4_SEMANTIC_SKILL_EXTRACTION.md)); await owner direction for the
 next module.
+Jooble MyCareersFuture exclusion toggle and desired salary range — COMPLETE, committed as `b71b7d2`
+on 2026-09-13 (see below); this was previously undocumented in this handoff.
+Onboarding concurrency/draft-idempotency fix (workspace row lock + upsert-on-fork) — IMPLEMENTED
+2026-09-13, **not yet committed** — working tree only (see below).
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V29 (add_semantic_skill_match_evidence — additive `matched_canonical_term`
 column)
-Latest implementation commit: 6e01af2 (feat(onboarding): add semantic skill matching, shipped disabled by default)
-  — committed to `main` but **not pushed** this session; `git log origin/main..HEAD` will show it ahead
-  of the remote.
-Latest full test: 155 Java tests, 0 failures, 0 errors, 0 skipped (React suite unchanged at 12 tests;
-not touched this session)
+Latest implementation commit: b71b7d2 (feat(discovery): add MyCareersFuture exclusion toggle and
+desired salary range) — HEAD of `main` as of 2026-09-13.
+Uncommitted working-tree changes as of 2026-09-13: `OnboardingRepository.java`,
+`OnboardingService.java`, `copy-draft-skills.sql`, `copy-profile-target-roles.sql`,
+`create-draft-from-active.sql`, `WorkspaceOnboardingIntegrationTests.java` (the concurrency fix, see
+below), plus a new untracked `sql/onboarding/lock-workspace.sql`. Also untracked: a `.neon` file/dir
+at the repo root — purpose not inspected this session, do not delete without checking first.
+Latest full test (this session, 2026-09-13): 186 Java tests, 0 failures, 0 errors, 0 skipped, run
+against the current working tree (includes the uncommitted onboarding fix and its 2 new tests).
+Spotless and `git diff --check` pass. React suite not touched this session.
 Local runtime: rebuilt and verified this session on the S0.4 code — `docker compose up -d
 --force-recreate app` starts cleanly in 2.01s, `/actuator/health` UP, idle memory 301 MiB (`docker
 stats`, no artificial limit), image 341,930,845 bytes (~326 MB, up from the D3-era ~160 MB — see S0_4
@@ -62,6 +71,69 @@ docker compose ps
 Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md),
 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), and [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
+
+## Onboarding concurrency and draft-idempotency fix — IMPLEMENTED, NOT YET COMMITTED (2026-09-13)
+
+Working-tree changes only; not committed. Found and documented retroactively while reviewing repo
+state at the start of this session — do not assume it was verified/reviewed by the owner yet.
+
+**Problem.** `OnboardingService`'s mutating operations (`upload`, `updateSkills`, `savePreferences`,
+`completeSetup`, `confirm`) had no serialization between concurrent requests for the same workspace.
+Two racing requests — a double-submitted "Activate profile" click, or forking a draft from the same
+active profile twice in quick succession — could each read the same "current" state and then both
+write, tripping the partial-unique-index invariants added for the resume re-upload fix
+(`workspace_profile_one_draft_per_resume_idx`, V27) and surfacing as an unhandled unique-constraint
+exception instead of an idempotent no-op.
+
+**Fix.** New `OnboardingRepository.lockWorkspace(UUID)` runs `SELECT id FROM workspace WHERE
+id=:workspaceId FOR UPDATE` (new `sql/onboarding/lock-workspace.sql`) and is called first inside every
+mutating `@Transactional` `OnboardingService` method, serializing concurrent writes for one workspace
+behind a single row lock; callers must already be inside a transaction. Additionally,
+`create-draft-from-active.sql`, `copy-draft-skills.sql`, and `copy-profile-target-roles.sql` now
+`ON CONFLICT ... DO UPDATE` instead of erroring, so forking a draft twice for the same active profile
+reuses the existing draft — with its copied skills/roles refreshed in place — instead of throwing.
+
+**Tests added** in `WorkspaceOnboardingIntegrationTests`:
+`concurrentReactivationsOfTheSameWorkspaceDoNotThrow` (4 threads call `completeSetup` concurrently for
+one workspace; asserts zero thrown failures and exactly one `ACTIVE` profile version afterward) and
+`forkingADraftTwiceForTheSameActiveProfileReusesTheExistingDraftInsteadOfFailing` (two `forkDraft`
+calls for the same active profile return the same draft id; only one `DRAFT` row exists).
+
+**Verification (this session):** `WorkspaceOnboardingIntegrationTests` alone passes 16/16, 0
+failures/errors. Full suite passes 186 Java tests, 0 failures/errors/skipped, against fresh PostgreSQL
+17 Testcontainers (Flyway V1–V32). `spotless:apply` was needed once to reformat the new concurrency
+test's constructor-argument line wrapping; after that, `spotless:check` and `git diff --check` pass.
+Not packaged, not run against a live Docker image, not reviewed by the owner. React suite untouched
+(no frontend changes in this fix).
+
+**Not done:** commit, push, or owner review. The untracked `.neon` file/dir at the repo root was not
+investigated as part of this fix — check its purpose before assuming it's unrelated debris.
+
+## Jooble MyCareersFuture exclusion toggle and desired salary range — COMPLETE (2026-09-13)
+
+Committed as `b71b7d2`. This session found the commit already on `main` but undocumented anywhere in
+this handoff or `NEXT_MILESTONES.md` — recorded here retroactively from the commit diff, not from
+session memory.
+
+Jooble's raw response tags each result's origin site via a separate `source` field (not embedded in
+the redirect `link`), so Singapore workspaces can now opt out of MyCareersFuture listings via a setup
+toggle (`excludeMyCareersFuture`, shown only when a Singapore market is selected).
+`JoobleJobSourceClient` filters those jobs when the flag is set; `hasMore` pagination deliberately
+keys off the raw pre-filter page count, so excluding MyCareersFuture results does not cut pagination
+short. Jooble's free-text salary string is also parsed into min/max/currency
+(`JoobleJobPostingNormalizer`) instead of being discarded, and setup gains an optional desired salary
+range (`salaryMin`/`salaryMax`) that round-trips through the existing workspace/candidate preference
+store and `ResumeProfileController`'s activation/search-preference views. New migration
+`V32__add_search_profile_exclude_mycareersfuture.sql`.
+
+Also fixed a latent bug this surfaced: Jackson 3 throws on a missing primitive `boolean` in a JSON
+request body, so any caller omitting the new optional `excludeMyCareersFuture` field would have
+400'd on every profile activation — changed to a boxed `Boolean`.
+
+**Verification (retroactive, this session):** full suite passes at 186 Java tests (up from 177 at the
+prior city-suggestions checkpoint), 0 failures/errors/skipped; Spotless and `git diff --check` pass.
+This retroactive check ran against the working tree including the uncommitted onboarding fix above,
+not `b71b7d2` in isolation.
 
 ## D3 Free Demo Deployment — COMPLETE (2026-09-10)
 
