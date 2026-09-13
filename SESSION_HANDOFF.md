@@ -26,24 +26,29 @@ S0.4 Semantic Skill Extraction — IMPLEMENTED 2026-09-11, shipped disabled by d
 next module.
 Jooble MyCareersFuture exclusion toggle and desired salary range — COMPLETE, committed as `b71b7d2`
 on 2026-09-13 (see below); this was previously undocumented in this handoff.
-Onboarding concurrency/draft-idempotency fix (workspace row lock + upsert-on-fork) — IMPLEMENTED
-2026-09-13, **not yet committed** — working tree only (see below).
+Onboarding concurrency/draft-idempotency fix (workspace row lock + upsert-on-fork) — COMPLETE,
+committed as `bde45c6`.
+Adzuna market-coverage fix (stop creating Adzuna profiles for markets it doesn't cover, e.g.
+Malaysia) — COMPLETE, committed as `b2576bd` (see below).
+Dashboard retroactive MyCareersFuture filter (hides already-ingested jobs, not just future ones) —
+COMPLETE, committed as `38f0a5a` (see below).
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V29 (add_semantic_skill_match_evidence — additive `matched_canonical_term`
 column)
-Latest implementation commit: b71b7d2 (feat(discovery): add MyCareersFuture exclusion toggle and
-desired salary range) — HEAD of `main` as of 2026-09-13.
-Uncommitted working-tree changes as of 2026-09-13: `OnboardingRepository.java`,
-`OnboardingService.java`, `copy-draft-skills.sql`, `copy-profile-target-roles.sql`,
-`create-draft-from-active.sql`, `WorkspaceOnboardingIntegrationTests.java` (the concurrency fix, see
-below), plus a new untracked `sql/onboarding/lock-workspace.sql`. Also untracked: a `.neon` file/dir
-at the repo root — purpose not inspected this session, do not delete without checking first.
-Latest full test (this session, 2026-09-13): 186 Java tests, 0 failures, 0 errors, 0 skipped, run
-against the current working tree (includes the uncommitted onboarding fix and its 2 new tests).
+Latest implementation commit: 38f0a5a (fix(dashboard): retroactively hide already-ingested
+MyCareersFuture jobs) — HEAD of `main` and live on Render (`joblens-demo`) as of 2026-09-13.
+`git log origin/main..HEAD` is empty — nothing pending push.
+Untracked at repo root: `.neon` — purpose not inspected this session, do not delete without
+checking first.
+Latest full test (this session, 2026-09-13): 189 Java tests, 0 failures, 0 errors, 0 skipped.
 Spotless and `git diff --check` pass. React suite not touched this session.
+One known follow-up left in a live-only state, not fixable by code alone: workspace
+`8dab5d2e-ab1e-44d2-b0ca-8d6549633fc5` (Malaysia) still has a pre-fix Adzuna search profile active
+and will keep failing on periodic stale-execution resumes until it re-saves its preferences (see
+the Adzuna fix entry below).
 Local runtime: rebuilt and verified this session on the S0.4 code — `docker compose up -d
 --force-recreate app` starts cleanly in 2.01s, `/actuator/health` UP, idle memory 301 MiB (`docker
 stats`, no artificial limit), image 341,930,845 bytes (~326 MB, up from the D3-era ~160 MB — see S0_4
@@ -134,6 +139,69 @@ request body, so any caller omitting the new optional `excludeMyCareersFuture` f
 prior city-suggestions checkpoint), 0 failures/errors/skipped; Spotless and `git diff --check` pass.
 This retroactive check ran against the working tree including the uncommitted onboarding fix above,
 not `b71b7d2` in isolation.
+
+## Adzuna: stop creating search profiles for markets it doesn't cover — COMPLETE (2026-09-13)
+
+Committed as `b2576bd`, pushed and deployed live (`dep-daj6mujm8hqs73f4fbng`).
+
+Diagnosed from a live Render failure: `JobSourceException: Non-retryable Adzuna HTTP status 404`
+on a stale (2026-09-11) Find Jobs execution that the S0.1 stale-recovery mechanism resumed today.
+Root cause: `OnboardingRepository.syncSearchProfiles()` created an Adzuna search profile for every
+confirmed market unconditionally — it only had the existing Jooble-coverage guard, not an
+equivalent one for Adzuna. Malaysia (and any other market outside `ProviderCountryCatalog`'s fixed
+Adzuna coverage list) always 404s on the first request and fails the whole run.
+
+Fix: new `ProviderCountryCatalog.supportsAdzuna(countryCode)` exposes the existing coverage check;
+`syncSearchProfiles()` now consults it before creating the Adzuna profile, mirroring the Jooble
+guard. New regression tests: a `ProviderCountryCatalogTests` unit test and a
+`WorkspaceOnboardingIntegrationTests` integration test (`neverCreatesAnAdzunaProfileForAMarketAdzunaDoesNotCover`)
+proving a Malaysia market gets Jooble-only, no Adzuna row at all.
+
+**Forward-only, not retroactive**: this stops *new* confirmations from creating a bad Adzuna row; a
+workspace that already has one active from before this fix keeps it until that workspace re-saves
+its preferences (which re-syncs under the fixed logic) or it's cleared manually. One specific live
+workspace (`8dab5d2e-ab1e-44d2-b0ca-8d6549633fc5`, Malaysia) was left in this state — its stale
+JobExecution will keep failing harmlessly on periodic stale-recovery resumes until that workspace is
+touched again. Direct DB cleanup was attempted via `render ssh` but the Render CLI refuses to run
+non-interactively (no TTY) regardless of permissions, so it was left for the workspace's own
+next preference save rather than forcing a workaround.
+
+Verification: full suite 188 Java tests, 0 failures/errors/skipped; Spotless and `git diff --check`
+pass.
+
+## Dashboard: retroactively hide already-ingested MyCareersFuture jobs — COMPLETE (2026-09-13)
+
+Committed as `38f0a5a`, pushed and deployed live in the same deploy as the Adzuna fix above
+(`dep-daj6mujm8hqs73f4fbng`).
+
+The MyCareersFuture exclusion toggle (`b71b7d2`) only ever prevented *new* Jooble postings from
+being landed at fetch time; a job already fetched before the toggle was turned on stayed visible on
+the dashboard forever, since nothing re-scanned or purged already-normalized rows. From the owner's
+perspective this looked exactly like "the toggle isn't working," when it was actually working
+correctly for new fetches and just had no effect on history.
+
+Fix: `normalized_job` gains a nullable `provider_source_domain` column (migration `V33`, backfilled
+for existing JOOBLE rows from the preserved raw JSON in `raw_job_posting.raw_payload_json` so old
+postings are covered, not just new ones going forward). `JoobleJobPostingNormalizer` now persists
+Jooble's per-job `source` field into it; `AdzunaJobPostingNormalizer`, `GreenhouseJobPostingNormalizer`,
+and `LeverJobPostingNormalizer` pass `null` (unaffected). `list-ranked-jobs.sql` now excludes a row
+when its domain matches `mycareersfuture` *and* the workspace currently has an active `JOOBLE`
+profile with the toggle on — evaluated live on every dashboard read, independent of when the job was
+originally fetched. (One subtlety hit while building this: `NULL ILIKE ...` is SQL `NULL`, not
+`FALSE`, so the filter's `NOT (... AND EXISTS (...))` silently hid every non-Jooble row too until
+wrapped in `COALESCE(provider_source_domain, '')`.)
+
+Verified against the real Jooble API (using the live `JOOBLE_API_KEY` from `.env`) that its response
+actually includes this `source` field before relying on it, rather than assuming from the earlier
+commit's description. New isolated integration test
+(`DashboardMyCareersFutureFilterIntegrationTests`, its own Postgres/Adzuna/Jooble mock servers —
+deliberately **not** added to the shared `FindJobsIntegrationTests` class, since giving that class
+real Jooble credentials made every other SG-market test in it auto-create an unmocked Jooble search
+profile and fail) proves a job ingested while the toggle is off gets hidden once the toggle is
+turned on, and reappears when it's turned back off.
+
+Verification: full suite 189 Java tests, 0 failures/errors/skipped; Spotless and `git diff --check`
+pass.
 
 ## D3 Free Demo Deployment — COMPLETE (2026-09-10)
 

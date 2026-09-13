@@ -3,6 +3,7 @@ target/
 frontend/node_modules/
 .mvn/wrapper/maven-wrapper.jar
 .env
+.claude/settings.local.json
 !**/src/main/**/target/
 !**/src/test/**/target/
 
