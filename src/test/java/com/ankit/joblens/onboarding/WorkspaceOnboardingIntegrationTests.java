@@ -903,6 +903,73 @@ class WorkspaceOnboardingIntegrationTests {
         candidateProfileId);
   }
 
+  @Test
+  void concurrentReactivationsOfTheSameWorkspaceDoNotThrow() throws Exception {
+    UUID workspaceId = UUID.randomUUID();
+    createAndConfirm(workspaceId, "Java Developer", "banking", "Java");
+    SearchPreferences preferences =
+        new SearchPreferences(
+            "Java Developer",
+            "banking",
+            "Singapore",
+            "Java",
+            "SG | Singapore",
+            2,
+            "PERMANENT",
+            "HYBRID");
+
+    int threads = 4;
+    var latch = new java.util.concurrent.CountDownLatch(threads);
+    var executor = java.util.concurrent.Executors.newFixedThreadPool(threads);
+    List<Throwable> failures = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
+    for (int i = 0; i < threads; i++) {
+      futures.add(
+          executor.submit(
+              () -> {
+                latch.countDown();
+                try {
+                  latch.await();
+                  onboardingService.completeSetup(workspaceId, List.of("Java"), preferences);
+                } catch (Throwable throwable) {
+                  failures.add(throwable);
+                }
+              }));
+    }
+    for (var future : futures) {
+      future.get(30, java.util.concurrent.TimeUnit.SECONDS);
+    }
+    executor.shutdown();
+
+    assertThat(failures).isEmpty();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM workspace_profile_version WHERE workspace_id=? AND status='ACTIVE'",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void forkingADraftTwiceForTheSameActiveProfileReusesTheExistingDraftInsteadOfFailing() {
+    UUID workspaceId = UUID.randomUUID();
+    createAndConfirm(workspaceId, "Java Developer", "banking", "Java");
+    OnboardingProfile active = onboarding.latestProfile(workspaceId).orElseThrow();
+    assertThat(active.status()).isEqualTo("ACTIVE");
+
+    OnboardingProfile firstFork = onboarding.forkDraft(workspaceId, active);
+    OnboardingProfile secondFork = onboarding.forkDraft(workspaceId, active);
+
+    assertThat(firstFork.status()).isEqualTo("DRAFT");
+    assertThat(secondFork.id()).isEqualTo(firstFork.id());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM workspace_profile_version WHERE workspace_id=? AND status='DRAFT'",
+                Integer.class,
+                workspaceId))
+        .isEqualTo(1);
+  }
+
   private long createAndConfirm(UUID workspaceId, String role, String domain, String skill) {
     return createAndConfirm(onboarding, workspaceId, role, domain, skill);
   }

@@ -54,6 +54,17 @@ public class OnboardingRepository {
         new ProviderQueryPlanner());
   }
 
+  /**
+   * Serializes concurrent onboarding writes for one workspace (double-submitted activate, duplicate
+   * resume uploads racing) behind a single row lock, so the version-number and draft-uniqueness
+   * invariants below never see two transactions computing the same "next" value concurrently. Must
+   * be called inside the caller's existing transaction.
+   */
+  public void lockWorkspace(UUID workspaceId) {
+    jdbc.queryForObject(
+        load("sql/onboarding/lock-workspace.sql"), Map.of("workspaceId", workspaceId), UUID.class);
+  }
+
   public long saveResume(
       UUID workspaceId, String filename, String contentType, long sizeBytes, String hash) {
     return jdbc.queryForObject(

@@ -12,4 +12,9 @@ FROM workspace_profile_version active
 WHERE active.id = :profileVersionId
   AND active.workspace_id = :workspaceId
   AND active.status = 'ACTIVE'
+ON CONFLICT (workspace_id, resume_id) WHERE status = 'DRAFT'
+DO UPDATE SET summary = EXCLUDED.summary,
+              target_roles = EXCLUDED.target_roles,
+              target_domains = EXCLUDED.target_domains,
+              primary_location = EXCLUDED.primary_location
 RETURNING id

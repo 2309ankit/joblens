@@ -56,6 +56,7 @@ public class OnboardingService {
 
   @Transactional
   public OnboardingProfile upload(UUID workspaceId, MultipartFile file) throws Exception {
+    repository.lockWorkspace(workspaceId);
     byte[] content = validateFile(file);
     String detectedType = tika.detect(content, file.getOriginalFilename());
     if (!ALLOWED_TYPES.contains(detectedType)) {
@@ -154,6 +155,7 @@ public class OnboardingService {
 
   @Transactional
   public OnboardingProfile updateSkills(UUID workspaceId, List<String> requestedSkills) {
+    repository.lockWorkspace(workspaceId);
     OnboardingProfile profile =
         repository
             .latestProfile(workspaceId)
@@ -174,6 +176,7 @@ public class OnboardingService {
 
   @Transactional
   public void savePreferences(UUID workspaceId, SearchPreferences preferences) {
+    repository.lockWorkspace(workspaceId);
     validatePreferences(preferences);
     OnboardingProfile profile =
         repository
@@ -199,6 +202,7 @@ public class OnboardingService {
       List<String> requestedSkills,
       SearchPreferences preferences,
       boolean acknowledgeReadiness) {
+    repository.lockWorkspace(workspaceId);
     validatePreferences(preferences);
     List<String> skills =
         intelligenceRepository.resolveOrCreateSkills(workspaceId, requestedSkills);
@@ -228,6 +232,7 @@ public class OnboardingService {
 
   @Transactional
   public long confirm(UUID workspaceId) {
+    repository.lockWorkspace(workspaceId);
     OnboardingProfile profile =
         repository
             .latestProfile(workspaceId)
