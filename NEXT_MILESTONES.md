@@ -34,6 +34,28 @@ of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
 | S5 | Résumé object lifecycle and privacy workflows | Add encrypted/scanned storage, retention, export, and deletion | Storage/retention/security decisions |
 | S6 | Production platform gate | CI/CD, staging/production, managed HA data, observability, backups/restore, load/security/failure testing | Deployment platform and operating ownership |
 
+## Owner brainstorm, not yet selected — batch-vs-live read architecture (2026-09-13)
+
+Raised while chasing the Adzuna/Malaysia bug (see `SESSION_HANDOFF.md`): the owner is considering
+redesigning discovery away from a pure batch model toward an active-message/live-feed model per
+workspace, with caching, on the reasoning that this is a read-heavy product and batch latency
+doesn't fit "always up" expectations. **Not selected, not designed, no code changed** — recorded
+here only so it isn't lost, per Selection rule 1 (agree on scope before coding).
+
+Worth noting before the next design session: this isn't a green-field idea against this codebase —
+S2 (live progress via SSE/polling) and S3 (shared ingestion by normalized query fingerprint so
+equivalent searches don't re-hit providers) already exist in this table for exactly this reason, and
+`SESSION_HANDOFF.md`'s D1 section already states the intended real-time semantics: "a product
+command returns a run ID quickly ... while workers continue durable processing. It does not mean
+synchronous provider crawling." So the open question is probably not "batch or live" as a binary,
+but how far to push read/write separation — e.g. does the dashboard read path ever need to wait on
+a batch run at all, versus always serving the last cached/scored state and letting freshness be a
+purely background concern — and, if provider results get cached/shared across workspaces, where the
+privacy boundary sits between a shared raw job corpus and each candidate's private scoring (S3's
+"External dependency" column already flags this: "Provider quotas/contracts and freshness policy").
+Requires an explicit owner selection and design record before implementation, same as any other
+milestone here.
+
 ## Selected deployment checkpoint — D3 Free demo deployment
 
 Status: **SELECTED on 2026-09-10; deployment evidence open.**

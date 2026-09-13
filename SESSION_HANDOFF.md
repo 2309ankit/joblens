@@ -65,6 +65,16 @@ session should confirm whether to push 6e01af2, then ask the owner which module 
 acceptance, S0.3, enabling S0.4 in production via a base-image change, or another).
 ```
 
+**Deploy mechanism, corrected 2026-09-13**: earlier entries below say auto-deploy is off and a manual
+`render deploys create` is required after every push. That is stale/incomplete.
+`.github/workflows/deploy.yml` runs the full test suite on every push to `main` and, on success,
+calls the Render API directly (`POST /v1/services/.../deploys`) to deploy that commit — independent
+of `render.yaml`'s `autoDeployTrigger` field and the Render dashboard's own "Auto-Deploy" toggle
+(both of which genuinely are off; they only gate Render's *native* git-webhook deploy, a different
+mechanism this workflow doesn't use). **A plain push to `main` already deploys, gated on tests
+passing — do not also run `render deploys create` manually; it just races the same deploy.** Verify
+with `gh run list --workflow=deploy.yml` rather than assuming from `render.yaml`.
+
 Before making changes:
 
 ```bash
