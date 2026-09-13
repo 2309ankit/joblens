@@ -573,6 +573,50 @@ class WorkspaceOnboardingIntegrationTests {
                 String.class,
                 workspaceId))
         .containsExactly("ADZUNA", "JOOBLE");
+  }
+
+  @Test
+  void neverCreatesAnAdzunaProfileForAMarketAdzunaDoesNotCover() {
+    UUID workspaceId = UUID.randomUUID();
+    OnboardingRepository configuredOnboarding =
+        new OnboardingRepository(
+            new NamedParameterJdbcTemplate(jdbc),
+            new JoobleProperties(
+                List.of(
+                    new JoobleCountryCredential("my", "https://my.jooble.org", "test-jooble-key")),
+                Duration.ofSeconds(10),
+                20,
+                1,
+                Duration.ZERO),
+            profileIntelligence,
+            new ResumeReadinessRepository(new NamedParameterJdbcTemplate(jdbc)));
+    workspaces.create(workspaceId);
+    long resumeId =
+        configuredOnboarding.saveResume(
+            workspaceId, "resume.pdf", "application/pdf", 100, "e".repeat(64));
+    long profileId = configuredOnboarding.createDraft(workspaceId, resumeId, "Candidate");
+    configuredOnboarding.addSkills(profileId, List.of("Java"));
+    configuredOnboarding.savePreferences(
+        workspaceId,
+        profileId,
+        new SearchPreferences(
+            "Java Developer",
+            "banking",
+            "Kuala Lumpur",
+            "Java",
+            "MY | Kuala Lumpur",
+            2,
+            "PERMANENT",
+            "HYBRID"));
+    configuredOnboarding.confirm(
+        workspaceId, configuredOnboarding.latestProfile(workspaceId).orElseThrow());
+
+    assertThat(
+            jdbc.queryForList(
+                "SELECT source FROM search_profile WHERE workspace_id=? AND active=true ORDER BY source",
+                String.class,
+                workspaceId))
+        .containsExactly("JOOBLE");
 
     long indiaResumeId =
         configuredOnboarding.saveResume(

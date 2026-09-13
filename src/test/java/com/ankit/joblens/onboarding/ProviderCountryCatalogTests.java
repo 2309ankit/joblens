@@ -59,6 +59,17 @@ class ProviderCountryCatalogTests {
   }
 
   @Test
+  void supportsAdzunaReflectsTheHardcodedCoverageList() {
+    var catalog =
+        new ProviderCountryCatalog(
+            new JoobleProperties(List.of(), Duration.ofSeconds(2), 20, 1, Duration.ZERO));
+
+    assertThat(catalog.supportsAdzuna("SG")).isTrue();
+    assertThat(catalog.supportsAdzuna("sg")).isTrue();
+    assertThat(catalog.supportsAdzuna("MY")).isFalse();
+  }
+
+  @Test
   void ignoresAConfiguredCountryThatHasNoApiKeySet() {
     var catalog =
         new ProviderCountryCatalog(

@@ -47,6 +47,11 @@ public class ProviderCountryCatalog {
     }
   }
 
+  public boolean supportsAdzuna(String countryCode) {
+    String normalized = countryCode == null ? "" : countryCode.trim().toUpperCase(Locale.ROOT);
+    return ADZUNA_COUNTRIES.contains(normalized);
+  }
+
   private List<String> sources(String code) {
     var sources = new ArrayList<String>();
     if (ADZUNA_COUNTRIES.contains(code)) {

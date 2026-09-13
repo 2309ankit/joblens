@@ -26,6 +26,7 @@ public class OnboardingRepository {
   private final ProfileIntelligenceRepository profileIntelligenceRepository;
   private final ResumeReadinessRepository readinessRepository;
   private final ProviderQueryPlanner providerQueryPlanner;
+  private final ProviderCountryCatalog providerCountryCatalog;
 
   @Autowired
   public OnboardingRepository(
@@ -33,12 +34,14 @@ public class OnboardingRepository {
       JoobleProperties joobleProperties,
       ProfileIntelligenceRepository profileIntelligenceRepository,
       ResumeReadinessRepository readinessRepository,
-      ProviderQueryPlanner providerQueryPlanner) {
+      ProviderQueryPlanner providerQueryPlanner,
+      ProviderCountryCatalog providerCountryCatalog) {
     this.jdbc = jdbc;
     this.joobleProperties = joobleProperties;
     this.profileIntelligenceRepository = profileIntelligenceRepository;
     this.readinessRepository = readinessRepository;
     this.providerQueryPlanner = providerQueryPlanner;
+    this.providerCountryCatalog = providerCountryCatalog;
   }
 
   OnboardingRepository(
@@ -51,7 +54,8 @@ public class OnboardingRepository {
         joobleProperties,
         profileIntelligenceRepository,
         readinessRepository,
-        new ProviderQueryPlanner());
+        new ProviderQueryPlanner(),
+        new ProviderCountryCatalog(joobleProperties));
   }
 
   /**
@@ -381,15 +385,17 @@ public class OnboardingRepository {
     SearchDefinition definition = searchDefinition(workspaceId);
     for (StoredSearchTarget target : storedTargets(definition.id())) {
       for (StoredSearchQuery query : storedQueries(target.id())) {
-        upsertSearchProfile(
-            workspaceId,
-            profileId(workspaceId, "adzuna", target, query),
-            "ADZUNA",
-            target.countryCode().toLowerCase(),
-            definition,
-            target,
-            query,
-            preferences);
+        if (providerCountryCatalog.supportsAdzuna(target.countryCode())) {
+          upsertSearchProfile(
+              workspaceId,
+              profileId(workspaceId, "adzuna", target, query),
+              "ADZUNA",
+              target.countryCode().toLowerCase(),
+              definition,
+              target,
+              query,
+              preferences);
+        }
         if (joobleProperties.hasCredentials()
             && joobleProperties.supportsCountry(target.countryCode())) {
           upsertSearchProfile(
