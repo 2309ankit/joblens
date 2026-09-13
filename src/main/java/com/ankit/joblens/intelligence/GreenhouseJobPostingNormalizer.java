@@ -57,6 +57,7 @@ public class GreenhouseJobPostingNormalizer implements JobPostingNormalizer {
             null,
             timestamp(root.get("updated_at")),
             sourceUrl == null ? raw.sourceUrl() : sourceUrl,
+            null,
             null);
     return new NormalizedJob(
         job.rawJobPostingId(),
@@ -73,7 +74,8 @@ public class GreenhouseJobPostingNormalizer implements JobPostingNormalizer {
         job.remoteType(),
         job.postedAt(),
         job.sourceUrl(),
-        contentHasher.hash(job));
+        contentHasher.hash(job),
+        job.providerSourceDomain());
   }
 
   private JsonNode parse(RawJobPosting raw) {

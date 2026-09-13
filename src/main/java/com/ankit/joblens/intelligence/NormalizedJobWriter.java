@@ -12,8 +12,8 @@ public class NormalizedJobWriter implements ItemWriter<NormalizedJob> {
             INSERT INTO normalized_job (
                 raw_job_posting_id, source, external_job_id, title, company, location,
                 description_text, employment_type, salary_min, salary_max, salary_currency,
-                remote_type, posted_at, source_url, normalized_content_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                remote_type, posted_at, source_url, normalized_content_hash, provider_source_domain
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (raw_job_posting_id) DO UPDATE SET
                 source = EXCLUDED.source,
                 external_job_id = EXCLUDED.external_job_id,
@@ -29,6 +29,7 @@ public class NormalizedJobWriter implements ItemWriter<NormalizedJob> {
                 posted_at = EXCLUDED.posted_at,
                 source_url = EXCLUDED.source_url,
                 normalized_content_hash = EXCLUDED.normalized_content_hash,
+                provider_source_domain = EXCLUDED.provider_source_domain,
                 updated_at = CASE
                     WHEN normalized_job.normalized_content_hash <> EXCLUDED.normalized_content_hash
                     THEN CURRENT_TIMESTAMP
@@ -61,7 +62,8 @@ public class NormalizedJobWriter implements ItemWriter<NormalizedJob> {
           job.remoteType(),
           job.postedAt() == null ? null : Timestamp.from(job.postedAt().toInstant()),
           job.sourceUrl(),
-          job.normalizedContentHash());
+          job.normalizedContentHash(),
+          job.providerSourceDomain());
       jdbcTemplate.update(
           """
                     UPDATE raw_job_posting

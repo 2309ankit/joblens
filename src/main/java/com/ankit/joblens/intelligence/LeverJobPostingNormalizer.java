@@ -53,6 +53,7 @@ public class LeverJobPostingNormalizer implements JobPostingNormalizer {
             remoteType(text(root.get("workplaceType"))),
             null,
             valueOrFallback(text(root.get("hostedUrl")), raw.sourceUrl()),
+            null,
             null);
     return new NormalizedJob(
         job.rawJobPostingId(),
@@ -69,7 +70,8 @@ public class LeverJobPostingNormalizer implements JobPostingNormalizer {
         job.remoteType(),
         job.postedAt(),
         job.sourceUrl(),
-        contentHasher.hash(job));
+        contentHasher.hash(job),
+        job.providerSourceDomain());
   }
 
   private JsonNode parse(RawJobPosting raw) {

@@ -19,6 +19,16 @@ LEFT JOIN job_application application
 WHERE (n.source <> 'ADZUNA'
        OR n.posted_at IS NULL
        OR n.posted_at >= CURRENT_TIMESTAMP - make_interval(days => :maxDaysOld))
+  AND NOT (
+    COALESCE(n.provider_source_domain, '') ILIKE '%mycareersfuture%'
+    AND EXISTS (
+      SELECT 1 FROM search_profile excluding
+      WHERE excluding.workspace_id = :workspaceId
+        AND excluding.source = 'JOOBLE'
+        AND excluding.active = TRUE
+        AND excluding.exclude_my_careers_future = TRUE
+    )
+  )
   AND EXISTS (
     SELECT 1
     FROM workspace_job_sighting sighting

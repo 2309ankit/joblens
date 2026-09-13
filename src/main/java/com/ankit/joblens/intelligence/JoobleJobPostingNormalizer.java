@@ -56,7 +56,8 @@ public class JoobleJobPostingNormalizer implements JobPostingNormalizer {
             null,
             timestamp(text(root.get("updated"))),
             sourceUrl(root, raw),
-            null);
+            null,
+            text(root.get("source")));
     return new NormalizedJob(
         job.rawJobPostingId(),
         job.source(),
@@ -72,7 +73,8 @@ public class JoobleJobPostingNormalizer implements JobPostingNormalizer {
         job.remoteType(),
         job.postedAt(),
         job.sourceUrl(),
-        contentHasher.hash(job));
+        contentHasher.hash(job),
+        job.providerSourceDomain());
   }
 
   // Jooble's raw "salary" field is free text like "12000 - 18000 SGD" or "12000 SGD", not

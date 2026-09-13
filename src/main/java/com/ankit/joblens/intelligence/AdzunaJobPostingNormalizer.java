@@ -63,6 +63,7 @@ public class AdzunaJobPostingNormalizer implements JobPostingNormalizer {
             remoteType(root.get("remote_type")),
             timestamp(root.get("created")),
             payloadUrl != null ? payloadUrl : blankToNull(raw.sourceUrl()),
+            null,
             null);
     return new NormalizedJob(
         withoutHash.rawJobPostingId(),
@@ -79,7 +80,8 @@ public class AdzunaJobPostingNormalizer implements JobPostingNormalizer {
         withoutHash.remoteType(),
         withoutHash.postedAt(),
         withoutHash.sourceUrl(),
-        contentHasher.hash(withoutHash));
+        contentHasher.hash(withoutHash),
+        withoutHash.providerSourceDomain());
   }
 
   private JsonNode parse(RawJobPosting raw) {

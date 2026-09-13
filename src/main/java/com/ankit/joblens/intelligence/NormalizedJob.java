@@ -18,4 +18,5 @@ public record NormalizedJob(
     String remoteType,
     OffsetDateTime postedAt,
     String sourceUrl,
-    String normalizedContentHash) {}
+    String normalizedContentHash,
+    String providerSourceDomain) {}
