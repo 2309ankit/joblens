@@ -34,6 +34,39 @@ of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
 | S5 | Résumé object lifecycle and privacy workflows | Add encrypted/scanned storage, retention, export, and deletion | Storage/retention/security decisions |
 | S6 | Production platform gate | CI/CD, staging/production, managed HA data, observability, backups/restore, load/security/failure testing | Deployment platform and operating ownership |
 
+## Known bug, not yet selected — global O(n²) fuzzy duplicate detection can crash live Find Jobs runs (2026-09-15)
+
+Discovered live on `joblens-demo` while re-running the AI-RANK-01 live acceptance test (see
+`SESSION_HANDOFF.md`). `FuzzyDuplicateDetectionTasklet.execute()` loads **every row in
+`normalized_job`** (`sql/duplicate/find-jobs.sql` has no `WHERE` clause at all — it is a plain
+`SELECT ... FROM normalized_job ORDER BY id`) and does an in-memory O(n²) pairwise comparison over
+the full result, inside one long-held step transaction with no chunking. This runs on **every** Find
+Jobs execution, for every workspace, regardless of how many jobs that run actually added — so the
+step gets slower for everyone as the shared demo's total job count grows from accumulated testing,
+not just from that workspace's own activity.
+
+**Observed failure (2026-09-14, ~17:25–17:33 UTC):** two concurrent Find Jobs runs (run 38, a
+synthetic acceptance-test workspace; run 39, an unrelated real Malaysia workspace) both entered
+`fuzzyDuplicateDetectionStep` around the same time. Both took 7+ minutes and both failed with the
+same root cause: Neon killed the held connection with `FATAL: terminating connection due to
+idle-in-transaction timeout`, which HikariCP then surfaced as `Connection is closed` on the
+subsequent rollback attempt. This was not CPU contention between the two runs coincidentally taking
+long independently — it is the same underlying step scanning the same ever-growing global table, so
+concurrent runs hit the same timeout at close to the same time. `/actuator/health` stayed `UP`
+throughout; the container itself did not crash or restart, only the two batch job executions failed
+(`FAILED` status, `runs`/`runs/{id}` API confirmed both).
+
+**Why this matters for the hackathon submission specifically:** repeated judging/demo traffic on the
+shared live instance will keep growing `normalized_job`, making this failure more likely over time,
+not less — a live demo silently failing Find Jobs runs during judging is a real risk.
+
+**Not fixed this session — owner explicitly chose to document and defer, not fix, while finishing
+AI-RANK-01 live acceptance.** A bounded fix needs its own scope/design pass (Selection rule 1) rather
+than an inline patch under time pressure; candidates worth considering next session: scope the
+comparison to a bounded candidate set (e.g. only jobs touched by the current run plus a
+recency/source/market-scoped window) instead of the full global table, and/or chunk the step so it
+commits incrementally instead of holding one transaction open for the entire O(n²) pass.
+
 ## Owner brainstorm, not yet selected — batch-vs-live read architecture (2026-09-13)
 
 Raised while chasing the Adzuna/Malaysia bug (see `SESSION_HANDOFF.md`): the owner is considering

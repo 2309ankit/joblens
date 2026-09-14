@@ -15,7 +15,7 @@ Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
 Implementation baseline: AI-RANK-01 guarded NVIDIA-on-Nebius final scoring
 AI ranking implementation commit: 316a1e3 (feat: add guarded NVIDIA Nebius job scoring)
-Latest implementation commit: 65604e1 (chore: remove validation message warning)
+Latest implementation commit: 080946d (fix(ai-rank-01): disable Nemotron thinking mode so scoring content isn't null)
 Product baseline: D1 Startup Requirements and Architecture
 Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
@@ -24,27 +24,38 @@ Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
 Latest Flyway migration: V34 (cached and audited NVIDIA-on-Nebius job scores)
-Latest full verification (2026-09-14): 196 Java tests and 21 React tests; all passed. Spotless and
+Latest full verification (2026-09-14): 197 Java tests and 21 React tests; all passed. Spotless and
 git diff --check passed.
-Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g), deploy dep-dak1lf8jo6nc73b5evpg of
-commit 65604e1 is live; /actuator/health returned UP on 2026-09-15.
-AI runtime state: code is deployed but NVIDIA ranking is OFF by default. Deterministic universal-v2
-scoring is the active primary score and remains the automatic fallback.
-AI activation requires Render secrets NEBIUS_API_KEY and NEBIUS_MODEL plus
-JOBLENS_NVIDIA_RANKING_ENABLED=true. Begin with NEBIUS_MAX_JOBS_PER_RUN=1 and a small
-NEBIUS_MAX_CALLS_PER_DAY. Never commit or paste the key into documentation, source, logs, or chat.
-No live Nebius call has been accepted yet; AI-RANK-01 remains live-acceptance-open until a current
-NVIDIA model ID is selected, one bounded production request succeeds, the persisted source reads
-NVIDIA_NEBIUS, and fallback behavior is rechecked.
-Deployment path: push main -> GitHub Actions full test gate -> Render API deploy. Render's native
-auto-deploy is OFF. Do not manually create a second deploy for the same commit.
+Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g), deploy dep-dak2ov8ae00c73ervf6g of
+commit 080946d is live; /actuator/health returned UP on 2026-09-15.
+AI runtime state (2026-09-15): NEBIUS_API_KEY, NEBIUS_MODEL=nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B,
+JOBLENS_NVIDIA_RANKING_ENABLED=true, NEBIUS_MAX_JOBS_PER_RUN=1, NEBIUS_MAX_CALLS_PER_DAY=5 are set on
+the live Render service. First live call failed with "choices[0].message.content must be text"
+(Nemotron's hidden reasoning trace exhausted the 500-token output budget before emitting an answer);
+fixed by commit 080946d, which adds `chat_template_kwargs: {enable_thinking: false}` to the request.
+A clean end-to-end confirmation that a live call now returns `scoring_source=NVIDIA_NEBIUS` on the
+dashboard has NOT yet been captured — the two verification runs after the fix (isolated synthetic
+workspace c6f7ff1c-5fa1-484b-9fd5-fc4190094030, runs 38 and 39-adjacent) both failed for an unrelated
+reason before reaching the NVIDIA step again; see the O(n²) fuzzy-dedup bug below. AI-RANK-01 remains
+live-acceptance-open until one clean run confirms NVIDIA_NEBIUS end to end.
+Deployment path: push main -> GitHub Actions full test gate -> Render API deploy (this also fires on
+plain env-var saves in the Render dashboard, via `service_updated`, not just commits). Render's own
+native auto-deploy is OFF; that's a separate, unused mechanism. Do not manually create a second
+deploy for the same commit.
 Untracked at repo root: .neon — user-created/unknown; do not inspect, delete, or commit without
 explicit owner direction.
 Known live-data follow-up: an older Malaysia workspace may still retain a pre-fix Adzuna profile;
 re-saving that workspace's preferences is the safe repair if the old Adzuna 404 recurs.
-Next action: supply runtime-only Nebius credentials/model and perform the one-job live acceptance,
-or select one other milestone from NEXT_MILESTONES.md. Do not begin the batch-to-live-feed redesign
-without its separate approved requirement and acceptance criteria.
+Known bug, documented not fixed (2026-09-15): FuzzyDuplicateDetectionTasklet does an O(n²) in-memory
+comparison over the entire global normalized_job table on every Find Jobs run (see NEXT_MILESTONES.md
+"Known bug, not yet selected — global O(n²) fuzzy duplicate detection can crash live Find Jobs runs").
+Confirmed live: two concurrent runs both failed when Neon killed their held connection with
+"idle-in-transaction timeout" after 7+ minutes in this step. Growing job-table size makes this more
+likely over time, including during hackathon judging traffic on this same shared demo.
+Next action: rerun the one-job live NVIDIA acceptance test (synthetic workspace only) once a Find
+Jobs run can complete cleanly, and confirm scoring_source=NVIDIA_NEBIUS on the dashboard. Do not begin
+the batch-to-live-feed redesign or the fuzzy-dedup fix without their own separate approved requirement
+and acceptance criteria.
 ```
 
 **Deploy mechanism, corrected 2026-09-13**: earlier entries below say auto-deploy is off and a manual
