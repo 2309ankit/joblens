@@ -226,13 +226,15 @@ public class JobIntelligenceConfiguration {
       Step skillExtractionStep,
       Step exactDuplicateDetectionStep,
       Step fuzzyDuplicateDetectionStep,
-      Step scoringStep) {
+      Step scoringStep,
+      Step nvidiaScoringStep) {
     return new JobBuilder("jobIntelligenceJob", jobRepository)
         .start(jobNormalizationStep)
         .next(skillExtractionStep)
         .next(exactDuplicateDetectionStep)
         .next(fuzzyDuplicateDetectionStep)
         .next(scoringStep)
+        .next(nvidiaScoringStep)
         .build();
   }
 }

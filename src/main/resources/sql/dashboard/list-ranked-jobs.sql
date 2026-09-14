@@ -1,15 +1,31 @@
 SELECT n.id, n.title, n.company, n.location, n.source,
-       COALESCE(s.total_score, 0) AS score,
+       COALESCE(ai.total_score, s.total_score, 0) AS score,
        s.best_target_role_name,
        s.ranking_policy_version,
        s.calibration_pack_code,
        s.calibration_pack_version,
-       COALESCE(s.qualifies_recommended, FALSE) AS qualifies_recommended,
+       COALESCE(ai.qualifies_recommended, s.qualifies_recommended, FALSE) AS qualifies_recommended,
+       CASE WHEN ai.id IS NULL THEN 'DETERMINISTIC' ELSE 'NVIDIA_NEBIUS' END AS scoring_source,
+       ai.confidence AS ai_confidence,
+       ai.summary AS score_summary,
        COALESCE(v.view_count, 0) AS view_count,
        application.id AS application_id,
        application.status AS application_status
 FROM normalized_job n
 LEFT JOIN job_score s ON s.normalized_job_id = n.id AND s.candidate_profile_id = :candidateProfileId
+LEFT JOIN workspace_candidate_profile owner
+  ON owner.candidate_profile_id = :candidateProfileId
+LEFT JOIN LATERAL (
+    SELECT result.id, result.total_score, result.qualifies_recommended,
+           result.confidence, result.summary
+    FROM nvidia_job_score result
+    WHERE result.normalized_job_id = n.id
+      AND result.candidate_profile_id = :candidateProfileId
+      AND result.normalized_content_hash = n.normalized_content_hash
+      AND result.profile_version_id IS NOT DISTINCT FROM owner.profile_version_id
+    ORDER BY result.created_at DESC, result.id DESC
+    LIMIT 1
+) ai ON TRUE
 LEFT JOIN job_view v
   ON v.normalized_job_id = n.id
  AND v.candidate_profile_id = :candidateProfileId

@@ -63,15 +63,32 @@ The generated project currently contains:
 
 ## Current Verification Summary
 
-- Implementation baseline: M3.2 Role-Aware Ranking, commit `2885c84`.
-- Latest full behavioral suite: `./mvnw clean test`, 130 Java tests and 8 React tests, 0 failures,
-  0 errors, 0 skipped, recorded on 2026-09-08.
-- Database baseline: PostgreSQL 17 with Flyway V25 verified from clean Testcontainers.
+- Implementation baseline: AI-RANK-01 local first slice.
+- Latest full behavioral suite: `./mvnw clean test`, 196 Java tests and 21 React tests, 0 failures,
+  0 errors, 0 skipped, recorded on 2026-09-14.
+- Database baseline: PostgreSQL 17 with Flyway V34 verified from clean Testcontainers.
 - Release metadata: JobLens V1 development artifact `1.0.0-SNAPSHOT`; Maven packaging and Docker
   image construction verified on 2026-09-04.
 - R1.1 React surface completion, S0.1 Discovery Execution Safety, and the assisted multi-market
   onboarding follow-up are verified. This does not pass the authenticated private-beta or
   public-launch gates.
+
+### AI-RANK-01 NVIDIA-on-Nebius primary scoring (2026-09-14)
+
+- Added a seventh, non-transactional `nvidiaScoringStep` after deterministic scoring in both
+  `jobIntelligenceJob` and `findJobsJob`.
+- Added an OpenAI-compatible Nebius Token Factory client with bearer authentication, timeout and
+  output-token limits, untrusted-job-text instructions, bounded input, and strict output validation.
+- Added Flyway V34 persistence for versioned successful scores and sanitized provider attempts.
+  Successful results are cached by candidate facts/profile version, normalized content hash, model,
+  and prompt version.
+- Kept `universal-v2` mandatory as shortlist input and fallback. The dashboard prefers a current
+  NVIDIA score only when one exists and exposes `scoring_source`, confidence, and score summary.
+- The feature is disabled by default and starts safely without credentials. Live activation still
+  requires `NEBIUS_API_KEY`, a current NVIDIA `NEBIUS_MODEL`, and explicit enablement.
+- Verified with provider-stub tests, pipeline integration tests, dashboard fallback/primary-score
+  tests, clean PostgreSQL migration, and the full Maven/frontend suite. No live Nebius request was
+  made because credentials and a current model ID have not been supplied.
 
 ## Required Build Milestones
 

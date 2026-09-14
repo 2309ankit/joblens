@@ -58,12 +58,15 @@ milestone here.
 
 ### Owner direction — NVIDIA model as primary final scorer (2026-09-14)
 
-Requirement candidate `AI-RANK-BRAINSTORM-01` (recorded, **not selected or implemented**): do not use
+Requirement `AI-RANK-01` (**first local slice verified; live Nebius validation pending**): do not use
 the dormant local ONNX semantic matcher as the proposed job-ranking model. The intended hackathon
 direction is to use an NVIDIA open-source model served through Nebius as the primary final scoring
 and explanation path, while retaining JobLens's existing deterministic, versioned score as the
 fallback whenever model inference is disabled, unavailable, over budget, times out, or returns an
 invalid result.
+
+The approved first-slice boundaries and acceptance evidence are recorded in
+`NVIDIA_NEBIUS_RANKING.md`.
 
 The next design session must resolve these boundaries before implementation:
 

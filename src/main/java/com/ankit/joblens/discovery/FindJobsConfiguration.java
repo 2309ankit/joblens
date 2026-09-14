@@ -19,7 +19,8 @@ public class FindJobsConfiguration {
       @Qualifier("skillExtractionStep") Step skills,
       @Qualifier("exactDuplicateDetectionStep") Step exactDuplicates,
       @Qualifier("fuzzyDuplicateDetectionStep") Step fuzzyDuplicates,
-      @Qualifier("scoringStep") Step scoring) {
+      @Qualifier("scoringStep") Step scoring,
+      @Qualifier("nvidiaScoringStep") Step nvidiaScoring) {
     return new JobBuilder("findJobsJob", jobRepository)
         .start(discovery)
         .next(normalization)
@@ -27,6 +28,7 @@ public class FindJobsConfiguration {
         .next(exactDuplicates)
         .next(fuzzyDuplicates)
         .next(scoring)
+        .next(nvidiaScoring)
         .build();
   }
 }

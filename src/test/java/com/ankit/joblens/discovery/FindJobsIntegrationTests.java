@@ -121,7 +121,8 @@ class FindJobsIntegrationTests {
             "skillExtractionStep",
             "exactDuplicateDetectionStep",
             "fuzzyDuplicateDetectionStep",
-            "scoringStep");
+            "scoringStep",
+            "nvidiaScoringStep");
     assertThat(countSightings(workspaceId)).isEqualTo(2);
     assertThat(
             jdbc.queryForObject(

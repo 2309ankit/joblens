@@ -55,7 +55,7 @@ intelligence   normalization, skills, duplicate detection, candidate profile, an
 lifecycle      application transitions, history, and follow-up generation
 ```
 
-Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets; V18 adds categorized inclusive skill/role taxonomy, workspace-private additions, and versioned suggestion evidence; V19 makes custom-skill reference cleanup follow workspace deletion; V20 adds versioned ESCO taxonomy releases and uncatalogued-term review artifacts; V21 adds versioned resume-readability assessments, stable findings, and acknowledgement state; V22 separates ordered target-role intent from résumé evidence and persists versioned generated provider queries per market; V23 adds versioned role-calibration overlays and per-role score evidence; V24 adds product-safe Find Jobs run diagnostics; V25 adds stale-run recovery status; V26 adds a normalized preferred-sector catalogue; V27 deduplicates draft profile versions on resume re-upload; V28 expands the skill catalogue with sales/business-development terms; V29 adds semantic skill-match evidence (shipped disabled by default); V30 adds the versioned `qualifies_recommended` signal that gates the dashboard's Recommended/Explore-other-results split; V31 adds a bundled city catalogue (cities with population ≥ 15,000 across every integrated country, from [GeoNames](https://www.geonames.org/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) used to suggest cities as you type a search market's location.
+Flyway migrations are incremental. V1-V10 build the original Batch, intelligence, lifecycle, insights, and view-tracking slices; V11 adds anonymous workspace onboarding; V12 adds workspace discovery, source projections, job sightings, and Find-jobs run history; V13 adds safe automatic company-board discovery; V14 adds the optional Jooble source; V15 adds immutable per-source run observability; V16 adds Lever; V17 normalizes multiple workspace search markets; V18 adds categorized inclusive skill/role taxonomy, workspace-private additions, and versioned suggestion evidence; V19 makes custom-skill reference cleanup follow workspace deletion; V20 adds versioned ESCO taxonomy releases and uncatalogued-term review artifacts; V21 adds versioned resume-readability assessments, stable findings, and acknowledgement state; V22 separates ordered target-role intent from résumé evidence and persists versioned generated provider queries per market; V23 adds versioned role-calibration overlays and per-role score evidence; V24 adds product-safe Find Jobs run diagnostics; V25 adds stale-run recovery status; V26 adds a normalized preferred-sector catalogue; V27 deduplicates draft profile versions on resume re-upload; V28 expands the skill catalogue with sales/business-development terms; V29 adds semantic skill-match evidence (shipped disabled by default); V30 adds the versioned `qualifies_recommended` signal that gates the dashboard's Recommended/Explore-other-results split; V31 adds a bundled city catalogue (cities with population ≥ 15,000 across every integrated country, from [GeoNames](https://www.geonames.org/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) used to suggest cities as you type a search market's location; V32 adds the workspace MyCareersFuture exclusion; V33 preserves normalized provider domains; V34 adds cached and audited NVIDIA-on-Nebius job scores.
 
 A Batch Job is a workflow definition; a JobInstance is one logical run identified by parameters; a JobExecution is one attempt; each StepExecution records counts; ExecutionContext stores restart checkpoints.
 
@@ -93,10 +93,18 @@ JOOBLE_MY_API_KEY=
 JOOBLE_MY_BASE_URL=https://my.jooble.org
 JOOBLE_IN_API_KEY=
 JOOBLE_IN_BASE_URL=https://in.jooble.org
+
+# Optional final ranking through an NVIDIA open-source model on Nebius Token Factory. Deterministic
+# scoring remains the shortlist and fallback. Select a model from the current Token Factory catalogue.
+JOBLENS_NVIDIA_RANKING_ENABLED=false
+NEBIUS_API_KEY=
+NEBIUS_MODEL=
 ```
 
 Environment variables override these values. Never commit real credentials; `.env` is ignored. An
 unset key for any one country simply leaves that country inactive; the others keep working.
+NVIDIA ranking likewise remains inactive until all three NVIDIA/Nebius values are set. See
+[NVIDIA_NEBIUS_RANKING.md](NVIDIA_NEBIUS_RANKING.md) for its data, cost, cache, and fallback boundary.
 
 ## Free demo deployment
 

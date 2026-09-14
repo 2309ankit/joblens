@@ -8,6 +8,7 @@ import com.ankit.joblens.onboarding.SearchPreferences;
 import com.ankit.joblens.workspace.WorkspaceRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -155,6 +156,51 @@ class DashboardMyCareersFutureFilterIntegrationTests {
             "Senior Java Engineer",
             "Java Engineer MyCareersFuture Listing",
             "Java Engineer Example Listing");
+
+    MapSqlParameterSource nvidiaTarget =
+        new MapSqlParameterSource()
+            .addValue("candidateProfileId", candidateProfileId)
+            .addValue("title", "Java Engineer Example Listing");
+    Map<String, Object> target =
+        namedJdbc
+            .queryForList(
+                """
+                SELECT job.id, job.normalized_content_hash
+                FROM normalized_job job
+                JOIN job_score score ON score.normalized_job_id = job.id
+                WHERE score.candidate_profile_id = :candidateProfileId AND job.title = :title
+                """,
+                nvidiaTarget)
+            .getFirst();
+    jdbc.update(
+        """
+        INSERT INTO nvidia_job_score(
+            normalized_job_id, candidate_profile_id, profile_version_id,
+            normalized_content_hash, candidate_fingerprint, model_id, prompt_version, cache_key,
+            total_score, confidence, qualifies_recommended, summary, reasons_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 99, 0.9, true, 'NVIDIA test score', CAST(? AS JSONB))
+        """,
+        target.get("id"),
+        candidateProfileId,
+        profileVersionId,
+        target.get("normalized_content_hash"),
+        "c".repeat(64),
+        "nvidia/test-model",
+        "test-prompt-v1",
+        "d".repeat(64),
+        "[{\"category\":\"skills\",\"explanation\":\"Strong match\"}]");
+
+    Map<String, Object> nvidiaRanked =
+        namedJdbc
+            .queryForList(load("sql/dashboard/list-ranked-jobs.sql"), visibleJobParameters)
+            .stream()
+            .filter(row -> "Java Engineer Example Listing".equals(row.get("title")))
+            .findFirst()
+            .orElseThrow();
+    assertThat(nvidiaRanked)
+        .containsEntry("score", 99)
+        .containsEntry("scoring_source", "NVIDIA_NEBIUS")
+        .containsEntry("score_summary", "NVIDIA test score");
 
     jdbc.update(
         "UPDATE search_profile SET exclude_my_careers_future=true WHERE workspace_id=? AND source='JOOBLE'",
