@@ -56,6 +56,40 @@ privacy boundary sits between a shared raw job corpus and each candidate's priva
 Requires an explicit owner selection and design record before implementation, same as any other
 milestone here.
 
+### Owner direction — NVIDIA model as primary final scorer (2026-09-14)
+
+Requirement candidate `AI-RANK-BRAINSTORM-01` (recorded, **not selected or implemented**): do not use
+the dormant local ONNX semantic matcher as the proposed job-ranking model. The intended hackathon
+direction is to use an NVIDIA open-source model served through Nebius as the primary final scoring
+and explanation path, while retaining JobLens's existing deterministic, versioned score as the
+fallback whenever model inference is disabled, unavailable, over budget, times out, or returns an
+invalid result.
+
+The next design session must resolve these boundaries before implementation:
+
+- deterministic rules continue to enforce hard eligibility and create a bounded shortlist; the
+  NVIDIA model scores that shortlist rather than every provider result, so latency and paid inference
+  do not scale directly with the full raw corpus;
+- model output uses a strict, validated schema with score, reasons, evidence references, confidence,
+  model identifier, and prompt/policy version; raw job text is untrusted content and cannot instruct
+  the scorer;
+- results are cached by candidate-profile version, normalized-job content hash, model version, and
+  prompt/policy version, with explicit invalidation and retention rules;
+- deterministic fallback remains independently runnable and explainable. The UI identifies whether
+  a displayed result used NVIDIA scoring or fallback scoring, because the two policies may order
+  jobs differently;
+- timeouts, retries, concurrency, quotas, monthly budget ceilings, and circuit-breaker behavior are
+  specified before runtime calls are introduced. Hackathon credits are temporary and are not a
+  sustainable production cost assumption;
+- ranking quality needs a reviewed Fit/Maybe/Not-fit corpus and comparative metrics against the
+  deterministic baseline; a plausible model response or demo fixture is not acceptance evidence;
+- profile activation may enqueue this scoring flow only after its transaction commits, and the
+  dashboard continues serving cached results with durable live-progress state while work proceeds.
+
+The existing S0.4 `all-MiniLM-L6-v2` ONNX feature remains a separate, disabled semantic skill-
+extraction experiment. This direction neither enables it nor removes its code; any eventual cleanup
+of its bundled model/runtime is a separate dependency and image-size decision.
+
 ## Selected deployment checkpoint — D3 Free demo deployment
 
 Status: **SELECTED on 2026-09-10; deployment evidence open.**
