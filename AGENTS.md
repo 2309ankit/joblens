@@ -93,7 +93,8 @@ The repository currently has these verified working slices:
 * Dockerized application image with Compose PostgreSQL dependency
 * anonymous browser workspaces with validated, versioned resume/profile onboarding and UI-managed preferences
 * workspace-owned search definitions, job sightings, rankings, views, applications, and follow-ups
-* `findJobsJob`, a six-step one-click workflow from discovery through candidate scoring
+* `findJobsJob`, a seven-step one-click workflow from discovery through deterministic scoring and
+  optional guarded NVIDIA-on-Nebius final scoring
 * source-adapter registry with Adzuna, optional multi-country Jooble (one API key per country;
   Singapore, Malaysia, and India configured as of 2026-09-11), and safe automatic enrichment through
   the public Greenhouse and Lever posting APIs
@@ -109,6 +110,10 @@ The repository currently has these verified working slices:
 * a versioned `qualifiesRecommended` signal (`universal-v2`) gating the dashboard's genuine
   Recommended jobs from an "Explore other results" section, instead of always featuring the
   highest-scored job in a weak result set (S0.3, 2026-09-11)
+* optional NVIDIA open-source model scoring through Nebius Token Factory as a validated final score,
+  with deterministic shortlisting/fallback, bounded calls, caching, audited attempts, and visible
+  score provenance; the deployed feature remains disabled until runtime-only credentials and a
+  current model ID are supplied and live acceptance is completed
 * a bundled, country-scoped city-suggestion catalogue (GeoNames-derived, CC BY 4.0) for the setup
   page's search-market editor
 * a test-gated GitHub Actions pipeline (`.github/workflows/deploy.yml`) that runs the full Java and

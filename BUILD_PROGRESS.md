@@ -89,6 +89,13 @@ The generated project currently contains:
 - Verified with provider-stub tests, pipeline integration tests, dashboard fallback/primary-score
   tests, clean PostgreSQL migration, and the full Maven/frontend suite. No live Nebius request was
   made because credentials and a current model ID have not been supplied.
+- Committed as `316a1e3`; warning cleanup followed as `65604e1`. GitHub Actions run
+  `34865930435` passed its full test gate and triggered Render deployment
+  `dep-dak1lf8jo6nc73b5evpg`. That deploy became live and `/actuator/health` returned `UP` on
+  2026-09-15.
+- Deployment proves the default-off/fallback runtime starts safely; it does not prove live NVIDIA
+  inference. Live acceptance remains open until runtime-only Render values are supplied and one
+  bounded request, persisted score, cache reuse, dashboard source, and fallback are inspected.
 
 ## Required Build Milestones
 

@@ -1,6 +1,6 @@
 # D3 Free Demo Deployment
 
-Status: **SELECTED by the product owner on 2026-09-10**.
+Status: **COMPLETE for the disposable demo boundary; last health verification 2026-09-15**.
 
 Requirement ID: `D3-DEMO-DEPLOY-01`
 
@@ -31,7 +31,7 @@ and serves the JobLens setup surface.
 4. The externally reachable deployment returns HTTP 200 with `UP` from `/actuator/health`, serves
    `/setup`, loads its content-hashed React assets, and issues the anonymous development-workspace
    cookie with `Secure`, `HttpOnly`, and `SameSite=Lax` attributes.
-5. A fresh Neon database applies every Flyway migration through V26 successfully. No manual schema
+5. A fresh Neon database applies every Flyway migration through V34 successfully. No manual schema
    edits or seed data are required.
 6. The operator runbook documents initial deployment, safe secret entry, smoke verification,
    expected cold starts, free-tier limits, database-size inspection, rollback, and migration seams.
@@ -54,6 +54,11 @@ Neon Free PostgreSQL 17, Singapore
   launched Spring Batch jobs. No frontend split, microservice, queue, or separate worker is added.
 - Render builds the artifact from the repository. Build-time configuration is non-secret. Runtime
   database and optional provider values are entered in the Render dashboard and never committed.
+- Optional NVIDIA-on-Nebius scoring is deployed disabled by default. Enabling it requires the
+  runtime-only Render values `NEBIUS_API_KEY`, `NEBIUS_MODEL`, and
+  `JOBLENS_NVIDIA_RANKING_ENABLED=true`. First acceptance must also reduce the limits to one job per
+  run and a small daily ceiling. The demo remains functional through deterministic scoring without
+  these values.
 - **Superseded 2026-09-11**: automatic deploys were originally disabled here because the repository
   had no CI/CD promotion gate — a deploy was an explicit operator action. The owner asked for
   auto-deploy on 2026-09-10; that was first enabled as Render's own unconditional GitHub-push
@@ -86,13 +91,16 @@ Neon Free PostgreSQL 17, Singapore
 ## Explicit exclusions
 
 - Authentication, account recovery, RBAC, real-user résumé storage, malware scanning, retention,
-  export/deletion, rate limiting, WAF, production secrets management, CI/CD, HA, PITR guarantees,
-  alerts, load/security testing, custom domains, email, billing, and production support.
+  export/deletion, rate limiting, WAF, production secrets management, production-grade CI/CD, HA,
+  PITR guarantees, alerts, load/security testing, custom domains, email, billing, and production
+  support. The current full-test GitHub Actions deploy gate does not satisfy that production gate.
 - Render background workers, cron jobs, persistent disks, or Render PostgreSQL.
 - AWS resources or a commitment to a future AWS service layout.
-- S0.2 remaining owner acceptance, S0.3 ranking semantics, and S1–S6 implementation.
+- S0.2 remaining owner acceptance, AI-RANK-01 live-model acceptance, and S1–S6 implementation.
 
 ## Completion evidence
 
-D3 remains open until both local release checks and the remote Render/Neon smoke evidence are
-recorded in `BUILD_PROGRESS.md`. Repository preparation alone is not a completed deployment.
+D3 is complete for the stated disposable-demo boundary. Local release checks and remote Render/Neon
+smoke evidence are recorded in `BUILD_PROGRESS.md`; the latest implementation deployment
+`dep-dak1lf8jo6nc73b5evpg` served commit `65604e1` and returned health `UP` on 2026-09-15.
+This evidence does not satisfy the S6 production-platform gate.

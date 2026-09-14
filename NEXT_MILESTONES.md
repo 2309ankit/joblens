@@ -58,7 +58,7 @@ milestone here.
 
 ### Owner direction — NVIDIA model as primary final scorer (2026-09-14)
 
-Requirement `AI-RANK-01` (**first local slice verified; live Nebius validation pending**): do not use
+Requirement `AI-RANK-01` (**implementation deployed default-off; live Nebius validation pending**): do not use
 the dormant local ONNX semantic matcher as the proposed job-ranking model. The intended hackathon
 direction is to use an NVIDIA open-source model served through Nebius as the primary final scoring
 and explanation path, while retaining JobLens's existing deterministic, versioned score as the
@@ -68,7 +68,8 @@ invalid result.
 The approved first-slice boundaries and acceptance evidence are recorded in
 `NVIDIA_NEBIUS_RANKING.md`.
 
-The next design session must resolve these boundaries before implementation:
+The implementation now enforces these first-slice boundaries; they remain constraints for live
+acceptance and subsequent expansion:
 
 - deterministic rules continue to enforce hard eligibility and create a bounded shortlist; the
   NVIDIA model scores that shortlist rather than every provider result, so latency and paid inference
@@ -622,7 +623,8 @@ has data; internal candidate IDs are not user-facing setup concepts.
 
 ### Explicitly out of scope
 
-- LLM ranking, automatic self-training, or opaque role inference.
+- Automatic self-training or opaque role inference. AI-RANK-01's bounded, validated NVIDIA final
+  scorer is the only approved LLM-ranking exception; broader model use requires a separate milestone.
 - New job providers, portal scraping, employer-board crawling, scheduling, login, or resume-object
   storage.
 - Cross-workspace feedback sharing.
@@ -688,6 +690,8 @@ Use this request format:
 ```text
 Read AGENTS.md, ENGINEERING_STANDARDS.md, PRODUCT_REQUIREMENTS.md, SYSTEM_DESIGN.md,
 SESSION_HANDOFF.md, README.md, BUILD_PROGRESS.md, and NEXT_MILESTONES.md. Preserve the current
-worktree. S0.1 is complete and S0.2 is selected. Continue only S0.2; do not combine it with S0.3 or
-later launch gaps.
+worktree. AI-RANK-01 is deployed default-off and its live Nebius acceptance is open. Continue only
+that one-job acceptance after runtime secrets and a current NVIDIA model ID are supplied, or obtain
+explicit owner selection of a different milestone. Do not combine it with the batch-to-live-feed
+redesign or later launch gaps.
 ```

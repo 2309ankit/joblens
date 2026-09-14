@@ -99,12 +99,22 @@ JOOBLE_IN_BASE_URL=https://in.jooble.org
 JOBLENS_NVIDIA_RANKING_ENABLED=false
 NEBIUS_API_KEY=
 NEBIUS_MODEL=
+NEBIUS_MAX_JOBS_PER_RUN=1
+NEBIUS_MAX_CALLS_PER_DAY=5
 ```
 
 Environment variables override these values. Never commit real credentials; `.env` is ignored. An
 unset key for any one country simply leaves that country inactive; the others keep working.
 NVIDIA ranking likewise remains inactive until all three NVIDIA/Nebius values are set. See
 [NVIDIA_NEBIUS_RANKING.md](NVIDIA_NEBIUS_RANKING.md) for its data, cost, cache, and fallback boundary.
+
+To enable NVIDIA scoring on the hosted demo, create a Token Factory API key, select the exact ID of
+a currently available NVIDIA open-source chat model, and add the five values above in Render under
+`joblens-demo` → **Environment**. Set the flag to `true` only after the key and model are present.
+Start with one job per run and a five-call daily ceiling; verify a successful score before increasing
+them. The key is a runtime secret: never commit it, place it in frontend code, or paste it into an
+issue/chat. Without these values the application is still fully usable and automatically displays its
+deterministic `universal-v2` score.
 
 ## Free demo deployment
 
@@ -144,8 +154,10 @@ SELECT pg_size_pretty(pg_database_size(current_database()));
    proposes one `joblens-demo` Free web service in Singapore.
 2. At the initial secret prompts, enter `JOBLENS_DB_URL`, `JOBLENS_DB_USERNAME`, and
    `JOBLENS_DB_PASSWORD` from Neon. Confirm the service plan still says **Free** before applying it.
-3. Do not add a Render database, disk, worker, or cron service. Optional Adzuna or Jooble credentials
-   may be entered later in Render's environment settings; they are not required for deployment.
+3. Do not add a Render database, disk, worker, or cron service. Optional Adzuna, Jooble, or Nebius
+   credentials may be entered later in Render's environment settings; they are not required for the
+   application to deploy. Nebius credentials are required only when NVIDIA scoring is explicitly
+   enabled.
 4. Start the first deploy manually. Every push to `main` after that deploys automatically — see
    **Deployment pipeline** below. This is not the full S6 production platform gate (no staging
    environment, no security gates, no progressive rollout), but it is no longer a purely manual

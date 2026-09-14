@@ -5,64 +5,46 @@ authoritative startup product/launch contract, [SYSTEM_DESIGN.md](SYSTEM_DESIGN.
 architecture, [BUILD_PROGRESS.md](BUILD_PROGRESS.md) is historical evidence, [README.md](README.md)
 is the local operator guide, [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) is the mandatory
 development/review contract, and [NEXT_MILESTONES.md](NEXT_MILESTONES.md) indexes selectable work.
+The resume checkpoint below is authoritative for current state. Later dated sections retain the
+evidence and wording from their original milestone unless they explicitly say they were superseded.
 
 ## 1. Resume checkpoint
 
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens
 Branch: main
-Implementation baseline: M3.2 Role-Aware Ranking + S0.1 Discovery Safety + assisted multi-market onboarding
-M3.2 implementation commit: 2885c84 (feat(ranking): add role-aware calibration)
-Latest onboarding-fix commit: 482a3b5 (fix(onboarding): support assisted multi-market setup)
+Implementation baseline: AI-RANK-01 guarded NVIDIA-on-Nebius final scoring
+AI ranking implementation commit: 316a1e3 (feat: add guarded NVIDIA Nebius job scoring)
+Latest implementation commit: 65604e1 (chore: remove validation message warning)
 Product baseline: D1 Startup Requirements and Architecture
 Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
-React surface checkpoint: R1.1 — COMPLETE (2026-09-08)
-Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
-Next shipping milestone: D3 Free Demo Deployment — COMPLETE (2026-09-10), including post-deploy
-incident fixes on 2026-09-10 and a second post-deploy fix round on 2026-09-11 (see below).
-S0.4 Semantic Skill Extraction — IMPLEMENTED 2026-09-11, shipped disabled by default (see below and
-[S0_4_SEMANTIC_SKILL_EXTRACTION.md](S0_4_SEMANTIC_SKILL_EXTRACTION.md)); await owner direction for the
-next module.
-Jooble MyCareersFuture exclusion toggle and desired salary range — COMPLETE, committed as `b71b7d2`
-on 2026-09-13 (see below); this was previously undocumented in this handoff.
-Onboarding concurrency/draft-idempotency fix (workspace row lock + upsert-on-fork) — COMPLETE,
-committed as `bde45c6`.
-Adzuna market-coverage fix (stop creating Adzuna profiles for markets it doesn't cover, e.g.
-Malaysia) — COMPLETE, committed as `b2576bd` (see below).
-Dashboard retroactive MyCareersFuture filter (hides already-ingested jobs, not just future ones) —
-COMPLETE, committed as `38f0a5a` (see below).
 Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V29 (add_semantic_skill_match_evidence — additive `matched_canonical_term`
-column)
-Latest implementation commit: 38f0a5a (fix(dashboard): retroactively hide already-ingested
-MyCareersFuture jobs) — HEAD of `main` and live on Render (`joblens-demo`) as of 2026-09-13.
-`git log origin/main..HEAD` is empty — nothing pending push.
-Untracked at repo root: `.neon` — purpose not inspected this session, do not delete without
-checking first.
-Latest full test (this session, 2026-09-13): 189 Java tests, 0 failures, 0 errors, 0 skipped.
-Spotless and `git diff --check` pass. React suite not touched this session.
-One known follow-up left in a live-only state, not fixable by code alone: workspace
-`8dab5d2e-ab1e-44d2-b0ca-8d6549633fc5` (Malaysia) still has a pre-fix Adzuna search profile active
-and will keep failing on periodic stale-execution resumes until it re-saves its preferences (see
-the Adzuna fix entry below).
-Local runtime: rebuilt and verified this session on the S0.4 code — `docker compose up -d
---force-recreate app` starts cleanly in 2.01s, `/actuator/health` UP, idle memory 301 MiB (`docker
-stats`, no artificial limit), image 341,930,845 bytes (~326 MB, up from the D3-era ~160 MB — see S0_4
-doc §8 for why). Semantic matching is OFF at runtime
-(`joblens.onboarding.semantic-matching.enabled=false` default).
-Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g) deploy dep-dahf5irl550s7381j210 of commit 8170d61 is live (unchanged this session — commit 6e01af2 not pushed/deployed); /actuator/health reports UP.
-Auto-deploy is now ON (`autoDeployTrigger: "commit"` in render.yaml and on the live service) — a push
-to `main` deploys automatically; `render deploys create` is no longer required for routine pushes. A
-push of 6e01af2 would auto-deploy S0.4 (disabled by default, so this is low-risk) to the live demo.
-Owner-reported next items: D3 (including both post-deploy incident-fix rounds) is complete; S0.4 is
-implemented, committed, and shipped disabled, but not yet pushed; S0.2 is paused and acceptance-open;
-the S0.3 recommendation diagnosis is recorded below, but its implementation remains queued. Next
-session should confirm whether to push 6e01af2, then ask the owner which module to pick up next (S0.2
-acceptance, S0.3, enabling S0.4 in production via a base-image change, or another).
+Latest Flyway migration: V34 (cached and audited NVIDIA-on-Nebius job scores)
+Latest full verification (2026-09-14): 196 Java tests and 21 React tests; all passed. Spotless and
+git diff --check passed.
+Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g), deploy dep-dak1lf8jo6nc73b5evpg of
+commit 65604e1 is live; /actuator/health returned UP on 2026-09-15.
+AI runtime state: code is deployed but NVIDIA ranking is OFF by default. Deterministic universal-v2
+scoring is the active primary score and remains the automatic fallback.
+AI activation requires Render secrets NEBIUS_API_KEY and NEBIUS_MODEL plus
+JOBLENS_NVIDIA_RANKING_ENABLED=true. Begin with NEBIUS_MAX_JOBS_PER_RUN=1 and a small
+NEBIUS_MAX_CALLS_PER_DAY. Never commit or paste the key into documentation, source, logs, or chat.
+No live Nebius call has been accepted yet; AI-RANK-01 remains live-acceptance-open until a current
+NVIDIA model ID is selected, one bounded production request succeeds, the persisted source reads
+NVIDIA_NEBIUS, and fallback behavior is rechecked.
+Deployment path: push main -> GitHub Actions full test gate -> Render API deploy. Render's native
+auto-deploy is OFF. Do not manually create a second deploy for the same commit.
+Untracked at repo root: .neon — user-created/unknown; do not inspect, delete, or commit without
+explicit owner direction.
+Known live-data follow-up: an older Malaysia workspace may still retain a pre-fix Adzuna profile;
+re-saving that workspace's preferences is the safe repair if the old Adzuna 404 recurs.
+Next action: supply runtime-only Nebius credentials/model and perform the one-job live acceptance,
+or select one other milestone from NEXT_MILESTONES.md. Do not begin the batch-to-live-feed redesign
+without its separate approved requirement and acceptance criteria.
 ```
 
 **Deploy mechanism, corrected 2026-09-13**: earlier entries below say auto-deploy is off and a manual
@@ -74,6 +56,25 @@ of `render.yaml`'s `autoDeployTrigger` field and the Render dashboard's own "Aut
 mechanism this workflow doesn't use). **A plain push to `main` already deploys, gated on tests
 passing — do not also run `render deploys create` manually; it just races the same deploy.** Verify
 with `gh run list --workflow=deploy.yml` rather than assuming from `render.yaml`.
+
+### NVIDIA/Nebius activation — operator checklist
+
+1. Create a Token Factory API key and save it when shown; Nebius does not display it again later.
+2. Select an NVIDIA open-source chat model from Token Factory's current catalogue. Do not copy a
+   model ID from an old handoff because catalogue availability can change.
+3. In Render, open `joblens-demo` → **Environment** and add the runtime-only values
+   `NEBIUS_API_KEY`, `NEBIUS_MODEL`, and `JOBLENS_NVIDIA_RANKING_ENABLED=true`.
+4. For first acceptance set `NEBIUS_MAX_JOBS_PER_RUN=1` and
+   `NEBIUS_MAX_CALLS_PER_DAY=5`, then save the environment and allow Render to redeploy.
+5. Run Find Jobs once in a synthetic/redacted workspace. Verify one successful
+   `nvidia_job_score_attempt`, one cached `nvidia_job_score`, dashboard `scoring_source` equal to
+   `NVIDIA_NEBIUS`, and no second provider call for the same cache identity.
+6. Disable the flag immediately if provider errors, malformed output, unexpected spend, or sensitive
+   data exposure is observed. Deterministic `universal-v2` scoring continues as fallback.
+
+The first implementation has a persisted daily limit suitable for the current single worker, but it
+does not reserve quota atomically across multiple workers. Do not scale NVIDIA ranking workers until
+a concurrency-safe shared reservation is implemented.
 
 Before making changes:
 
@@ -87,10 +88,10 @@ Read [AGENTS.md](AGENTS.md), [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md),
 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md), and [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md), then select exactly one milestone from
 [NEXT_MILESTONES.md](NEXT_MILESTONES.md). Do not infer or combine milestones.
 
-## Onboarding concurrency and draft-idempotency fix — IMPLEMENTED, NOT YET COMMITTED (2026-09-13)
+## Onboarding concurrency and draft-idempotency fix — COMPLETE (2026-09-13)
 
-Working-tree changes only; not committed. Found and documented retroactively while reviewing repo
-state at the start of this session — do not assume it was verified/reviewed by the owner yet.
+Committed as `bde45c6`. This entry began as a working-tree note and is retained as the detailed
+evidence for the completed fix.
 
 **Problem.** `OnboardingService`'s mutating operations (`upload`, `updateSkills`, `savePreferences`,
 `completeSetup`, `confirm`) had no serialization between concurrent requests for the same workspace.
@@ -118,11 +119,10 @@ calls for the same active profile return the same draft id; only one `DRAFT` row
 failures/errors. Full suite passes 186 Java tests, 0 failures/errors/skipped, against fresh PostgreSQL
 17 Testcontainers (Flyway V1–V32). `spotless:apply` was needed once to reformat the new concurrency
 test's constructor-argument line wrapping; after that, `spotless:check` and `git diff --check` pass.
-Not packaged, not run against a live Docker image, not reviewed by the owner. React suite untouched
-(no frontend changes in this fix).
-
-**Not done:** commit, push, or owner review. The untracked `.neon` file/dir at the repo root was not
-investigated as part of this fix — check its purpose before assuming it's unrelated debris.
+At the time of the focused verification it was not packaged or run against a live Docker image.
+The later full-suite/deployment evidence in the resume checkpoint supersedes that runtime gap. React
+was untouched by this fix. The untracked `.neon` file/dir at the repo root remains user-created or
+unknown and must not be inspected, deleted, or committed without explicit owner direction.
 
 ## Jooble MyCareersFuture exclusion toggle and desired salary range — COMPLETE (2026-09-13)
 
@@ -1286,6 +1286,7 @@ Quality evidence required before implementation is called complete:
       4. skill extraction
       5. exact and fuzzy duplicate analysis
       6. universal role-aware scoring with optional calibrated overlays and per-role reasons
+      7. optional NVIDIA-on-Nebius final scoring; deterministic result remains fallback
   → open original listing (records VIEWED)
   → save an application
 
@@ -1305,7 +1306,7 @@ database, and one deployable image. The target keeps the modular codebase while 
 scaled API and worker runtime roles.
 
 ```text
-Thymeleaf / REST
+React SPA / REST
        ↓
 application services and ownership checks
        ↓
@@ -1417,10 +1418,10 @@ src/main/java/com/ankit/joblens/
   discovery/      source adapters, raw landing, source boards, Find-jobs orchestration
   intelligence/   normalization, skills, duplicate analysis, scoring
   lifecycle/      applications, transitions, follow-ups
-  dashboard/      Thymeleaf controllers and view tracking
+  dashboard/      SPA/API forwarding, dashboard reads, and view tracking
 
 src/main/resources/
-  db/migration/   Flyway V1-V25
+  db/migration/   Flyway V1-V34
   sql/            externalized SQL grouped by feature
   templates/      setup, dashboard, applications
 ```
@@ -1453,6 +1454,9 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
   provider-budget or concurrency target.
 - Fuzzy thresholds and the initial role-overlay signals still need reviewed real-world calibration;
   S4 owns feedback and Precision@10 rather than automatic self-training.
+- NVIDIA-on-Nebius final scoring is deployed but disabled by default. It requires runtime-only Render
+  credentials, an exact current model ID, and a one-job live acceptance before increasing limits. The
+  first daily budget counter is single-worker-safe only.
 - Original resume storage, schedules, and external notifications are not implemented.
 - Market insights are shared market-level projections rather than private workspace projections.
 - The inclusive taxonomy is a curated starter set (expanded 2026-09-11 with ~34 sales/business-
@@ -1466,9 +1470,9 @@ Testcontainers requires Docker Desktop. Never commit `.env`, credentials, tokens
   suggested title is factually correct.
 - React currently exposes only upload-derived role suggestions and a plain-text sector field; it does
   not use the existing live role-catalogue search or a normalized sector selector.
-- Dashboard ordering is score-descending over at most 25 eligible workspace sightings, but the first
-  row is featured without a minimum recommendation-quality boundary. Treat this as relative ordering,
-  not verified strong relevance.
+- Dashboard ordering is score-descending over at most 25 eligible workspace sightings and
+  `universal-v2` separates qualified Recommended jobs from lower-confidence exploration. NVIDIA
+  score ordering still needs live acceptance and reviewed relevance calibration.
 - Resume skill review groups catalogue matches by their existing category and evidence order, reveals
   long groups incrementally, rejects short lowercase taxonomy fragments, and keeps preferred sectors
   optional. React setup now preserves all normalized market rows. Search countries are selected by
@@ -1491,6 +1495,7 @@ S0.1 Discovery execution safety — COMPLETE (2026-09-08)
 Assisted multi-market onboarding follow-up — COMPLETE (2026-09-08)
 S0.2 Onboarding correctness — SELECTED, IMPLEMENTATION VERIFIED, ACCEPTANCE OPEN
 S0.3 Cross-role ranking correctness — COMPLETE (2026-09-11)
+AI-RANK-01 NVIDIA-on-Nebius final scoring — DEPLOYED DEFAULT-OFF; LIVE ACCEPTANCE OPEN
 S1 Authenticated account ownership and RBAC — NOT STARTED
 S2 Product run commands, safe concurrency/recovery and live progress — NOT STARTED
 S3 Shared ingestion and provider budgets — NOT STARTED
@@ -1504,9 +1509,8 @@ and does not override S0–S6. Do not combine the
 startup modules or silently advance. At each boundary, finish tests, evidence, documentation, and a
 conventional commit, then obtain explicit user direction before starting another module.
 
-The implementation baseline is M3.2 plus S0.1 and the completed assisted multi-market onboarding
-follow-up; the product baseline is D1 and the engineering baseline is D2. The 2026-09-09 additions
-extend the owner-selected S0.2 checkpoint with live role/sector assistance and the premium
-résumé-review quality gate, and S0.3 with the recommendation qualification contract. Do not combine
-S0.2 with S0.3, S1–S6, M2.8, or a
-microservice split without an explicit checkpoint decision.
+The implementation baseline is AI-RANK-01 on top of the completed deterministic ranking, discovery,
+and onboarding slices; the product baseline is D1 and the engineering baseline is D2. The next safe
+AI action is the bounded live acceptance described at the top of this handoff. Do not combine that
+acceptance with S1–S6, the batch-to-live-feed redesign, M2.8, or a microservice split without a
+separate explicit checkpoint decision.

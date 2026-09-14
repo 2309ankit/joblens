@@ -1,6 +1,7 @@
 # NVIDIA-on-Nebius Ranking — AI-RANK-01
 
-Status: first local implementation slice verified; live Nebius validation pending (2026-09-14)
+Status: implementation deployed behind a default-off flag; live Nebius validation pending
+(2026-09-15)
 
 ## Decision
 
@@ -37,6 +38,34 @@ single-worker deployment. A concurrency-safe shared quota reservation is still r
 enabling multiple ranking workers. The provider model
 identifier, prompt version, token usage, confidence, and sanitized failure are retained for audit.
 
+## Activate on Render
+
+The deployed application starts normally without NVIDIA credentials and continues to use
+`universal-v2`. To activate the provider:
+
+1. In [Nebius Token Factory](https://tokenfactory.nebius.com), open **API keys**, create a key, and
+   save it when shown. Do not paste it into Git, documentation, application logs, frontend code, or a
+   chat message.
+2. Select an NVIDIA open-source chat model from the current Token Factory catalogue. The catalogue is
+   the source of truth; use its exact model ID as `NEBIUS_MODEL`.
+3. In Render, open the `joblens-demo` service, choose **Environment**, and add these runtime values:
+
+   ```env
+   NEBIUS_API_KEY=<secret API key>
+   NEBIUS_MODEL=<exact current NVIDIA model ID>
+   JOBLENS_NVIDIA_RANKING_ENABLED=true
+   NEBIUS_MAX_JOBS_PER_RUN=1
+   NEBIUS_MAX_CALLS_PER_DAY=5
+   ```
+
+4. Save the environment so Render redeploys. Run Find Jobs once using synthetic or redacted profile
+   data and verify one NVIDIA score before increasing either limit.
+
+The API key is required for live scoring. `NEBIUS_MODEL` is also required because JobLens
+deliberately does not pin a catalogue entry that Nebius may later rename or retire. If any required
+value is absent, leave `JOBLENS_NVIDIA_RANKING_ENABLED=false`; enabling with missing values is a
+configuration error. Rotating a key only requires replacing the Render secret and redeploying.
+
 ## Acceptance evidence
 
 The local slice is complete when tests prove: disabled mode makes no provider call; valid JSON is
@@ -44,3 +73,5 @@ persisted and becomes the displayed score; the same cache identity is not charge
 JSON and provider failures are recorded without replacing the deterministic score; and call limits
 stop additional requests. A live Nebius verification remains separate and requires user-supplied
 credentials plus a currently available NVIDIA model selected from Token Factory's model catalogue.
+The deployed code at commit `65604e1` was healthy on Render, but this is not live-model acceptance:
+the flag remained off and no user key was available.

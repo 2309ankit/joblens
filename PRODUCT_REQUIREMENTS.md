@@ -123,8 +123,8 @@ means no adequate implementation exists. Fixed does not imply year-one load vali
 | FR-03 | Multi-market preference management | PARTIAL | Normalized targets, provider capability catalogue, and responsive multi-row React management work; normalized sector assistance, authenticated ownership, launch-market selection, and measured market quality remain open |
 | FR-04 | Legitimate job ingestion with untouched raw evidence | PARTIAL | Adzuna, optional Jooble, and bounded Greenhouse/Lever enrichment work; commercial terms, quotas, shared ingestion, and broader reliable coverage are unresolved |
 | FR-05 | Restartable normalization, skill extraction, and duplicate processing | FIXED | PostgreSQL/Flyway/Spring Batch pipeline is deterministic, observable, and tested at functional scale |
-| FR-06 | Explainable role-aware ranking | PARTIAL | Universal policy and four overlays persist per-role evidence; relevance is not yet calibrated and cross-role false positives are open |
-| FR-07 | Search results exploration | PARTIAL | The dashboard returns up to 25 eligible workspace-sighted jobs ordered by candidate score, but has no minimum recommendation threshold or separate low-confidence/new-results treatment; backend filters, stable user-selected sorts, keyset pagination, grouping, and saved-state explorer are also missing |
+| FR-06 | Explainable role-aware ranking | PARTIAL | `universal-v2` and four overlays persist per-role evidence and provide the mandatory fallback; an optional NVIDIA open-source model on Nebius is implemented and deployed default-off as the primary final score when valid, but live provider acceptance, reviewed relevance calibration, feedback evaluation, and multi-worker budget control remain open |
+| FR-07 | Search results exploration | PARTIAL | The dashboard returns up to 25 eligible workspace-sighted jobs ordered by the current candidate score and separates qualified Recommended jobs from Explore-other-results; backend filters, stable user-selected sorts, keyset pagination, grouping, saved-state explorer, and measured AI-ranking quality are still missing |
 | FR-08 | Application and follow-up lifecycle | PARTIAL | Deterministic lifecycle/history/follow-ups work; reminders, notification delivery, account ownership, and support recovery are incomplete |
 | FR-09 | Market insights | PARTIAL | Weekly aggregate job exists; product definition, tenant/privacy boundary, scheduling, and useful empty-state/data freshness require completion |
 | FR-10 | Live run progress and recovery | MISSING | Source-run records exist, but no supported real-time channel, admission control, safe active-run UX, stale-run recovery, or cancellation contract exists |
@@ -228,6 +228,9 @@ states; normal users must never receive raw `JobInstance`/`JobExecution` errors.
   explanations, including a versioned `qualifiesRecommended` recommendation-qualification signal
   (`universal-v2`, S0.3, completed 2026-09-11) that stops the dashboard from featuring the
   highest-scored job in a weak result set as a strong match when it isn't one.
+- Guarded NVIDIA-on-Nebius final scoring with strict output validation, cached/audited attempts,
+  bounded calls, visible score provenance, and automatic deterministic fallback. The code is deployed
+  default-off; live-model acceptance still requires owner-supplied runtime credentials and evaluation.
 - Workspace-scoped data model across profiles, sightings, scores, views, applications, and follow-ups.
 - Functional PostgreSQL Testcontainers and provider contract tests.
 - Docker image, health endpoint, REST/OpenAPI, and React product flow.

@@ -123,6 +123,21 @@ and subscriber list so concurrent users do not trigger duplicate crawls. Cache r
 observable: the run should state whether data was fetched, refreshed, or reused. Candidate ranking
 must never become shared merely because ingestion is shared.
 
+### NVIDIA final-scoring boundary
+
+AI-RANK-01 adds an optional final scorer using an NVIDIA open-source model served by Nebius Token
+Factory. Deterministic `universal-v2` scoring still runs first, enforces eligibility, produces the
+bounded shortlist, and remains independently explainable. A validated, current NVIDIA score may
+replace the displayed final score; disabled inference, missing cache entries, exhausted budget,
+timeouts, provider errors, and invalid model output retain the deterministic result.
+
+The provider call sends bounded structured profile/job facts, never original résumé bytes. Successful
+results are cached by candidate facts/profile version, normalized job content hash, model ID, and
+prompt version. Provider calls run outside database transactions and attempts are audited without
+persisting credentials. Runtime activation requires `NEBIUS_API_KEY`, `NEBIUS_MODEL`, and the explicit
+feature flag. The first persisted daily limit assumes one worker; atomically reserved shared quota is
+required before concurrent ranking workers are enabled.
+
 ## 6. API, Batch and real-time boundaries
 
 | Operation | Interface | Execution model |
