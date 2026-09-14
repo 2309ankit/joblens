@@ -14,6 +14,7 @@ public class FindJobsConfiguration {
   @Bean
   Job findJobsJob(
       JobRepository jobRepository,
+      @Qualifier("agenticQueryPlanningStep") Step queryPlanning,
       @Qualifier("jobDiscoveryStep") Step discovery,
       @Qualifier("jobNormalizationStep") Step normalization,
       @Qualifier("skillExtractionStep") Step skills,
@@ -22,7 +23,8 @@ public class FindJobsConfiguration {
       @Qualifier("scoringStep") Step scoring,
       @Qualifier("nvidiaScoringStep") Step nvidiaScoring) {
     return new JobBuilder("findJobsJob", jobRepository)
-        .start(discovery)
+        .start(queryPlanning)
+        .next(discovery)
         .next(normalization)
         .next(skills)
         .next(exactDuplicates)

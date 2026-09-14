@@ -60,9 +60,16 @@ public class JobDiscoveryConfiguration {
       AdzunaProperties properties,
       @Value("#{jobParameters['profileId']}") String requestedProfileId,
       @Value("#{jobParameters['workspaceId']}") String workspaceId,
-      FailureReasonSanitizer failureReasons) {
+      FailureReasonSanitizer failureReasons,
+      QueryPlanningRepository queryPlanningRepository) {
     return new JobDiscoveryTasklet(
-        persistence, clients, properties, requestedProfileId, workspaceId, failureReasons);
+        persistence,
+        clients,
+        properties,
+        requestedProfileId,
+        workspaceId,
+        failureReasons,
+        queryPlanningRepository);
   }
 
   @Bean
