@@ -2,6 +2,7 @@ package com.ankit.joblens.batchapi;
 
 import java.time.Instant;
 import java.util.Map;
+import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -31,7 +32,7 @@ public class CandidateProfileExceptionHandler {
     if (exception instanceof MethodArgumentNotValidException validationException) {
       return validationException.getBindingResult().getAllErrors().stream()
           .findFirst()
-          .map(error -> error.getDefaultMessage())
+          .map(DefaultMessageSourceResolvable::getDefaultMessage)
           .orElse("Profile request is invalid");
     }
     return exception.getMessage();
