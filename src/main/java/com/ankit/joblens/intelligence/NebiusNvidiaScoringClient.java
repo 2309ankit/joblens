@@ -5,10 +5,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -24,13 +21,13 @@ public class NebiusNvidiaScoringClient {
       Do not infer protected characteristics or facts not present in the input.
       """;
 
-  private final WebClient webClient;
+  private final NebiusChatCompletionClient chatClient;
   private final ObjectMapper objectMapper;
   private final NvidiaRankingProperties properties;
 
   public NebiusNvidiaScoringClient(
       WebClient.Builder builder, ObjectMapper objectMapper, NvidiaRankingProperties properties) {
-    this.webClient = builder.baseUrl(properties.baseUrl()).build();
+    this.chatClient = new NebiusChatCompletionClient(builder, objectMapper, properties.baseUrl());
     this.objectMapper = objectMapper;
     this.properties = properties;
   }
@@ -38,58 +35,20 @@ public class NebiusNvidiaScoringClient {
   public NvidiaScoreResult score(
       NvidiaScoringCandidate candidate, RoleRankingContext rankingContext) {
     properties.requireEnabledConfiguration();
-    Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("model", properties.model());
-    payload.put(
-        "messages",
-        List.of(
-            Map.of("role", "system", "content", SYSTEM_PROMPT),
-            Map.of("role", "user", "content", inputJson(candidate, rankingContext))));
-    payload.put("temperature", 0);
-    payload.put("max_tokens", properties.maxOutputTokens());
-    payload.put("response_format", Map.of("type", "json_object"));
-    payload.put("store", false);
-    // Hybrid-reasoning models (e.g. Nemotron 3 Nano) can spend the whole max_tokens budget on a
-    // hidden thinking trace and leave message.content null; this call is a bounded scoring lookup,
-    // not something that benefits from chain-of-thought.
-    payload.put("chat_template_kwargs", Map.of("enable_thinking", false));
-
-    String response;
+    ChatCompletionResult completion;
     try {
-      response =
-          webClient
-              .post()
-              .uri(uriBuilder -> uriBuilder.pathSegment("chat", "completions").build())
-              .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.apiKey())
-              .contentType(MediaType.APPLICATION_JSON)
-              .accept(MediaType.APPLICATION_JSON)
-              .bodyValue(payload)
-              .exchangeToMono(
-                  httpResponse -> {
-                    if (httpResponse.statusCode().is2xxSuccessful()) {
-                      return httpResponse.bodyToMono(String.class);
-                    }
-                    return httpResponse
-                        .bodyToMono(String.class)
-                        .defaultIfEmpty("")
-                        .flatMap(
-                            ignored ->
-                                Mono.error(
-                                    new NvidiaScoringException(
-                                        "Nebius HTTP status "
-                                            + httpResponse.statusCode().value())));
-                  })
-              .timeout(properties.timeout())
-              .block();
-    } catch (NvidiaScoringException exception) {
-      throw exception;
-    } catch (RuntimeException exception) {
-      throw new NvidiaScoringException("Nebius scoring request failed", exception);
+      completion =
+          chatClient.complete(
+              properties.apiKey(),
+              properties.model(),
+              SYSTEM_PROMPT,
+              inputJson(candidate, rankingContext),
+              properties.maxOutputTokens(),
+              properties.timeout());
+    } catch (NebiusChatCompletionException exception) {
+      throw new NvidiaScoringException(exception.getMessage(), exception);
     }
-    if (response == null || response.isBlank()) {
-      throw new NvidiaScoringException("Nebius returned an empty response");
-    }
-    return parse(response);
+    return parse(completion);
   }
 
   private String inputJson(
@@ -130,14 +89,9 @@ public class NebiusNvidiaScoringClient {
     }
   }
 
-  private NvidiaScoreResult parse(String response) {
+  private NvidiaScoreResult parse(ChatCompletionResult completion) {
     try {
-      JsonNode root = objectMapper.readTree(response);
-      JsonNode content = root.path("choices").path(0).path("message").path("content");
-      if (!content.isTextual()) {
-        throw invalid("choices[0].message.content must be text");
-      }
-      JsonNode score = objectMapper.readTree(content.asText());
+      JsonNode score = objectMapper.readTree(completion.content());
       requireObject(score, "model output");
       int totalScore = requiredInteger(score, "totalScore", 0, 100);
       double confidence = requiredNumber(score, "confidence", 0, 1);
@@ -161,15 +115,14 @@ public class NebiusNvidiaScoringClient {
                 requiredText(reason, "category", 1, 50),
                 requiredText(reason, "explanation", 1, 300)));
       }
-      JsonNode usage = root.path("usage");
       return new NvidiaScoreResult(
           totalScore,
           confidence,
           qualifies.asBoolean(),
           summary,
           List.copyOf(reasons),
-          optionalNonNegativeInteger(usage, "prompt_tokens"),
-          optionalNonNegativeInteger(usage, "completion_tokens"));
+          completion.inputTokens(),
+          completion.outputTokens());
     } catch (NvidiaScoringException exception) {
       throw exception;
     } catch (JacksonException exception) {
@@ -218,14 +171,6 @@ public class NebiusNvidiaScoringClient {
       throw invalid(field + " is outside its allowed length");
     }
     return result;
-  }
-
-  private static Integer optionalNonNegativeInteger(JsonNode node, String field) {
-    JsonNode value = node.get(field);
-    if (value == null || !value.isIntegralNumber() || value.asInt() < 0) {
-      return null;
-    }
-    return value.asInt();
   }
 
   private static NvidiaScoringException invalid(String reason) {

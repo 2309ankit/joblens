@@ -127,7 +127,9 @@ public class WorkspaceSearchRunRepository {
                     resultSet.getInt("sighted_records"),
                     resultSet.getInt("scored_records"),
                     resultSet.getString("first_zero_stage"),
-                    resultSet.getString("failure_reason")));
+                    resultSet.getString("failure_reason"),
+                    resultSet.getString("query_planning_source"),
+                    resultSet.getString("query_planning_rationale")));
     FindJobsRunSummary original = run.getFirst();
     FindJobsRunSummary summary =
         new FindJobsRunSummary(
