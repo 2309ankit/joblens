@@ -53,8 +53,27 @@ class NebiusNvidiaScoringClientTests {
     assertThat(request.getPath()).isEqualTo("/v1/chat/completions");
     assertThat(request.getHeader("Authorization")).isEqualTo("Bearer test-key");
     assertThat(request.getBody().readUtf8())
-        .contains("nvidia/test-model", "Java Engineer", "response_format")
+        .contains(
+            "nvidia/test-model",
+            "Java Engineer",
+            "response_format",
+            "\"chat_template_kwargs\":{\"enable_thinking\":false}")
         .doesNotContain("original résumé");
+  }
+
+  @Test
+  void rejectsANullContentTypicalOfAnExhaustedReasoningBudget() {
+    server.enqueue(
+        json(
+            200,
+            """
+            {"choices":[{"message":{"content":null}}],
+             "usage":{"prompt_tokens":120,"completion_tokens":500}}
+            """));
+
+    assertThatThrownBy(() -> client().score(scoringCandidate(), context()))
+        .isInstanceOf(NvidiaScoringException.class)
+        .hasMessageContaining("choices[0].message.content must be text");
   }
 
   @Test

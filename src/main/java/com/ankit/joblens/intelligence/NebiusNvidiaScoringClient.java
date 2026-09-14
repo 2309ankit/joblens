@@ -49,6 +49,10 @@ public class NebiusNvidiaScoringClient {
     payload.put("max_tokens", properties.maxOutputTokens());
     payload.put("response_format", Map.of("type", "json_object"));
     payload.put("store", false);
+    // Hybrid-reasoning models (e.g. Nemotron 3 Nano) can spend the whole max_tokens budget on a
+    // hidden thinking trace and leave message.content null; this call is a bounded scoring lookup,
+    // not something that benefits from chain-of-thought.
+    payload.put("chat_template_kwargs", Map.of("enable_thinking", false));
 
     String response;
     try {
