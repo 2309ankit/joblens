@@ -86,6 +86,9 @@ The generated project currently contains:
 - Full Maven build passed in 42.403 seconds: 212 Java and 21 React tests, no failures/errors/skips;
   Spotless formatting and `git diff --check` passed. Live acceptance remains pending deployment.
 - Added `CODEBASE_INDEX.md` and read-first instructions for subsequent sessions. No secrets indexed.
+- Shipping paused at the owner's request: implementation committed locally as `69df31c`, not pushed.
+  GitHub PR #1 remains open at `e51cab2`; main remains `ca6f6b1`. No new deployment or live acceptance
+  is claimed. `SESSION_HANDOFF.md` records the exact resume point and outstanding checks.
 
 ### AI-RANK-01 NVIDIA-on-Nebius primary scoring (2026-09-14)
 

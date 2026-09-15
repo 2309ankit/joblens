@@ -11,21 +11,37 @@ evidence and wording from their original milestone unless they explicitly say th
 
 ## 1. Resume checkpoint
 
-### Active shipping checkpoint — 2026-09-16 (Singapore)
+### Paused shipping checkpoint — 2026-09-16 (Singapore)
 
 This subsection supersedes the older checkpoint below. The owner authorized finishing tasks 1–3:
 FUZZY-DEDUP-01, live AI-RANK-01 acceptance and merging/deploying QUERY-PLAN-01 through PR #1.
-Branch `feature/query-plan-01-agentic-search` is pushed at `e51cab2`; the new fuzzy fix is ready to
-ship. Main currently points at `ca6f6b1`. Full local verification passed: 212 Java tests and 21 React
+The owner then asked to end work and leave a clean handoff. Do not resume deployment automatically.
+Branch `feature/query-plan-01-agentic-search` has local implementation commit `69df31c`; the remote
+branch remains at `e51cab2`. PR #1 is OPEN and unmerged (confirmed through GitHub after interruption).
+The attempted push/merge did not ship this fix. Main remains at `ca6f6b1`; its latest Actions run
+`34875891256` completed successfully. No new deployment for `69df31c` was triggered.
+Full local verification passed: 212 Java tests and 21 React
 tests, clean PostgreSQL 17/Flyway V35, Spotless and diff checks. See `FUZZY_DEDUP_01.md` for design,
 restart semantics and remaining dense-corpus limitations. No feature is declared live-accepted yet.
 
-Next: push the fix/index/evidence through PR #1, merge, monitor the test-gated Render deploy, then
+Next session, after the owner resumes: read `CODEBASE_INDEX.md` first and check its freshness;
+push the local fix/index/evidence through PR #1, merge, monitor the test-gated Render deploy, then
 use only synthetic workspace `c6f7ff1c-5fa1-484b-9fd5-fc4190094030` for bounded NVIDIA scoring and
 cache acceptance. QUERY-PLAN-01 remains default-off until the scoring/fuzzy acceptance is green.
-Do not manually duplicate the Actions-triggered deploy. Production HTTP probes are currently
-timing out before response and need rechecking; Render dashboard remains accessible.
+Do not manually duplicate the Actions-triggered deploy. Sandboxed production HTTP probes timed out;
+an approved external IPv4 health request returned `status=UP`. No post-fix live acceptance was run.
 The untracked `.neon` path remains untouched and must not be inspected or committed.
+
+Remaining acceptance: deployed fuzzy step completes without idle-in-transaction failure; one bounded
+Nemotron success is persisted and selected by the dashboard (`scoring_source=NVIDIA_NEBIUS`); an
+unchanged cache identity reuses the score without another provider call. Query planning remains
+default-off; its separate enabled live acceptance is also outstanding. Do not claim all three tasks
+complete from local tests or the old successful Actions run.
+
+Verification artifact: `/tmp/joblens-release-tests.log` (temporary; may disappear). Tests cover
+legacy fuzzy-v1 candidate/score parity, 5,000-job sparse index timing, PostgreSQL chunk rollback,
+stale cleanup, idempotence and restart. No database migration was added by the fuzzy fix; QUERY-PLAN-01
+adds V35. Index and implementation are committed; this handoff is a separate local docs commit.
 
 ### Previous checkpoint — historical, superseded above
 
