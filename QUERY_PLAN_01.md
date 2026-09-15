@@ -1,7 +1,7 @@
 # Agentic query planning — QUERY-PLAN-01
 
-Status: implementation deployed behind a default-off flag; live Nebius validation pending
-(2026-09-15)
+Status: implementation on PR #1 behind a default-off flag; merge/deploy and live validation pending
+(2026-09-16)
 
 ## Decision
 
@@ -49,6 +49,9 @@ retry. The provider model identifier, prompt version, and sanitized failure are 
 `query_plan_decision`/`query_plan_attempt` (migration `V35`).
 
 ## Known risk, noted not blocking
+
+Update (2026-09-16): FUZZY-DEDUP-01 is implemented and locally verified in the same PR; verify the
+deployed pipeline before enabling paid query-planning acceptance. The paragraph below is historical.
 
 `FuzzyDuplicateDetectionTasklet` (a step later in the same `findJobsJob` pipeline) has a documented,
 unrelated O(n²) global-table bug that has already crashed live Find Jobs runs — see

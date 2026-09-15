@@ -4,11 +4,30 @@ Use this file to resume work quickly. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREM
 authoritative startup product/launch contract, [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) is the target
 architecture, [BUILD_PROGRESS.md](BUILD_PROGRESS.md) is historical evidence, [README.md](README.md)
 is the local operator guide, [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) is the mandatory
-development/review contract, and [NEXT_MILESTONES.md](NEXT_MILESTONES.md) indexes selectable work.
+development/review contract, [CODEBASE_INDEX.md](CODEBASE_INDEX.md) is the refreshable navigation
+map, and [NEXT_MILESTONES.md](NEXT_MILESTONES.md) indexes selectable work.
 The resume checkpoint below is authoritative for current state. Later dated sections retain the
 evidence and wording from their original milestone unless they explicitly say they were superseded.
 
 ## 1. Resume checkpoint
+
+### Active shipping checkpoint — 2026-09-16 (Singapore)
+
+This subsection supersedes the older checkpoint below. The owner authorized finishing tasks 1–3:
+FUZZY-DEDUP-01, live AI-RANK-01 acceptance and merging/deploying QUERY-PLAN-01 through PR #1.
+Branch `feature/query-plan-01-agentic-search` is pushed at `e51cab2`; the new fuzzy fix is ready to
+ship. Main currently points at `ca6f6b1`. Full local verification passed: 212 Java tests and 21 React
+tests, clean PostgreSQL 17/Flyway V35, Spotless and diff checks. See `FUZZY_DEDUP_01.md` for design,
+restart semantics and remaining dense-corpus limitations. No feature is declared live-accepted yet.
+
+Next: push the fix/index/evidence through PR #1, merge, monitor the test-gated Render deploy, then
+use only synthetic workspace `c6f7ff1c-5fa1-484b-9fd5-fc4190094030` for bounded NVIDIA scoring and
+cache acceptance. QUERY-PLAN-01 remains default-off until the scoring/fuzzy acceptance is green.
+Do not manually duplicate the Actions-triggered deploy. Production HTTP probes are currently
+timing out before response and need rechecking; Render dashboard remains accessible.
+The untracked `.neon` path remains untouched and must not be inspected or committed.
+
+### Previous checkpoint — historical, superseded above
 
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens

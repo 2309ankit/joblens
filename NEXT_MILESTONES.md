@@ -34,7 +34,11 @@ of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
 | S5 | Résumé object lifecycle and privacy workflows | Add encrypted/scanned storage, retention, export, and deletion | Storage/retention/security decisions |
 | S6 | Production platform gate | CI/CD, staging/production, managed HA data, observability, backups/restore, load/security/failure testing | Deployment platform and operating ownership |
 
-## Known bug, not yet selected — global O(n²) fuzzy duplicate detection can crash live Find Jobs runs (2026-09-15)
+## FUZZY-DEDUP-01 — selected and locally verified; live acceptance pending (2026-09-16)
+
+The owner subsequently approved this fix with AI-RANK-01 acceptance and QUERY-PLAN-01 deployment.
+`FUZZY_DEDUP_01.md` records the implemented indexed-candidate/chunked-write design and 212 Java /
+21 React passing tests. The account below preserves the original defect evidence, not current code.
 
 Discovered live on `joblens-demo` while re-running the AI-RANK-01 live acceptance test (see
 `SESSION_HANDOFF.md`). `FuzzyDuplicateDetectionTasklet.execute()` loads **every row in
@@ -129,7 +133,7 @@ of its bundled model/runtime is a separate dependency and image-size decision.
 
 ### Owner direction — agentic query planning, QUERY-PLAN-01 (2026-09-15)
 
-Requirement `QUERY-PLAN-01` (**implementation deployed default-off; live Nebius validation pending**):
+Requirement `QUERY-PLAN-01` (**implemented on PR #1; merge/deployment and live validation pending**):
 the owner asked for the NVIDIA/Nebius model to participate in *finding* jobs, not only scoring them
 already-found jobs the way AI-RANK-01 does — a more agentic use of the model for the Best Apps and
 Agents hackathon track. Agreed bigger scope, built carefully with an independent toggle and a

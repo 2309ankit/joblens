@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 public class DuplicateDetectionRepository {
 
@@ -136,6 +137,45 @@ public class DuplicateDetectionRepository {
     for (JobSimilarity similarity : similarities) {
       jdbc.update(UPSERT_SIMILARITY, similarityParameters(similarity));
     }
+  }
+
+  /** Reconcile a chunk atomically; never delete another chunk's derived data. */
+  @Transactional
+  public void reconcileSimilaritiesForLeftJobs(
+      List<Long> leftJobIds,
+      String algorithmVersion,
+      List<JobSimilarity> similarities,
+      boolean injectFailure) {
+    jdbc.queryForList(
+        "SELECT id FROM normalized_job WHERE id IN (:ids) ORDER BY id FOR UPDATE",
+        Map.of("ids", leftJobIds));
+    var parameters =
+        new MapSqlParameterSource("leftJobIds", leftJobIds)
+            .addValue("algorithmVersion", algorithmVersion);
+    if (similarities.isEmpty()) {
+      jdbc.update(
+          "DELETE FROM job_similarity WHERE left_job_id IN (:leftJobIds) "
+              + "AND algorithm_version = :algorithmVersion",
+          parameters);
+    } else {
+      // Numeric pair keys need no JSON escaping; one parameter also avoids PostgreSQL's bind limit.
+      parameters.addValue(
+          "pairKeysJson",
+          similarities.stream()
+              .map(JobSimilarity::pairKey)
+              .collect(java.util.stream.Collectors.joining("\",\"", "[\"", "\"]")));
+      jdbc.update(
+          "DELETE FROM job_similarity WHERE left_job_id IN (:leftJobIds) "
+              + "AND algorithm_version = :algorithmVersion AND concat(left_job_id, ':', right_job_id) "
+              + "NOT IN (SELECT jsonb_array_elements_text(CAST(:pairKeysJson AS jsonb)))",
+          parameters);
+      jdbc.batchUpdate(
+          UPSERT_SIMILARITY,
+          similarities.stream()
+              .map(DuplicateDetectionRepository::similarityParameters)
+              .toArray(MapSqlParameterSource[]::new));
+    }
+    if (injectFailure) throw new InjectedFuzzyDetectionFailureException();
   }
 
   private static MapSqlParameterSource evidenceParameters(

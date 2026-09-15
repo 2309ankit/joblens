@@ -1,16 +1,18 @@
+// Frozen pre-FUZZY-DEDUP-01 implementation: independent parity oracle for optimization tests.
 package com.ankit.joblens.intelligence;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.Normalizer;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-public class FuzzySimilarityCalculator {
+final class LegacyFuzzySimilarityCalculator {
 
   public static final String ALGORITHM_VERSION = "fuzzy-v1";
 
@@ -37,7 +39,7 @@ public class FuzzySimilarityCalculator {
   private final BigDecimal minimumScore;
   private final BigDecimal likelyScore;
 
-  public FuzzySimilarityCalculator(BigDecimal minimumScore, BigDecimal likelyScore) {
+  public LegacyFuzzySimilarityCalculator(BigDecimal minimumScore, BigDecimal likelyScore) {
     if (minimumScore.signum() < 0 || minimumScore.compareTo(BigDecimal.valueOf(100)) > 0) {
       throw new IllegalArgumentException("minimumScore must be between 0 and 100");
     }
@@ -50,86 +52,24 @@ public class FuzzySimilarityCalculator {
   }
 
   public boolean isCandidate(DuplicateJobView left, DuplicateJobView right) {
-    return isCandidate(prepare(left), prepare(right));
+    Set<String> leftTitle = tokens(left.title(), BLOCK_STOP_WORDS);
+    Set<String> rightTitle = tokens(right.title(), BLOCK_STOP_WORDS);
+    boolean titleTokenOverlap = leftTitle.stream().anyMatch(rightTitle::contains);
+    boolean companyExact =
+        hasText(left.company()) && normalized(left.company()).equals(normalized(right.company()));
+    return titleTokenOverlap || companyExact || trigramDice(left.title(), right.title()) >= 70;
   }
 
   public JobSimilarity calculate(DuplicateJobView left, DuplicateJobView right) {
-    return calculate(prepare(left), prepare(right));
-  }
-
-  /** Immutable text features, prepared once per corpus snapshot rather than once per pair. */
-  public record PreparedJob(
-      DuplicateJobView job,
-      Set<String> blockingTokens,
-      Set<String> titleTokens,
-      Set<String> titleTrigrams,
-      String company,
-      Set<String> companyTokens,
-      Set<String> companyTrigrams,
-      Set<String> descriptionTokens,
-      Set<String> locationTokens,
-      String employment) {}
-
-  public PreparedJob prepare(DuplicateJobView job) {
-    return new PreparedJob(
-        job,
-        tokens(job.title(), BLOCK_STOP_WORDS),
-        tokens(job.title(), TEXT_STOP_WORDS),
-        trigrams(normalized(job.title())),
-        normalized(job.company()),
-        tokens(job.company(), TEXT_STOP_WORDS),
-        trigrams(normalized(job.company())),
-        tokens(job.description(), TEXT_STOP_WORDS),
-        tokens(job.location(), TEXT_STOP_WORDS),
-        normalized(job.employmentType()));
-  }
-
-  public boolean isCandidate(PreparedJob left, PreparedJob right) {
-    return left.blockingTokens().stream().anyMatch(right.blockingTokens()::contains)
-        || (hasText(left.job().company()) && left.company().equals(right.company()))
-        || dice(left.titleTrigrams(), right.titleTrigrams()) >= 70;
-  }
-
-  public JobSimilarity calculate(PreparedJob preparedLeft, PreparedJob preparedRight) {
-    DuplicateJobView left = preparedLeft.job();
-    DuplicateJobView right = preparedRight.job();
     if (left.id() >= right.id()) {
       throw new IllegalArgumentException("Similarity pairs must be ordered by job ID");
     }
 
-    BigDecimal title =
-        BigDecimal.valueOf(jaccard(preparedLeft.titleTokens(), preparedRight.titleTokens()))
-            .multiply(BigDecimal.valueOf(0.6))
-            .add(
-                BigDecimal.valueOf(
-                        dice(preparedLeft.titleTrigrams(), preparedRight.titleTrigrams()))
-                    .multiply(BigDecimal.valueOf(0.4)))
-            .setScale(2, RoundingMode.HALF_UP);
-    BigDecimal description =
-        !hasText(left.description()) || !hasText(right.description())
-            ? null
-            : BigDecimal.valueOf(
-                    jaccard(preparedLeft.descriptionTokens(), preparedRight.descriptionTokens()))
-                .setScale(2);
-    BigDecimal company =
-        !hasText(left.company()) || !hasText(right.company())
-            ? null
-            : BigDecimal.valueOf(
-                    jaccard(preparedLeft.companyTokens(), preparedRight.companyTokens())
-                        + dice(preparedLeft.companyTrigrams(), preparedRight.companyTrigrams()))
-                .divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-    BigDecimal location =
-        !hasText(left.location()) || !hasText(right.location())
-            ? null
-            : BigDecimal.valueOf(
-                    jaccard(preparedLeft.locationTokens(), preparedRight.locationTokens()))
-                .setScale(2);
-    BigDecimal employment =
-        !hasText(left.employmentType()) || !hasText(right.employmentType())
-            ? null
-            : BigDecimal.valueOf(
-                    preparedLeft.employment().equals(preparedRight.employment()) ? 100 : 0)
-                .setScale(2);
+    BigDecimal title = scoreTitle(left.title(), right.title());
+    BigDecimal description = optionalTokenScore(left.description(), right.description());
+    BigDecimal company = optionalCombinedScore(left.company(), right.company());
+    BigDecimal location = optionalTokenScore(left.location(), right.location());
+    BigDecimal employment = optionalExactScore(left.employmentType(), right.employmentType());
 
     WeightedScore weighted = weightedScore(title, description, company, location, employment);
     String decision =
@@ -197,25 +137,62 @@ public class FuzzySimilarityCalculator {
         points.divide(BigDecimal.valueOf(weight), 2, RoundingMode.HALF_UP), weight);
   }
 
-  private static int intersectionSize(Set<String> left, Set<String> right) {
-    Set<String> smaller = left.size() <= right.size() ? left : right;
-    Set<String> larger = left.size() <= right.size() ? right : left;
-    int count = 0;
-    for (String value : smaller) {
-      if (larger.contains(value)) count++;
+  private static BigDecimal scoreTitle(String left, String right) {
+    int tokenScore = tokenJaccard(left, right);
+    int trigramScore = trigramDice(left, right);
+    return BigDecimal.valueOf(tokenScore)
+        .multiply(BigDecimal.valueOf(0.6))
+        .add(BigDecimal.valueOf(trigramScore).multiply(BigDecimal.valueOf(0.4)))
+        .setScale(2, RoundingMode.HALF_UP);
+  }
+
+  private static BigDecimal optionalCombinedScore(String left, String right) {
+    if (!hasText(left) || !hasText(right)) {
+      return null;
     }
-    return count;
+    return BigDecimal.valueOf(tokenJaccard(left, right) + trigramDice(left, right))
+        .divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
   }
 
-  private static int jaccard(Set<String> left, Set<String> right) {
-    if (left.isEmpty() || right.isEmpty()) return 0;
-    int intersection = intersectionSize(left, right);
-    return (int) Math.round(intersection * 100.0 / (left.size() + right.size() - intersection));
+  private static BigDecimal optionalTokenScore(String left, String right) {
+    if (!hasText(left) || !hasText(right)) {
+      return null;
+    }
+    return BigDecimal.valueOf(tokenJaccard(left, right)).setScale(2);
   }
 
-  private static int dice(Set<String> left, Set<String> right) {
-    if (left.isEmpty() || right.isEmpty()) return 0;
-    return (int) Math.round(intersectionSize(left, right) * 200.0 / (left.size() + right.size()));
+  private static BigDecimal optionalExactScore(String left, String right) {
+    if (!hasText(left) || !hasText(right)) {
+      return null;
+    }
+    return normalized(left).equals(normalized(right))
+        ? BigDecimal.valueOf(100).setScale(2)
+        : BigDecimal.ZERO.setScale(2);
+  }
+
+  private static int tokenJaccard(String left, String right) {
+    Set<String> leftTokens = tokens(left, TEXT_STOP_WORDS);
+    Set<String> rightTokens = tokens(right, TEXT_STOP_WORDS);
+    if (leftTokens.isEmpty() || rightTokens.isEmpty()) {
+      return 0;
+    }
+    Set<String> intersection = new HashSet<>(leftTokens);
+    intersection.retainAll(rightTokens);
+    Set<String> union = new HashSet<>(leftTokens);
+    union.addAll(rightTokens);
+    return (int) Math.round(intersection.size() * 100.0 / union.size());
+  }
+
+  private static int trigramDice(String left, String right) {
+    Set<String> leftTrigrams = trigrams(normalized(left));
+    Set<String> rightTrigrams = trigrams(normalized(right));
+    if (leftTrigrams.isEmpty() || rightTrigrams.isEmpty()) {
+      return 0;
+    }
+    Set<String> intersection = new HashSet<>(leftTrigrams);
+    intersection.retainAll(rightTrigrams);
+    return (int)
+        Math.round(intersection.size() * 200.0 / (leftTrigrams.size() + rightTrigrams.size()));
   }
 
   private static Set<String> tokens(String value, Set<String> stopWords) {

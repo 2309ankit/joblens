@@ -63,15 +63,29 @@ The generated project currently contains:
 
 ## Current Verification Summary
 
-- Implementation baseline: AI-RANK-01 local first slice.
-- Latest full behavioral suite: `./mvnw clean test`, 196 Java tests and 21 React tests, 0 failures,
-  0 errors, 0 skipped, recorded on 2026-09-14.
-- Database baseline: PostgreSQL 17 with Flyway V34 verified from clean Testcontainers.
+- Implementation baseline: AI-RANK-01, QUERY-PLAN-01 and FUZZY-DEDUP-01 on the feature branch.
+- Latest full behavioral suite: `./mvnw clean test`, 212 Java tests and 21 React tests, 0 failures,
+  0 errors, 0 skipped, recorded on 2026-09-16 (Singapore).
+- Database baseline: PostgreSQL 17 with Flyway V35 verified from clean Testcontainers.
 - Release metadata: JobLens V1 development artifact `1.0.0-SNAPSHOT`; Maven packaging and Docker
   image construction verified on 2026-09-04.
 - R1.1 React surface completion, S0.1 Discovery Execution Safety, and the assisted multi-market
   onboarding follow-up are verified. This does not pass the authenticated private-beta or
   public-launch gates.
+
+### FUZZY-DEDUP-01 local verification (2026-09-16)
+
+- Owner approved the fuzzy fix, live NVIDIA acceptance and query-planning merge/deployment together.
+- Prepared text features and exact inverted candidate indexes preserve fuzzy-v1 semantics. An
+  independent copy of the original calculator verifies pair/score parity across diverse fixtures.
+- CPU comparison no longer holds a database transaction. Groups of 25 left jobs reconcile in
+  short, row-locked transactions with a persisted restart cursor and chunk-scoped stale cleanup.
+- PostgreSQL tests cover rollback, retained prior chunks, restart, stale cleanup and idempotence.
+  The sparse 5,000-job synthetic candidate-index test satisfies its 10-second bound; the two index
+  tests together took 0.643 seconds in the focused run. Dense corpora can still yield quadratic output.
+- Full Maven build passed in 42.403 seconds: 212 Java and 21 React tests, no failures/errors/skips;
+  Spotless formatting and `git diff --check` passed. Live acceptance remains pending deployment.
+- Added `CODEBASE_INDEX.md` and read-first instructions for subsequent sessions. No secrets indexed.
 
 ### AI-RANK-01 NVIDIA-on-Nebius primary scoring (2026-09-14)
 
