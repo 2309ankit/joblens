@@ -11,6 +11,25 @@ Spring Batch is retained for durable ingestion and reprocessing; it is not the p
 The mandatory engineering lifecycle and review gates are defined in
 `ENGINEERING_STANDARDS.md`. V1 identifies the release line; it does not claim launch readiness.
 
+## INTRO-01 — brief welcome popup (2026-09-17)
+
+- Owner request: a short, smooth introduction explaining the steps to follow. Acceptance:
+  three concise steps, dismissible on first visit, remembered dismissal, and manual reopening.
+- Added `QuickGuide.jsx`, mounted once in the SPA shell, with matching dark/lime styling in
+  `styles.css`. The native dialog supplies modal focus containment; Escape, close and the primary
+  button dismiss it, returning focus to Quick guide. Entry/exit animations take 240/180 ms;
+  reduced-motion preferences disable animation. The layout is width- and height-constrained.
+- Only a versioned seen flag is stored in browser localStorage, with a storage-unavailable fallback.
+  No profile activation, backend, provider, API, database or consent behavior changes. Rollback is
+  removal of the component mount and its styles; no migration required.
+- Verified production frontend build, all 21 existing frontend tests, all 3 dashboard controller
+  tests, and diff whitespace check. Initial Maven sandbox run could not write the dependency cache;
+  the authorized rerun passed (existing JVM class-sharing notice only).
+- Chrome preview verified appearance, initial opening, primary-button dismissal, persistence after
+  reload, reopening, keyboard navigation, Escape dismissal and focus restoration. Preview has no API backend, so its underlying dashboard
+  correctly shows the existing unavailable state; this is not end-to-end discovery acceptance.
+- Local UI change only; deployment and full backend regression are outside this change's evidence.
+
 ## Current Environment
 
 | Item           | Status      | Evidence                                                            |
