@@ -18,4 +18,6 @@ public record SourceRunSummary(
     int sightedRecords,
     int scoredRecords,
     String firstZeroStage,
-    String failureReason) {}
+    String failureReason,
+    String queryPlanningSource,
+    String queryPlanningRationale) {}

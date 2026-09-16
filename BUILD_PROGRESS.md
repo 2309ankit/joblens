@@ -61,17 +61,65 @@ The generated project currently contains:
 * Spring Boot DevTools
 * Spring Boot test starters for the selected components
 
+## ADZUNA-502-01 and PR1-REVIEW-01 follow-up (2026-09-16)
+
+- Owner reported deployed Adzuna 502 being classified as non-retryable and authorized PR merge.
+  Added 502/504 to the existing bounded retry policy; credentials/client errors remain terminal.
+  Mock HTTP tests verify recovery for both statuses and exhaustion after exactly two 502 attempts.
+- SonarCloud reanalysis confirmed all seven original issues were cleared, then found three in the
+  newly pushed fuzzy fix. Widened company-score addition to long, extracted the nested employment
+  ternary, and isolated the rollback test's throwing call. Existing fuzzy parity tests remain green.
+- Full verification passed: 215 Java tests, 21 React tests, zero failures/errors/skips, PostgreSQL 17
+  and Flyway V35. Formatting applied and diff check passed. Remote recheck/merge tracked separately.
+
+## PR1-REVIEW-01 — review findings and test warnings (2026-09-16)
+
+- Read PR #1: no human reviews or inline threads; SonarCloud reported seven open findings.
+- Resolved four S1192 duplicated-literal findings with constants in `QueryPlanningRepository`
+  and `NebiusChatCompletionClient`, and three S5778 findings by constructing test inputs outside
+  exception-assertion lambdas in `QueryPlanningClientTests`. SQL bindings and HTTP payloads retain
+  their existing values; no schema or runtime behavior change is intended.
+- Closed each real ONNX test model in `OnnxTextEmbeddingModelTests` using `@AfterEach`, removing
+  leaked-model warnings. Configured Surefire to attach the managed Mockito agent at JVM startup,
+  removing self-attachment warnings while preserving additional `argLine` options.
+- Verification: full `./mvnw clean test` passed 212 Java and 21 React tests against PostgreSQL 17,
+  Flyway V35; Spotless and `git diff --check` passed. Initial sandboxed verification failed because
+  Docker access and agent attachment were restricted; the authorized full rerun passed.
+- No compiler warnings appeared in the successful run. Expected negative-test warnings, SpringDoc
+  endpoint notices, ONNX CUDA availability notice on the CPU host, and JVM class-sharing notice
+  remain; these are not hidden or used to disable required infrastructure.
+- SonarCloud remote reanalysis remains to be checked after updating the feature branch. This work
+  does not merge PR #1 or resume deployment/live acceptance. No coverage instrumentation was added;
+  SonarCloud's reported 0% new-code coverage remains a reporting gap despite passing tests.
+
 ## Current Verification Summary
 
-- Implementation baseline: AI-RANK-01 local first slice.
-- Latest full behavioral suite: `./mvnw clean test`, 196 Java tests and 21 React tests, 0 failures,
-  0 errors, 0 skipped, recorded on 2026-09-14.
-- Database baseline: PostgreSQL 17 with Flyway V34 verified from clean Testcontainers.
+- Implementation baseline: AI-RANK-01, QUERY-PLAN-01 and FUZZY-DEDUP-01 on the feature branch.
+- Latest full behavioral suite: `./mvnw clean test`, 212 Java tests and 21 React tests, 0 failures,
+  0 errors, 0 skipped, recorded on 2026-09-16 (Singapore).
+- Database baseline: PostgreSQL 17 with Flyway V35 verified from clean Testcontainers.
 - Release metadata: JobLens V1 development artifact `1.0.0-SNAPSHOT`; Maven packaging and Docker
   image construction verified on 2026-09-04.
 - R1.1 React surface completion, S0.1 Discovery Execution Safety, and the assisted multi-market
   onboarding follow-up are verified. This does not pass the authenticated private-beta or
   public-launch gates.
+
+### FUZZY-DEDUP-01 local verification (2026-09-16)
+
+- Owner approved the fuzzy fix, live NVIDIA acceptance and query-planning merge/deployment together.
+- Prepared text features and exact inverted candidate indexes preserve fuzzy-v1 semantics. An
+  independent copy of the original calculator verifies pair/score parity across diverse fixtures.
+- CPU comparison no longer holds a database transaction. Groups of 25 left jobs reconcile in
+  short, row-locked transactions with a persisted restart cursor and chunk-scoped stale cleanup.
+- PostgreSQL tests cover rollback, retained prior chunks, restart, stale cleanup and idempotence.
+  The sparse 5,000-job synthetic candidate-index test satisfies its 10-second bound; the two index
+  tests together took 0.643 seconds in the focused run. Dense corpora can still yield quadratic output.
+- Full Maven build passed in 42.403 seconds: 212 Java and 21 React tests, no failures/errors/skips;
+  Spotless formatting and `git diff --check` passed. Live acceptance remains pending deployment.
+- Added `CODEBASE_INDEX.md` and read-first instructions for subsequent sessions. No secrets indexed.
+- Shipping paused at the owner's request: implementation committed locally as `69df31c`, not pushed.
+  GitHub PR #1 remains open at `e51cab2`; main remains `ca6f6b1`. No new deployment or live acceptance
+  is claimed. `SESSION_HANDOFF.md` records the exact resume point and outstanding checks.
 
 ### AI-RANK-01 NVIDIA-on-Nebius primary scoring (2026-09-14)
 

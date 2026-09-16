@@ -214,8 +214,13 @@ public class JobIntelligenceConfiguration {
       JobRepository jobRepository,
       PlatformTransactionManager transactionManager,
       FuzzyDuplicateDetectionTasklet fuzzyDuplicateDetectionTasklet) {
+    var noTransaction =
+        new org.springframework.transaction.interceptor.DefaultTransactionAttribute();
+    noTransaction.setPropagationBehavior(
+        org.springframework.transaction.TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
     return new StepBuilder("fuzzyDuplicateDetectionStep", jobRepository)
         .tasklet(fuzzyDuplicateDetectionTasklet, transactionManager)
+        .transactionAttribute(noTransaction)
         .build();
   }
 

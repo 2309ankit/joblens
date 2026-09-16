@@ -34,7 +34,11 @@ of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
 | S5 | Résumé object lifecycle and privacy workflows | Add encrypted/scanned storage, retention, export, and deletion | Storage/retention/security decisions |
 | S6 | Production platform gate | CI/CD, staging/production, managed HA data, observability, backups/restore, load/security/failure testing | Deployment platform and operating ownership |
 
-## Known bug, not yet selected — global O(n²) fuzzy duplicate detection can crash live Find Jobs runs (2026-09-15)
+## FUZZY-DEDUP-01 — selected and locally verified; live acceptance pending (2026-09-16)
+
+The owner subsequently approved this fix with AI-RANK-01 acceptance and QUERY-PLAN-01 deployment.
+`FUZZY_DEDUP_01.md` records the implemented indexed-candidate/chunked-write design and 212 Java /
+21 React passing tests. The account below preserves the original defect evidence, not current code.
 
 Discovered live on `joblens-demo` while re-running the AI-RANK-01 live acceptance test (see
 `SESSION_HANDOFF.md`). `FuzzyDuplicateDetectionTasklet.execute()` loads **every row in
@@ -126,6 +130,32 @@ acceptance and subsequent expansion:
 The existing S0.4 `all-MiniLM-L6-v2` ONNX feature remains a separate, disabled semantic skill-
 extraction experiment. This direction neither enables it nor removes its code; any eventual cleanup
 of its bundled model/runtime is a separate dependency and image-size decision.
+
+### Owner direction — agentic query planning, QUERY-PLAN-01 (2026-09-15)
+
+Requirement `QUERY-PLAN-01` (**implemented on PR #1; merge/deployment and live validation pending**):
+the owner asked for the NVIDIA/Nebius model to participate in *finding* jobs, not only scoring them
+already-found jobs the way AI-RANK-01 does — a more agentic use of the model for the Best Apps and
+Agents hackathon track. Agreed bigger scope, built carefully with an independent toggle and a
+deterministic fallback, per the owner's explicit direction ("its okay to have bigger scope lets plan
+it out carefully which can be toggled off and with a fallback mechanism").
+
+The approved first-slice boundaries and acceptance evidence are recorded in `QUERY_PLAN_01.md`. In
+short: a new `agenticQueryPlanningStep` runs once before `jobDiscoveryStep` in `findJobsJob`; when
+enabled, it may refine a search profile's query text and page budget (bounded by a hard page-count
+ceiling, never a new provider/market) using that profile's own most recent run outcome; the
+deterministic `ProviderQueryPlanner` output remains the fallback whenever disabled, unavailable, over
+budget, or the model returns invalid output. Shares the AI-RANK-01 pattern end to end (guarded
+properties, strict schema validation, per-item try/catch that never fails the step, an audit-ledger
+pair of tables, dashboard-visible provenance) but is an independently toggleable feature with its own
+budget — enabling or disabling one does not affect the other.
+
+Implemented this session (commit branch `feature/query-plan-01-agentic-search`, not yet merged): 208
+Java tests (was 197) and 21 React tests pass; migration `V35` adds `query_plan_decision`/
+`query_plan_attempt`. **Not yet live-tested** — see the known-bug note below and in `QUERY_PLAN_01.md`:
+the shared demo's O(n²) fuzzy-dedup bug should be resolved (or the job table kept small) before
+enabling this on Render, since adding another live external call to the same `findJobsJob` pipeline
+compounds an already-observed run-failure mode.
 
 ## Selected deployment checkpoint — D3 Free demo deployment
 

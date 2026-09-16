@@ -4,18 +4,60 @@ Use this file to resume work quickly. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREM
 authoritative startup product/launch contract, [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) is the target
 architecture, [BUILD_PROGRESS.md](BUILD_PROGRESS.md) is historical evidence, [README.md](README.md)
 is the local operator guide, [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) is the mandatory
-development/review contract, and [NEXT_MILESTONES.md](NEXT_MILESTONES.md) indexes selectable work.
+development/review contract, [CODEBASE_INDEX.md](CODEBASE_INDEX.md) is the refreshable navigation
+map, and [NEXT_MILESTONES.md](NEXT_MILESTONES.md) indexes selectable work.
 The resume checkpoint below is authoritative for current state. Later dated sections retain the
 evidence and wording from their original milestone unless they explicitly say they were superseded.
 
 ## 1. Resume checkpoint
 
+### Paused shipping checkpoint — 2026-09-16 (Singapore)
+
+This subsection supersedes the older checkpoint below. The owner authorized finishing tasks 1–3:
+FUZZY-DEDUP-01, live AI-RANK-01 acceptance and merging/deploying QUERY-PLAN-01 through PR #1.
+The owner then asked to end work and leave a clean handoff. Do not resume deployment automatically.
+Branch `feature/query-plan-01-agentic-search` has local implementation commit `69df31c`; the remote
+branch remains at `e51cab2`. PR #1 is OPEN and unmerged (confirmed through GitHub after interruption).
+The attempted push/merge did not ship this fix. Main remains at `ca6f6b1`; its latest Actions run
+`34875891256` completed successfully. No new deployment for `69df31c` was triggered.
+Full local verification passed: 212 Java tests and 21 React
+tests, clean PostgreSQL 17/Flyway V35, Spotless and diff checks. See `FUZZY_DEDUP_01.md` for design,
+restart semantics and remaining dense-corpus limitations. No feature is declared live-accepted yet.
+
+Next session, after the owner resumes: read `CODEBASE_INDEX.md` first and check its freshness;
+push the local fix/index/evidence through PR #1, merge, monitor the test-gated Render deploy, then
+use only synthetic workspace `c6f7ff1c-5fa1-484b-9fd5-fc4190094030` for bounded NVIDIA scoring and
+cache acceptance. QUERY-PLAN-01 remains default-off until the scoring/fuzzy acceptance is green.
+Do not manually duplicate the Actions-triggered deploy. Sandboxed production HTTP probes timed out;
+an approved external IPv4 health request returned `status=UP`. No post-fix live acceptance was run.
+The untracked `.neon` path remains untouched and must not be inspected or committed.
+
+Remaining acceptance: deployed fuzzy step completes without idle-in-transaction failure; one bounded
+Nemotron success is persisted and selected by the dashboard (`scoring_source=NVIDIA_NEBIUS`); an
+unchanged cache identity reuses the score without another provider call. Query planning remains
+default-off; its separate enabled live acceptance is also outstanding. Do not claim all three tasks
+complete from local tests or the old successful Actions run.
+
+Verification artifact: `/tmp/joblens-release-tests.log` (temporary; may disappear). Tests cover
+legacy fuzzy-v1 candidate/score parity, 5,000-job sparse index timing, PostgreSQL chunk rollback,
+stale cleanup, idempotence and restart. No database migration was added by the fuzzy fix; QUERY-PLAN-01
+adds V35. Index and implementation are committed; this handoff is a separate local docs commit.
+
+### Previous checkpoint — historical, superseded above
+
 ```text
 Repository: /Users/ankitkumar/IdeaProjects/joblens
-Branch: main
-Implementation baseline: AI-RANK-01 guarded NVIDIA-on-Nebius final scoring
+Branch: feature/query-plan-01-agentic-search (main is at 080946d; this branch adds QUERY-PLAN-01,
+not yet merged or pushed). Process change (2026-09-15): the owner asked to stop pushing directly to
+main going forward — new work ships via a feature branch + pull request instead.
+Implementation baseline: AI-RANK-01 guarded NVIDIA-on-Nebius final scoring, plus QUERY-PLAN-01
+agentic query planning (new this session, unmerged)
 AI ranking implementation commit: 316a1e3 (feat: add guarded NVIDIA Nebius job scoring)
-Latest implementation commit: 080946d (fix(ai-rank-01): disable Nemotron thinking mode so scoring content isn't null)
+Latest implementation commit on main: 080946d (fix(ai-rank-01): disable Nemotron thinking mode so
+scoring content isn't null)
+Latest implementation work (uncommitted design, committed on the feature branch once tests are
+green): QUERY-PLAN-01 — see QUERY_PLAN_01.md and NEXT_MILESTONES.md's "Owner direction — agentic
+query planning" section.
 Product baseline: D1 Startup Requirements and Architecture
 Engineering baseline: D2 JobLens V1 Engineering Standards
 Product/release/artifact: JobLens / V1 / 1.0.0-SNAPSHOT
@@ -23,11 +65,13 @@ Java: 21
 Spring Boot: 4.1.1 (deliberate recorded deviation from the original 3.x request)
 Spring Batch: 6
 Database: PostgreSQL 17
-Latest Flyway migration: V34 (cached and audited NVIDIA-on-Nebius job scores)
-Latest full verification (2026-09-14): 197 Java tests and 21 React tests; all passed. Spotless and
-git diff --check passed.
-Render runtime: joblens-demo (srv-dahcds6q1p3s73ec8i5g), deploy dep-dak2ov8ae00c73ervf6g of
-commit 080946d is live; /actuator/health returned UP on 2026-09-15.
+Latest Flyway migration: V35 (agentic query planning decision/attempt audit tables) on the feature
+branch; V34 (cached and audited NVIDIA-on-Nebius job scores) is the latest on main.
+Latest full verification (2026-09-15, feature branch): 208 Java tests and 21 React tests; all passed.
+Spotless and git diff --check passed.
+Render runtime (main only — the feature branch is not deployed): joblens-demo
+(srv-dahcds6q1p3s73ec8i5g), deploy dep-dak2ov8ae00c73ervf6g of commit 080946d is live;
+/actuator/health returned UP on 2026-09-15.
 AI runtime state (2026-09-15): NEBIUS_API_KEY, NEBIUS_MODEL=nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B,
 JOBLENS_NVIDIA_RANKING_ENABLED=true, NEBIUS_MAX_JOBS_PER_RUN=1, NEBIUS_MAX_CALLS_PER_DAY=5 are set on
 the live Render service. First live call failed with "choices[0].message.content must be text"
@@ -52,10 +96,13 @@ comparison over the entire global normalized_job table on every Find Jobs run (s
 Confirmed live: two concurrent runs both failed when Neon killed their held connection with
 "idle-in-transaction timeout" after 7+ minutes in this step. Growing job-table size makes this more
 likely over time, including during hackathon judging traffic on this same shared demo.
-Next action: rerun the one-job live NVIDIA acceptance test (synthetic workspace only) once a Find
-Jobs run can complete cleanly, and confirm scoring_source=NVIDIA_NEBIUS on the dashboard. Do not begin
-the batch-to-live-feed redesign or the fuzzy-dedup fix without their own separate approved requirement
-and acceptance criteria.
+Next action: open the pull request for feature/query-plan-01-agentic-search, then rerun the one-job
+live NVIDIA acceptance test (synthetic workspace only) once a Find Jobs run can complete cleanly, and
+confirm scoring_source=NVIDIA_NEBIUS on the dashboard. QUERY-PLAN-01 itself ships disabled by default
+and needs its own separate live acceptance pass after AI-RANK-01's is done and the fuzzy-dedup bug is
+addressed — do not enable JOBLENS_QUERY_PLANNING_ENABLED on the shared Render demo before then. Do not
+begin the batch-to-live-feed redesign or the fuzzy-dedup fix without their own separate approved
+requirement and acceptance criteria.
 ```
 
 **Deploy mechanism, corrected 2026-09-13**: earlier entries below say auto-deploy is off and a manual

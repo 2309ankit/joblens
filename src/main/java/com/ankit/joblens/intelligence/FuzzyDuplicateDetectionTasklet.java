@@ -1,5 +1,6 @@
 package com.ankit.joblens.intelligence;
 
+import com.ankit.joblens.intelligence.FuzzySimilarityCalculator.PreparedJob;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +10,13 @@ import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.infrastructure.repeat.RepeatStatus;
 
 public class FuzzyDuplicateDetectionTasklet implements Tasklet {
+
+  private static final String LAST_LEFT_ID = "fuzzy.v2.lastLeftId";
+  static final int LEFT_JOBS_PER_CHUNK = 25;
+  private List<PreparedJob> jobs;
+  private Map<Long, Long> exactMemberships;
+  private FuzzyCandidateIndex index;
+  private int nextLeft;
 
   private final DuplicateDetectionRepository repository;
   private final FuzzySimilarityCalculator calculator;
@@ -25,34 +33,37 @@ public class FuzzyDuplicateDetectionTasklet implements Tasklet {
 
   @Override
   public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
-    List<DuplicateJobView> jobs = repository.findJobs();
-    Map<Long, Long> exactMemberships = repository.findExactMemberships();
-    List<JobSimilarity> similarities = new ArrayList<>();
+    var context = chunkContext.getStepContext().getStepExecution().getExecutionContext();
+    if (jobs == null) {
+      jobs = repository.findJobs().stream().map(calculator::prepare).toList();
+      exactMemberships = repository.findExactMemberships();
+      index = new FuzzyCandidateIndex(jobs);
+      long lastLeft = context.getLong(LAST_LEFT_ID, -1L);
+      while (nextLeft < jobs.size() && jobs.get(nextLeft).job().id() <= lastLeft) nextLeft++;
+    }
+    if (nextLeft >= jobs.size()) return RepeatStatus.FINISHED;
 
-    for (int leftIndex = 0; leftIndex < jobs.size(); leftIndex++) {
-      DuplicateJobView left = jobs.get(leftIndex);
-      for (int rightIndex = leftIndex + 1; rightIndex < jobs.size(); rightIndex++) {
-        DuplicateJobView right = jobs.get(rightIndex);
-        if (sameExactCluster(exactMemberships, left.id(), right.id())) {
-          continue;
-        }
-        if (!calculator.isCandidate(left, right)) {
-          continue;
-        }
+    int end = Math.min(nextLeft + LEFT_JOBS_PER_CHUNK, jobs.size());
+    List<JobSimilarity> similarities = new ArrayList<>();
+    List<Long> leftIds = new ArrayList<>();
+    for (int leftIndex = nextLeft; leftIndex < end; leftIndex++) {
+      PreparedJob left = jobs.get(leftIndex);
+      leftIds.add(left.job().id());
+      for (int rightIndex : index.candidates(leftIndex)) {
+        PreparedJob right = jobs.get(rightIndex);
+        if (sameExactCluster(exactMemberships, left.job().id(), right.job().id())) continue;
         contribution.incrementReadCount();
         JobSimilarity similarity = calculator.calculate(left, right);
-        if (calculator.meetsMinimum(similarity)) {
-          similarities.add(similarity);
-        }
+        if (calculator.meetsMinimum(similarity)) similarities.add(similarity);
       }
     }
-
-    repository.reconcileSimilarities(FuzzySimilarityCalculator.ALGORITHM_VERSION, similarities);
+    // CPU work above holds no transaction. A crash after this commit safely replays one chunk.
+    repository.reconcileSimilaritiesForLeftJobs(
+        leftIds, FuzzySimilarityCalculator.ALGORITHM_VERSION, similarities, failThisExecution);
     contribution.incrementWriteCount(similarities.size());
-    if (failThisExecution) {
-      throw new InjectedFuzzyDetectionFailureException();
-    }
-    return RepeatStatus.FINISHED;
+    context.putLong(LAST_LEFT_ID, leftIds.getLast());
+    nextLeft = end;
+    return nextLeft >= jobs.size() ? RepeatStatus.FINISHED : RepeatStatus.CONTINUABLE;
   }
 
   private static boolean sameExactCluster(Map<Long, Long> memberships, long leftId, long rightId) {

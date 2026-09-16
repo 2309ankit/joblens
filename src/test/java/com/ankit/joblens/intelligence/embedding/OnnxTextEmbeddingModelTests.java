@@ -2,6 +2,7 @@ package com.ankit.joblens.intelligence.embedding;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 // Loads the real bundled all-MiniLM-L6-v2 ONNX model from the classpath (no Spring context) to
@@ -9,6 +10,11 @@ import org.junit.jupiter.api.Test;
 // threshold calibration; see S0_4_SEMANTIC_SKILL_EXTRACTION.md section 4.
 class OnnxTextEmbeddingModelTests {
   private final OnnxTextEmbeddingModel model = new OnnxTextEmbeddingModel("");
+
+  @AfterEach
+  void closeModel() {
+    model.close();
+  }
 
   @Test
   void embedsTextIntoA384DimensionVector() {

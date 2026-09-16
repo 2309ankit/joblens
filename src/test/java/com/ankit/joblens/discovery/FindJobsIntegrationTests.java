@@ -116,6 +116,7 @@ class FindJobsIntegrationTests {
     assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
     assertThat(stepNames(execution))
         .containsExactly(
+            "agenticQueryPlanningStep",
             "jobDiscoveryStep",
             "jobNormalizationStep",
             "skillExtractionStep",

@@ -115,7 +115,11 @@ public class AdzunaJobSourceClient implements JobSourceClient {
     if (statusCode.is2xxSuccessful()) {
       return body;
     }
-    if (statusCode.value() == 429 || statusCode.value() == 500 || statusCode.value() == 503) {
+    if (statusCode.value() == 429
+        || statusCode.value() == 500
+        || statusCode.value() == 502
+        || statusCode.value() == 503
+        || statusCode.value() == 504) {
       return body.defaultIfEmpty("")
           .flatMap(
               ignored ->

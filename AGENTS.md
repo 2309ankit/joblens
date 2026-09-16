@@ -54,12 +54,14 @@ Treat this as a deliberate recorded deviation and validate compatibility increme
 Before changing code:
 
 1. Read this file.
-2. Read `ENGINEERING_STANDARDS.md` and `BUILD_PROGRESS.md` if they exist.
-3. Identify the requirement/bug ID, acceptance criteria, and required review evidence.
-4. Inspect the actual existing files related to the requested change.
-5. Preserve existing user-created work.
-6. Implement only the requested/current milestone.
-7. Do not silently advance into future milestones.
+2. Read `CODEBASE_INDEX.md` as a navigation aid, verify its freshness marker against the current
+   branch/HEAD, and use `rg --files`/`rg -n` as the source of truth if it is stale.
+3. Read `ENGINEERING_STANDARDS.md` and `BUILD_PROGRESS.md` if they exist.
+4. Identify the requirement/bug ID, acceptance criteria, and required review evidence.
+5. Inspect the actual existing files related to the requested change.
+6. Preserve existing user-created work.
+7. Implement only the requested/current milestone.
+8. Do not silently advance into future milestones.
 
 After changes:
 

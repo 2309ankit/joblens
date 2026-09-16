@@ -55,6 +55,7 @@ class JobIntelligenceIntegrationTests {
   @Autowired private JdbcTemplate jdbcTemplate;
 
   @Autowired private DuplicateQueryController duplicateQueryController;
+  @Autowired private DuplicateDetectionRepository duplicateRepository;
 
   private long sourceFetchRunId;
   private long discoveryExecutionId;
@@ -650,6 +651,39 @@ class JobIntelligenceIntegrationTests {
         .extracting(step -> step.getStepName())
         .doesNotContain(
             "jobNormalizationStep", "skillExtractionStep", "exactDuplicateDetectionStep");
+  }
+
+  @Test
+  void chunkReconciliationPreservesOtherGroupsAndRollsBackOnlyTheFailingChunk() throws Exception {
+    for (int i = 0; i < 4; i++) {
+      insertRaw(
+          "CHUNK-" + i,
+          validJob(
+              "CHUNK-" + i, "Java Backend Engineer", "Build Spring Kafka payment services " + i));
+    }
+    launch(null);
+    var jobs = duplicateRepository.findJobs();
+    var calculator = new FuzzySimilarityCalculator(BigDecimal.valueOf(75), BigDecimal.valueOf(90));
+    var first = calculator.calculate(jobs.get(0), jobs.get(1));
+    var second = calculator.calculate(jobs.get(2), jobs.get(3));
+    jdbcTemplate.update("DELETE FROM job_similarity");
+    duplicateRepository.reconcileSimilaritiesForLeftJobs(
+        java.util.List.of(first.leftJobId()), "fuzzy-v1", java.util.List.of(first), false);
+    var secondLeftIds = java.util.List.of(second.leftJobId());
+    var secondSimilarities = java.util.List.of(second);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                duplicateRepository.reconcileSimilaritiesForLeftJobs(
+                    secondLeftIds, "fuzzy-v1", secondSimilarities, true))
+        .isInstanceOf(InjectedFuzzyDetectionFailureException.class);
+    assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM job_similarity", Integer.class))
+        .isEqualTo(1);
+    duplicateRepository.reconcileSimilaritiesForLeftJobs(
+        java.util.List.of(second.leftJobId()), "fuzzy-v1", java.util.List.of(second), false);
+    duplicateRepository.reconcileSimilaritiesForLeftJobs(
+        java.util.List.of(first.leftJobId()), "fuzzy-v1", java.util.List.of(), false);
+    assertThat(jdbcTemplate.queryForObject("SELECT left_job_id FROM job_similarity", Long.class))
+        .isEqualTo(second.leftJobId());
   }
 
   private JobExecution launch(Long failAfterItems) throws Exception {

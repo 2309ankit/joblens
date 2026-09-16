@@ -83,6 +83,21 @@ class AdzunaJobSourceClientTests {
   }
 
   @Test
+  void stopsRetryingPersistentBadGatewayAtConfiguredLimit() {
+    server.enqueue(json(502, "{}"));
+    server.enqueue(json(502, "{}"));
+    AdzunaJobSourceClient sourceClient = client("id", "key", 2);
+    SearchProfile searchProfile = profile();
+    PageRequest request = new PageRequest(1, 20);
+
+    assertThatThrownBy(() -> sourceClient.search(searchProfile, request))
+        .isInstanceOf(JobSourceException.class)
+        .hasRootCauseInstanceOf(TransientJobSourceException.class)
+        .hasStackTraceContaining("Transient Adzuna HTTP status 502");
+    assertThat(server.getRequestCount()).isEqualTo(2);
+  }
+
+  @Test
   void doesNotRetryNonTransientClientError() {
     server.enqueue(json(401, "{\"error\":\"unauthorized\"}"));
 
@@ -141,6 +156,6 @@ class AdzunaJobSourceClientTests {
   }
 
   private static Stream<Integer> transientStatuses() {
-    return Stream.of(429, 500, 503);
+    return Stream.of(429, 500, 502, 503, 504);
   }
 }

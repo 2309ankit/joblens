@@ -101,12 +101,21 @@ NEBIUS_API_KEY=
 NEBIUS_MODEL=
 NEBIUS_MAX_JOBS_PER_RUN=1
 NEBIUS_MAX_CALLS_PER_DAY=5
+
+# Optional agentic query planning: the same NVIDIA/Nebius model may refine a search profile's query
+# text and page budget before Find Jobs runs discovery. Independent toggle/budget from ranking above.
+JOBLENS_QUERY_PLANNING_ENABLED=false
+NEBIUS_QUERY_PLANNING_MODEL=
+NEBIUS_QUERY_PLANNING_MAX_PROFILES_PER_RUN=5
+NEBIUS_QUERY_PLANNING_MAX_CALLS_PER_DAY=20
+NEBIUS_QUERY_PLANNING_MAX_PAGES_CEILING=5
 ```
 
 Environment variables override these values. Never commit real credentials; `.env` is ignored. An
 unset key for any one country simply leaves that country inactive; the others keep working.
 NVIDIA ranking likewise remains inactive until all three NVIDIA/Nebius values are set. See
-[NVIDIA_NEBIUS_RANKING.md](NVIDIA_NEBIUS_RANKING.md) for its data, cost, cache, and fallback boundary.
+[NVIDIA_NEBIUS_RANKING.md](NVIDIA_NEBIUS_RANKING.md) for its data, cost, cache, and fallback boundary,
+and [QUERY_PLAN_01.md](QUERY_PLAN_01.md) for the agentic query planning feature.
 
 To enable NVIDIA scoring on the hosted demo, create a Token Factory API key, select the exact ID of
 a currently available NVIDIA open-source chat model, and add the five values above in Render under

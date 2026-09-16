@@ -26,6 +26,7 @@ public class JobDiscoveryTasklet implements Tasklet {
   private final String requestedProfileId;
   private final UUID workspaceId;
   private final FailureReasonSanitizer failureReasons;
+  private final QueryPlanningRepository queryPlanning;
 
   public JobDiscoveryTasklet(
       DiscoveryPersistenceService persistence,
@@ -33,13 +34,15 @@ public class JobDiscoveryTasklet implements Tasklet {
       AdzunaProperties properties,
       String requestedProfileId,
       String workspaceId,
-      FailureReasonSanitizer failureReasons) {
+      FailureReasonSanitizer failureReasons,
+      QueryPlanningRepository queryPlanning) {
     this.persistence = persistence;
     this.clients = clients;
     this.properties = properties;
     this.requestedProfileId = requestedProfileId;
     this.workspaceId = workspaceId == null ? null : UUID.fromString(workspaceId);
     this.failureReasons = failureReasons;
+    this.queryPlanning = queryPlanning;
   }
 
   @Override
@@ -88,29 +91,46 @@ public class JobDiscoveryTasklet implements Tasklet {
             .findFirst()
             .orElseThrow(() -> new IllegalStateException("No client supports source " + source));
 
+    QueryPlanDecision plan = queryPlanning.findApplied(jobExecutionId, profile.profileId());
+    SearchProfile effective =
+        plan == null
+            ? profile
+            : withPlan(profile, plan.proposedKeywords(), plan.proposedMaxPages());
+    if (plan != null) {
+      log.info(
+          "Applying AI query plan source={} profile={} originalKeywords='{}'"
+              + " proposedKeywords='{}' proposedMaxPages={} jobExecutionId={}",
+          source,
+          profile.profileId(),
+          profile.keywords(),
+          plan.proposedKeywords(),
+          plan.proposedMaxPages(),
+          jobExecutionId);
+    }
+
     try {
       log.info(
           "Fetching source={} profile={} page={} jobExecutionId={}",
           source,
-          profile.profileId(),
+          effective.profileId(),
           nextPage,
           jobExecutionId);
-      JobPage page = client.search(profile, new PageRequest(nextPage, client.pageSize()));
+      JobPage page = client.search(effective, new PageRequest(nextPage, client.pageSize()));
       if (nextPage == 1
           && page.jobs().isEmpty()
           && client.supportsQueryBroadening()
-          && profile.keywords() != null) {
-        for (String broadened : QueryBroadening.broaden(profile.keywords())) {
+          && effective.keywords() != null) {
+        for (String broadened : QueryBroadening.broaden(effective.keywords())) {
           JobPage retryPage =
               client.search(
-                  withKeywords(profile, broadened), new PageRequest(nextPage, client.pageSize()));
+                  withKeywords(effective, broadened), new PageRequest(nextPage, client.pageSize()));
           if (!retryPage.jobs().isEmpty()) {
             log.info(
                 "Broadened source={} profile={} narrowKeywords='{}' broadenedKeywords='{}'"
                     + " jobExecutionId={}",
                 source,
-                profile.profileId(),
-                profile.keywords(),
+                effective.profileId(),
+                effective.keywords(),
                 broadened,
                 jobExecutionId);
             page = retryPage;
@@ -120,7 +140,7 @@ public class JobDiscoveryTasklet implements Tasklet {
       }
       persistence.persistPage(fetchRunId, profile, page, jobExecutionId);
 
-      int maxPages = profile.maxPages() == null ? properties.maxPages() : profile.maxPages();
+      int maxPages = effective.maxPages() == null ? properties.maxPages() : effective.maxPages();
       boolean complete = !page.hasMore() || nextPage >= maxPages;
       if (complete) {
         persistence.completeFetchRun(fetchRunId, profile, jobExecutionId);
@@ -168,6 +188,24 @@ public class JobDiscoveryTasklet implements Tasklet {
         profile.workspaceId(),
         profile.searchDefinitionId(),
         profile.maxPages(),
+        profile.searchTargetId(),
+        profile.excludeMyCareersFuture());
+  }
+
+  private static SearchProfile withPlan(SearchProfile profile, String keywords, int maxPages) {
+    return new SearchProfile(
+        profile.profileId(),
+        profile.source(),
+        profile.sourceKey(),
+        keywords,
+        profile.location(),
+        profile.includeSkills(),
+        profile.excludeSkills(),
+        profile.employmentType(),
+        profile.active(),
+        profile.workspaceId(),
+        profile.searchDefinitionId(),
+        maxPages,
         profile.searchTargetId(),
         profile.excludeMyCareersFuture());
   }
