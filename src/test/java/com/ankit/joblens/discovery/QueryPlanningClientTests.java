@@ -66,7 +66,10 @@ class QueryPlanningClientTests {
              "usage":{"prompt_tokens":80,"completion_tokens":300}}
             """));
 
-    assertThatThrownBy(() -> client().plan(candidate()))
+    QueryPlanningClient planningClient = client();
+    QueryPlanCandidate planCandidate = candidate();
+
+    assertThatThrownBy(() -> planningClient.plan(planCandidate))
         .isInstanceOf(QueryPlanningException.class)
         .hasMessageContaining("choices[0].message.content must be text");
   }
@@ -80,7 +83,10 @@ class QueryPlanningClientTests {
             {"choices":[{"message":{"content":"{\\"queryText\\":\\"Backend Engineer\\",\\"maxPages\\":99,\\"rationale\\":\\"Go deep.\\"}"}}]}
             """));
 
-    assertThatThrownBy(() -> client().plan(candidate()))
+    QueryPlanningClient planningClient = client();
+    QueryPlanCandidate planCandidate = candidate();
+
+    assertThatThrownBy(() -> planningClient.plan(planCandidate))
         .isInstanceOf(QueryPlanningException.class)
         .hasMessageContaining("maxPages is outside");
   }
@@ -89,7 +95,10 @@ class QueryPlanningClientTests {
   void doesNotExposeProviderResponseBodyOnHttpFailure() {
     server.enqueue(json(401, "{\"secret\":\"provider detail\"}"));
 
-    assertThatThrownBy(() -> client().plan(candidate()))
+    QueryPlanningClient planningClient = client();
+    QueryPlanCandidate planCandidate = candidate();
+
+    assertThatThrownBy(() -> planningClient.plan(planCandidate))
         .isInstanceOf(QueryPlanningException.class)
         .hasMessage("Nebius HTTP status 401")
         .hasMessageNotContaining("provider detail");

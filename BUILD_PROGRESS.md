@@ -61,6 +61,26 @@ The generated project currently contains:
 * Spring Boot DevTools
 * Spring Boot test starters for the selected components
 
+## PR1-REVIEW-01 — review findings and test warnings (2026-09-16)
+
+- Read PR #1: no human reviews or inline threads; SonarCloud reported seven open findings.
+- Resolved four S1192 duplicated-literal findings with constants in `QueryPlanningRepository`
+  and `NebiusChatCompletionClient`, and three S5778 findings by constructing test inputs outside
+  exception-assertion lambdas in `QueryPlanningClientTests`. SQL bindings and HTTP payloads retain
+  their existing values; no schema or runtime behavior change is intended.
+- Closed each real ONNX test model in `OnnxTextEmbeddingModelTests` using `@AfterEach`, removing
+  leaked-model warnings. Configured Surefire to attach the managed Mockito agent at JVM startup,
+  removing self-attachment warnings while preserving additional `argLine` options.
+- Verification: full `./mvnw clean test` passed 212 Java and 21 React tests against PostgreSQL 17,
+  Flyway V35; Spotless and `git diff --check` passed. Initial sandboxed verification failed because
+  Docker access and agent attachment were restricted; the authorized full rerun passed.
+- No compiler warnings appeared in the successful run. Expected negative-test warnings, SpringDoc
+  endpoint notices, ONNX CUDA availability notice on the CPU host, and JVM class-sharing notice
+  remain; these are not hidden or used to disable required infrastructure.
+- SonarCloud remote reanalysis remains to be checked after updating the feature branch. This work
+  does not merge PR #1 or resume deployment/live acceptance. No coverage instrumentation was added;
+  SonarCloud's reported 0% new-code coverage remains a reporting gap despite passing tests.
+
 ## Current Verification Summary
 
 - Implementation baseline: AI-RANK-01, QUERY-PLAN-01 and FUZZY-DEDUP-01 on the feature branch.

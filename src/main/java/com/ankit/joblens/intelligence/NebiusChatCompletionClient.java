@@ -19,6 +19,8 @@ import tools.jackson.databind.ObjectMapper;
  * response-schema validation.
  */
 public class NebiusChatCompletionClient {
+  private static final String CONTENT = "content";
+
   private final WebClient webClient;
   private final ObjectMapper objectMapper;
 
@@ -40,8 +42,8 @@ public class NebiusChatCompletionClient {
     payload.put(
         "messages",
         List.of(
-            Map.of("role", "system", "content", systemPrompt),
-            Map.of("role", "user", "content", userJson)));
+            Map.of("role", "system", CONTENT, systemPrompt),
+            Map.of("role", "user", CONTENT, userJson)));
     payload.put("temperature", 0);
     payload.put("max_tokens", maxOutputTokens);
     payload.put("response_format", Map.of("type", "json_object"));
@@ -96,7 +98,7 @@ public class NebiusChatCompletionClient {
     } catch (JacksonException exception) {
       throw new NebiusChatCompletionException("Nebius returned malformed JSON", exception);
     }
-    JsonNode content = root.path("choices").path(0).path("message").path("content");
+    JsonNode content = root.path("choices").path(0).path("message").path(CONTENT);
     if (!content.isTextual()) {
       throw new NebiusChatCompletionException("choices[0].message.content must be text");
     }

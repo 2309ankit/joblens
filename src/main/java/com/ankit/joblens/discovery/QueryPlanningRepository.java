@@ -12,6 +12,10 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 public class QueryPlanningRepository {
+  private static final String SEARCH_PROFILE_ID = "searchProfileId";
+  private static final String MODEL_ID = "modelId";
+  private static final String JOB_EXECUTION_ID = "jobExecutionId";
+
   private final NamedParameterJdbcTemplate jdbc;
 
   public QueryPlanningRepository(NamedParameterJdbcTemplate jdbc) {
@@ -44,7 +48,7 @@ public class QueryPlanningRepository {
     List<LatestOutcome> outcomes =
         jdbc.query(
             load("sql/discovery/find-latest-source-run-outcome.sql"),
-            Map.of("searchProfileId", searchProfileId),
+            Map.of(SEARCH_PROFILE_ID, searchProfileId),
             (resultSet, rowNumber) ->
                 new LatestOutcome(
                     resultSet.getString("status"), resultSet.getInt("records_received")));
@@ -58,7 +62,7 @@ public class QueryPlanningRepository {
             SELECT COUNT(*) FROM query_plan_attempt
             WHERE model_id = :modelId AND created_at >= date_trunc('day', CURRENT_TIMESTAMP)
             """,
-            Map.of("modelId", modelId),
+            Map.of(MODEL_ID, modelId),
             Integer.class);
     return count == null ? 0 : count;
   }
@@ -72,14 +76,22 @@ public class QueryPlanningRepository {
     Map<String, Object> parameters =
         new java.util.HashMap<>(
             Map.of(
-                "jobExecutionId", jobExecutionId,
-                "searchProfileId", searchProfileId,
-                "originalKeywords", originalKeywords,
-                "proposedKeywords", result.queryText(),
-                "proposedMaxPages", result.maxPages(),
-                "rationale", result.rationale(),
-                "modelId", properties.model(),
-                "promptVersion", properties.promptVersion()));
+                JOB_EXECUTION_ID,
+                jobExecutionId,
+                SEARCH_PROFILE_ID,
+                searchProfileId,
+                "originalKeywords",
+                originalKeywords,
+                "proposedKeywords",
+                result.queryText(),
+                "proposedMaxPages",
+                result.maxPages(),
+                "rationale",
+                result.rationale(),
+                MODEL_ID,
+                properties.model(),
+                "promptVersion",
+                properties.promptVersion()));
     parameters.put("inputTokens", result.inputTokens());
     parameters.put("outputTokens", result.outputTokens());
     jdbc.update(
@@ -115,11 +127,16 @@ public class QueryPlanningRepository {
         VALUES (:jobExecutionId, :searchProfileId, :modelId, :promptVersion, 'FAILED', :failureReason)
         """,
         Map.of(
-            "jobExecutionId", jobExecutionId,
-            "searchProfileId", searchProfileId,
-            "modelId", properties.model(),
-            "promptVersion", properties.promptVersion(),
-            "failureReason", failureReason));
+            JOB_EXECUTION_ID,
+            jobExecutionId,
+            SEARCH_PROFILE_ID,
+            searchProfileId,
+            MODEL_ID,
+            properties.model(),
+            "promptVersion",
+            properties.promptVersion(),
+            "failureReason",
+            failureReason));
   }
 
   public QueryPlanDecision findApplied(long jobExecutionId, String searchProfileId) {
@@ -131,7 +148,7 @@ public class QueryPlanningRepository {
             WHERE job_execution_id = :jobExecutionId AND search_profile_id = :searchProfileId
               AND applied = TRUE
             """,
-            Map.of("jobExecutionId", jobExecutionId, "searchProfileId", searchProfileId),
+            Map.of(JOB_EXECUTION_ID, jobExecutionId, SEARCH_PROFILE_ID, searchProfileId),
             QueryPlanningRepository::decision);
     return decisions.isEmpty() ? null : decisions.getFirst();
   }
