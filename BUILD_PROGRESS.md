@@ -61,6 +61,17 @@ The generated project currently contains:
 * Spring Boot DevTools
 * Spring Boot test starters for the selected components
 
+## ADZUNA-502-01 and PR1-REVIEW-01 follow-up (2026-09-16)
+
+- Owner reported deployed Adzuna 502 being classified as non-retryable and authorized PR merge.
+  Added 502/504 to the existing bounded retry policy; credentials/client errors remain terminal.
+  Mock HTTP tests verify recovery for both statuses and exhaustion after exactly two 502 attempts.
+- SonarCloud reanalysis confirmed all seven original issues were cleared, then found three in the
+  newly pushed fuzzy fix. Widened company-score addition to long, extracted the nested employment
+  ternary, and isolated the rollback test's throwing call. Existing fuzzy parity tests remain green.
+- Full verification passed: 215 Java tests, 21 React tests, zero failures/errors/skips, PostgreSQL 17
+  and Flyway V35. Formatting applied and diff check passed. Remote recheck/merge tracked separately.
+
 ## PR1-REVIEW-01 — review findings and test warnings (2026-09-16)
 
 - Read PR #1: no human reviews or inline threads; SonarCloud reported seven open findings.

@@ -669,13 +669,12 @@ class JobIntelligenceIntegrationTests {
     jdbcTemplate.update("DELETE FROM job_similarity");
     duplicateRepository.reconcileSimilaritiesForLeftJobs(
         java.util.List.of(first.leftJobId()), "fuzzy-v1", java.util.List.of(first), false);
+    var secondLeftIds = java.util.List.of(second.leftJobId());
+    var secondSimilarities = java.util.List.of(second);
     org.assertj.core.api.Assertions.assertThatThrownBy(
             () ->
                 duplicateRepository.reconcileSimilaritiesForLeftJobs(
-                    java.util.List.of(second.leftJobId()),
-                    "fuzzy-v1",
-                    java.util.List.of(second),
-                    true))
+                    secondLeftIds, "fuzzy-v1", secondSimilarities, true))
         .isInstanceOf(InjectedFuzzyDetectionFailureException.class);
     assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM job_similarity", Integer.class))
         .isEqualTo(1);

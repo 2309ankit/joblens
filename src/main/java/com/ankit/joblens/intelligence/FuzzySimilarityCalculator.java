@@ -115,7 +115,7 @@ public class FuzzySimilarityCalculator {
         !hasText(left.company()) || !hasText(right.company())
             ? null
             : BigDecimal.valueOf(
-                    jaccard(preparedLeft.companyTokens(), preparedRight.companyTokens())
+                    (long) jaccard(preparedLeft.companyTokens(), preparedRight.companyTokens())
                         + dice(preparedLeft.companyTrigrams(), preparedRight.companyTrigrams()))
                 .divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
     BigDecimal location =
@@ -124,12 +124,12 @@ public class FuzzySimilarityCalculator {
             : BigDecimal.valueOf(
                     jaccard(preparedLeft.locationTokens(), preparedRight.locationTokens()))
                 .setScale(2);
+    int employmentMatchScore =
+        preparedLeft.employment().equals(preparedRight.employment()) ? 100 : 0;
     BigDecimal employment =
         !hasText(left.employmentType()) || !hasText(right.employmentType())
             ? null
-            : BigDecimal.valueOf(
-                    preparedLeft.employment().equals(preparedRight.employment()) ? 100 : 0)
-                .setScale(2);
+            : BigDecimal.valueOf(employmentMatchScore).setScale(2);
 
     WeightedScore weighted = weightedScore(title, description, company, location, employment);
     String decision =
