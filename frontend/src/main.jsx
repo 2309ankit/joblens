@@ -8,6 +8,7 @@ import { shouldAutoRunFindJobs } from './dashboardAutoRun';
 import { partitionRecommendedJobs } from './dashboardRecommendation';
 import { Setup } from './Setup';
 import { Applications } from './Applications';
+import { QuickGuide } from './QuickGuide';
 import { WorkspaceNavigationContext, useWorkspaceNavigation } from './navigation';
 import './styles.css';
 
@@ -89,7 +90,7 @@ function WorkspaceApp() {
     navigate(url.pathname);
   };
   const screen = path === '/setup' ? <Setup /> : path === '/applications' ? <Applications /> : <Dashboard />;
-  return <WorkspaceNavigationContext.Provider value={{ navigate }}><div onClickCapture={interceptWorkspaceLink}>{screen}</div></WorkspaceNavigationContext.Provider>;
+  return <WorkspaceNavigationContext.Provider value={{ navigate }}><div onClickCapture={interceptWorkspaceLink}>{screen}<QuickGuide /></div></WorkspaceNavigationContext.Provider>;
 }
 
 function normalizePath(path) { return path === '/' ? '/dashboard' : path; }

@@ -99,3 +99,30 @@
 
 .applications-shell { max-width: 960px; }.applications-hero { max-width: 650px; padding: 1.8rem 0 2.2rem; }.applications-hero h1 { margin: 0; font-size: clamp(2.3rem, 5vw, 4rem); line-height: .98; letter-spacing: -.075em; }.applications-hero > p:last-child { color: #aeb3c4; line-height: 1.65; }.application-panel { margin-bottom: .8rem; padding: 1.5rem; }.application-list,.followup-list { display: grid; gap: .55rem; }.application-card,.followup-card { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid #ffffff10; border-radius: 9px; background: #12141d; }.application-card h3,.followup-card h3 { margin: .45rem 0 .25rem; font-size: .95rem; }.application-card p,.followup-card p { margin: 0; color: #aeb3c4; font-size: .7rem; }.application-status,.followup-status { display: inline-block; padding: .25rem .45rem; border-radius: 999px; color: #d4ff52; background: #d4ff5214; font: 700 .58rem ui-monospace, monospace; letter-spacing: .07em; }.followup-status.completed { color: #8aebbf; background: #8aebbf14; }.transition-control { display: grid; grid-template-columns: minmax(120px, 1fr) auto; align-content: start; gap: .35rem; min-width: 235px; }.transition-control label { grid-column: 1 / -1; color: #979daf; font-size: .62rem; font-weight: 700; }.transition-control select { min-height: 2.25rem; padding: .35rem; border: 1px solid #ffffff24; border-radius: 7px; color: #f4f5f8; background: #10121b; font-size: .7rem; }
 @media (max-width: 760px) { .application-card,.followup-card { display: grid; }.transition-control { min-width: 0; }.applications-hero { padding-top: 1rem; } }
+
+/* INTRO-01: brief, keyboard-accessible first-visit guide. */
+.quick-guide-trigger { position: fixed; right: 1rem; bottom: 1rem; z-index: 10; display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; padding: .65rem .9rem; border: 1px solid #ffffff27; border-radius: 999px; background: #191b27; color: #e6e8ee; box-shadow: 0 4px 20px #0004; font-size: .75rem; cursor: pointer; }
+.quick-guide { width: min(460px, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); padding: 2rem; border: 1px solid #ffffff20; border-radius: 22px; color: #f2f3f8; background: radial-gradient(ellipse at top left, #d4ff5210, transparent 60%), #191b27; box-shadow: 0 24px 100px #0008; }
+.quick-guide[open] { animation: guide-enter 240ms cubic-bezier(.2,.8,.2,1) both; }
+.quick-guide::backdrop { background: #080911b8; backdrop-filter: blur(7px); animation: guide-backdrop 240ms ease both; }
+.quick-guide.is-closing { animation: guide-exit 180ms ease both; }
+.quick-guide.is-closing::backdrop { animation: guide-backdrop 180ms ease reverse both; }
+.quick-guide-close { position: absolute; top: .65rem; right: .65rem; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: #b8bbc8; cursor: pointer; }
+.quick-guide-close:hover { background: #ffffff0d; color: #fff; }
+.quick-guide-mark { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 1.5rem; border: 1px solid #d4ff5233; border-radius: 16px; color: #d4ff52; background: #d4ff5210; }
+.quick-guide h2 { margin: 0; font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1.12; letter-spacing: -.055em; }
+.quick-guide > p:not(.eyebrow) { color: #b8bbc8; font-size: .82rem; line-height: 1.6; }
+.quick-guide-steps { display: grid; gap: 1.2rem; list-style: none; padding: 0; margin: 1.75rem 0; }
+.quick-guide-steps li { display: flex; align-items: flex-start; gap: .85rem; }
+.quick-guide-steps li > svg { flex-shrink: 0; margin-top: .2rem; color: #d4ff52; }
+.quick-guide-steps h3 { margin: 0; font-size: .88rem; font-weight: 650; }
+.quick-guide-steps p { margin: .3rem 0 0; color: #b8bbc8; font-size: .8rem; line-height: 1.55; }
+.quick-guide-done { width: 100%; min-height: 46px; }
+.quick-guide > .quick-guide-hint { margin: .8rem 0 0; font-size: .68rem; text-align: center; }
+.quick-guide button:focus-visible, .quick-guide-trigger:focus-visible { outline: 2px solid #79d7ff; outline-offset: 4px; }
+body:has(.quick-guide[open]) { overflow: hidden; }
+@keyframes guide-enter { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes guide-exit { to { opacity: 0; transform: translateY(6px) scale(.99); } }
+@keyframes guide-backdrop { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 420px) { .quick-guide { padding: 1.5rem; } }
+@media (prefers-reduced-motion: reduce) { .quick-guide[open], .quick-guide::backdrop { animation: none; } .quick-guide .button { transition: none; } }
