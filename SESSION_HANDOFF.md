@@ -11,7 +11,28 @@ evidence and wording from their original milestone unless they explicitly say th
 
 ## 1. Resume checkpoint
 
-### Paused shipping checkpoint — 2026-09-16 (Singapore)
+### Current build checkpoint — 2026-09-17 (Singapore)
+
+The owner asked to check and finish the existing task. The current local branch is
+`feature/intro-01-welcome` at `7b65be8`; INTRO-01 is implemented and PR #2 is already merged
+as `4f2b436fc479480b2903600c214e0fa260a4b6e1` (GitHub verified this session).
+The test-and-deploy workflow `35120060483` succeeded; its deploy job submits a Render deployment
+request, so workflow success alone does not prove live runtime acceptance.
+PR #1 also merged previously, and its workflow `35116657801` succeeded. The paused shipping
+instructions below are historical and must not be replayed.
+
+Fresh `./mvnw clean verify` passed: 215 Java tests and 21 frontend tests, no failures/errors/skips,
+PostgreSQL 17/Flyway V35, production frontend bundle, and executable `target/joblens.jar`.
+`./mvnw -q spotless:check` and `git diff --check` passed. The initial sandboxed run could not
+access Docker; the authorized full rerun passed without disabling integration tests.
+INTRO-01 browser acceptance is recorded in `BUILD_PROGRESS.md`; no further implementation was
+needed in this session. Build log: `/tmp/joblens-task-finish-build.log` (temporary).
+
+Earlier AI-RANK-01, FUZZY-DEDUP-01 and enabled QUERY-PLAN-01 live acceptance remain unverified
+by this checkpoint. Do not infer those results from the passing build or deployment request.
+The user-owned untracked `.neon` remains untouched.
+
+### Historical paused shipping checkpoint — 2026-09-16 (Singapore)
 
 This subsection supersedes the older checkpoint below. The owner authorized finishing tasks 1–3:
 FUZZY-DEDUP-01, live AI-RANK-01 acceptance and merging/deploying QUERY-PLAN-01 through PR #1.

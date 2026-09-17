@@ -13,6 +13,12 @@ The mandatory engineering lifecycle and review gates are defined in
 
 ## INTRO-01 — brief welcome popup (2026-09-17)
 
+- Completion recheck on 2026-09-17: current implementation `7b65be8` passed full
+  `./mvnw clean verify` (215 Java tests, 21 frontend tests, zero failures/errors/skips), including
+  PostgreSQL 17/Flyway V35, production frontend build and executable `target/joblens.jar` packaging.
+  Spotless and diff checks passed. The initial sandbox run lacked Docker access; the authorized
+  rerun passed. PR #2 is merged as `4f2b436`; GitHub workflow `35120060483` passed its tests and
+  Render deployment submission. This does not establish the older AI/provider live acceptance.
 - Owner request: a short, smooth introduction explaining the steps to follow. Acceptance:
   three concise steps, dismissible on first visit, remembered dismissal, and manual reopening.
 - Added `QuickGuide.jsx`, mounted once in the SPA shell, with matching dark/lime styling in
