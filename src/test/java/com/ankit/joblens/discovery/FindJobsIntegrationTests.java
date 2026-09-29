@@ -9,6 +9,7 @@ import com.ankit.joblens.intelligence.JobScoreCalculator;
 import com.ankit.joblens.onboarding.OnboardingRepository;
 import com.ankit.joblens.onboarding.SearchPreferences;
 import com.ankit.joblens.workspace.WorkspaceRepository;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -697,11 +698,17 @@ class FindJobsIntegrationTests {
               "company":{"display_name":"Example Bank"},
               "location":{"display_name":"%s"},
               "description":"<p>%s</p>",
-              "contract_type":"permanent","created":"2026-08-30T00:00:00Z",
+              "contract_type":"permanent","created":"%s",
               "redirect_url":"%s"
             }]}
             """
-                .formatted(id, title, location, description, sourceUrl));
+                .formatted(
+                    id,
+                    title,
+                    location,
+                    description,
+                    Instant.now().minusSeconds(86_400),
+                    sourceUrl));
   }
 
   private static MockResponse greenhouseResponse() {

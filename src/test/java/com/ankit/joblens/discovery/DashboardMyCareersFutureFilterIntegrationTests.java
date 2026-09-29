@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.ankit.joblens.onboarding.OnboardingRepository;
 import com.ankit.joblens.onboarding.SearchPreferences;
 import com.ankit.joblens.workspace.WorkspaceRepository;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -118,10 +119,11 @@ class DashboardMyCareersFutureFilterIntegrationTests {
                   "company":{"display_name":"Example Bank"},
                   "location":{"display_name":"Singapore"},
                   "description":"<p>Java Spring Boot Kafka</p>",
-                  "contract_type":"permanent","created":"2026-08-30T00:00:00Z",
+                  "contract_type":"permanent","created":"%s",
                   "redirect_url":"https://example.test/jobs/ADZ-1"
                 }]}
-                """));
+                """
+                    .formatted(Instant.now().minusSeconds(86_400))));
     JOOBLE.enqueue(
         new MockResponse()
             .setHeader("Content-Type", "application/json")
