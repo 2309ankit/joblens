@@ -1,7 +1,10 @@
 # Agentic query planning — QUERY-PLAN-01
 
-Status: implementation on PR #1 behind a default-off flag; merge/deploy and live validation pending
-(2026-09-16)
+Status: PR #1 merged and deployed. Live run 50 on September 29 completed with `LLM_NEBIUS`
+planning provenance and rationale for Adzuna, alongside deterministic Jooble planning. The model
+retained the existing query. See `HACKATHON_ACCEPTANCE_2026_09_29.md`; relevance improvement and
+production operating limits are not established by this test. The code default remains off;
+the deployed runtime had planning enabled during this check. Older notes below are historical.
 
 ## Decision
 

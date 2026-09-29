@@ -1,5 +1,12 @@
 # JobLens
 
+[Apache License 2.0](LICENSE) · Copyright 2026 Ankit Kumar
+
+JobLens code is licensed under the Apache License, Version 2.0. Third-party dependencies, model
+assets and datasets retain their own licenses. In particular, the GeoNames-derived city catalogue
+remains under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with attribution documented
+below; this code license does not relicense provider job content or NVIDIA model weights.
+
 JobLens is a production SaaS product for explainable job-market intelligence. **V1** is the first
 release line being built and maintained; its current development artifact is `1.0.0-SNAPSHOT`.
 The current repository is a batch-first modular-monolith implementation: an anonymous browser workspace can upload and validate a
@@ -16,6 +23,25 @@ The authoritative startup requirements and fixed/not-fixed assessment are in
 [BUILD_PROGRESS.md](BUILD_PROGRESS.md).
 
 ## Architecture
+
+### Hackathon demo and NVIDIA integration
+
+Live demo: https://joblens-demo.onrender.com (synthetic or redacted résumé data only).
+See [judge instructions and video plan](HACKATHON_DEMO.md) and the
+[submission draft/checklist](HACKATHON_SUBMISSION.md).
+
+JobLens calls **Nebius Token Factory at runtime** for guarded NVIDIA model inference. Deterministic
+scoring creates a bounded shortlist; validated NVIDIA results provide the final score and explanation
+when available. Scores are cached by profile, job content, model and prompt version. Provider errors,
+invalid responses and exhausted budgets preserve deterministic fallback. The dashboard displays score
+provenance and expandable explanations; this UI change is locally verified, pending deployment. See [configuration and controls](NVIDIA_NEBIUS_RANKING.md). Optional
+[agentic query planning](QUERY_PLAN_01.md) refines existing provider queries before discovery and has
+an independent feature flag. Live run 50 verified Nebius planning provenance on September 29;
+see [current acceptance evidence](HACKATHON_ACCEPTANCE_2026_09_29.md).
+
+The app and database are hosted on Render and Neon respectively; model inference is hosted on
+Nebius. This is a JobLens V1 development demo, not a production-readiness claim. Free-host startup
+and synchronous search responses can cause delays; consult the recorded run before retrying.
 
 Current development topology: one Spring Boot application, one PostgreSQL database, and one process.
 The startup target keeps one modular codebase but permits independently scaled API and worker runtime

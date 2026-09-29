@@ -1,7 +1,8 @@
 # NVIDIA-on-Nebius Ranking — AI-RANK-01
 
-Status: implementation deployed behind a default-off flag; live Nebius validation pending
-(2026-09-15)
+Status: deployed behind a default-off configuration flag; live scoring and cache reuse recorded
+September 18. A fresh September 29 Find Jobs run also completed with an additional NVIDIA-scored
+dashboard result. See `HACKATHON_ACCEPTANCE_2026_09_29.md`. Older deployment notes below are historical.
 
 ## Decision
 

@@ -11,7 +11,50 @@ evidence and wording from their original milestone unless they explicitly say th
 
 ## 1. Resume checkpoint
 
-### Paused shipping checkpoint — 2026-09-16 (Singapore)
+### Hackathon preparation — 2026-09-29 (Singapore)
+
+The owner authorized demo verification, license/README preparation, and video/Devpost preparation.
+Fresh synthetic Find Jobs run 50 completed with live Nebius query-planning provenance for Adzuna,
+deterministic provenance for Jooble, and an additional dashboard NVIDIA score. See
+`HACKATHON_ACCEPTANCE_2026_09_29.md`; the POST took 92 seconds and no runtime flags changed.
+Current submission and recording drafts are `HACKATHON_SUBMISSION.md` and `HACKATHON_DEMO.md`.
+The owner selected Apache 2.0. Canonical `LICENSE`, README attribution and Maven license metadata
+are present locally; publication and GitHub license detection remain pending.
+Public video and final Devpost submission remain pending. Existing Devpost draft ID 1179395 is
+JobLens — Personal Job Market Intelligence Engine (2/5 steps when inspected). Browser edits have
+not yet been verified saved. Do not create another duplicate project.
+
+HACKATHON-UI-01: owner approved displaying the missing AI evidence. React now renders score
+provenance/explanations and per-source query-planning rationale. All 27 frontend tests, Vite build
+and desktop browser checks pass. See `HACKATHON_AI_EVIDENCE_UI.md`. Public deployment remains open;
+do not record the deployed demo as showing this UI until release is verified.
+
+UptimeRobot monitor 804111686 was created for `/actuator/health` at five-minute intervals; its own
+successful probes remain to be checked before disabling the old GitHub keep-alive workflow.
+The user-owned `.neon` and `LIVE_ACCEPTANCE_2026_09_18.md` remain untouched.
+
+### Current build checkpoint — 2026-09-17 (Singapore)
+
+The owner asked to check and finish the existing task. The current local branch is
+`feature/intro-01-welcome` at `7b65be8`; INTRO-01 is implemented and PR #2 is already merged
+as `4f2b436fc479480b2903600c214e0fa260a4b6e1` (GitHub verified this session).
+The test-and-deploy workflow `35120060483` succeeded; its deploy job submits a Render deployment
+request, so workflow success alone does not prove live runtime acceptance.
+PR #1 also merged previously, and its workflow `35116657801` succeeded. The paused shipping
+instructions below are historical and must not be replayed.
+
+Fresh `./mvnw clean verify` passed: 215 Java tests and 21 frontend tests, no failures/errors/skips,
+PostgreSQL 17/Flyway V35, production frontend bundle, and executable `target/joblens.jar`.
+`./mvnw -q spotless:check` and `git diff --check` passed. The initial sandboxed run could not
+access Docker; the authorized full rerun passed without disabling integration tests.
+INTRO-01 browser acceptance is recorded in `BUILD_PROGRESS.md`; no further implementation was
+needed in this session. Build log: `/tmp/joblens-task-finish-build.log` (temporary).
+
+Earlier AI-RANK-01, FUZZY-DEDUP-01 and enabled QUERY-PLAN-01 live acceptance remain unverified
+by this checkpoint. Do not infer those results from the passing build or deployment request.
+The user-owned untracked `.neon` remains untouched.
+
+### Historical paused shipping checkpoint — 2026-09-16 (Singapore)
 
 This subsection supersedes the older checkpoint below. The owner authorized finishing tasks 1–3:
 FUZZY-DEDUP-01, live AI-RANK-01 acceptance and merging/deploying QUERY-PLAN-01 through PR #1.
