@@ -126,3 +126,13 @@ body:has(.quick-guide[open]) { overflow: hidden; }
 @keyframes guide-backdrop { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 420px) { .quick-guide { padding: 1.5rem; } }
 @media (prefers-reduced-motion: reduce) { .quick-guide[open], .quick-guide::backdrop { animation: none; } .quick-guide .button { transition: none; } }
+
+/* Model evidence is selectable text, with keyboard-accessible native disclosures. */
+.ai-evidence { margin-top: .85rem; min-width: 0; overflow-wrap: anywhere; }
+.evidence-label { display: inline-block; max-width: 100%; padding: .3rem .5rem; border: 1px solid #ffffff25; border-radius: 5px; color: #c9cddd; font-size: .68rem; font-weight: 650; line-height: 1.5; }
+.evidence-label-ai { color: #d4ff52; border-color: #d4ff5240; background: #d4ff520a; }
+.evidence-details { margin-top: .5rem; font-size: .75rem; line-height: 1.6; }
+.evidence-details summary { cursor: pointer; color: #e3e7f3; padding: .2rem 0; }
+.evidence-details summary:focus-visible { outline: 2px solid #d4ff52; outline-offset: 3px; border-radius: 3px; }
+.ai-evidence .evidence-details p, .ai-evidence .evidence-note { margin: .5rem 0 0; color: #b9bdcd; font-size: .75rem; line-height: 1.6; }
+.ai-evidence .evidence-note { color: #a6aab9; font-size: .68rem; }
