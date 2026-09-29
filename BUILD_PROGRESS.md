@@ -11,6 +11,34 @@ Spring Batch is retained for durable ingestion and reprocessing; it is not the p
 The mandatory engineering lifecycle and review gates are defined in
 `ENGINEERING_STANDARDS.md`. V1 identifies the release line; it does not claim launch readiness.
 
+## HACKATHON-01 — submission preparation and live verification (2026-09-29)
+
+- HACKATHON-UI-01 subsequently approved and locally completed: added `AiEvidence.jsx` and six
+  rendering tests, integrated evidence into featured/ranked/source cards, and styled disclosures.
+  All 27 frontend tests and Vite build passed. Chrome production-bundle preview verified labels,
+  displayed explanations, query rationale, keyboard operation and focus. Public deployment remains
+  pending; see `HACKATHON_AI_EVIDENCE_UI.md` for acceptance and review details.
+- One synthetic-workspace Find Jobs run (50) returned HTTP 200 / COMPLETED after 92.094 seconds.
+  Adzuna and Jooble each fetched one page and 20 records; both sources completed normalization and
+  scoring without a reported failure.
+- Adzuna source evidence reports `LLM_NEBIUS` planning with a rationale retaining the existing
+  query. Jooble reports deterministic planning. The post-run dashboard includes an additional
+  NVIDIA-scored job (3418, score 78). This is live integration evidence, not relevance evaluation.
+- `HACKATHON_ACCEPTANCE_2026_09_29.md` records the evidence and limitations. The request is still
+  synchronous, so no asynchronous-response or latency SLO completion is claimed.
+- Prepared `HACKATHON_SUBMISSION.md`, `HACKATHON_DEMO.md`, and README judge/inference guidance.
+  License publication, video recording/upload, final Devpost completion, and final submission remain
+  pending. The existing Devpost JobLens draft was located (2/5 steps); no saved field update has
+  yet been verified.
+- Source review found that React cards omit the API's score provenance/summary and query-plan
+  provenance/rationale fields. Drafts distinguish API evidence from what the UI currently shows.
+  No UI fix was bundled into submission documentation.
+- Owner selected Apache 2.0. Added canonical Apache license text as `LICENSE`, README attribution
+  and third-party scope clarification, and Maven license metadata. GitHub publication/detection
+  remains pending; this does not claim a third-party dependency license audit.
+- The September 18 acceptance record remains owner-created/untracked and unchanged. Its cache and
+  fuzzy-step evidence supersedes older historical statements that those live checks were pending.
+
 ## INTRO-01 — brief welcome popup (2026-09-17)
 
 - Completion recheck on 2026-09-17: current implementation `7b65be8` passed full

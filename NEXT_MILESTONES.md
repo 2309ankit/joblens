@@ -4,6 +4,12 @@ This is the short decision index for future work. The startup product contract i
 [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md); [BUILD_PROGRESS.md](BUILD_PROGRESS.md) remains the
 historical evidence log. Select one milestone at a time.
 
+Current override (September 29, 2026): the older deployment/live-acceptance statuses below are
+historical. PR #1 is merged; September 18 evidence records scoring/cache reuse and fuzzy completion,
+and fresh run 50 verifies enabled query-planning provenance. See
+`HACKATHON_ACCEPTANCE_2026_09_29.md`. The selected work is HACKATHON-01 submission preparation,
+not the broader S1–S6 production milestones.
+
 Every selected milestone must follow the requirement, design, verification, review, and Definition
 of Done gates in [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md).
 
